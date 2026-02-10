@@ -23,9 +23,9 @@ export default function NotFound() {
             </Text>
           </Stack>
 
-          <Button component={Link} href="/" size="md">
-            Go Home
-          </Button>
+          <Link href="/">
+            <Button size="md">Go Home</Button>
+          </Link>
         </Stack>
       </Paper>
     </Container>

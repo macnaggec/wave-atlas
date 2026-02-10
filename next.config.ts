@@ -4,13 +4,7 @@ const nextConfig: import('next').NextConfig = {
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks'],
   },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push('@prisma/client');
-    }
-    return config;
-  },
+  turbopack: {},
   images: {
     remotePatterns: [
       {

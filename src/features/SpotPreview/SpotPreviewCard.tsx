@@ -114,28 +114,26 @@ export function SpotPreviewCard({ spotId }: SpotPreviewCardProps) {
           </Text>
         )}
 
-        <Button
-          fullWidth
-          variant="light"
-          component={Link}
-          href={`/${spotId}?tab=gallery`}
-          prefetch={false}
-          rightSection={<IconArrowRight size={16} />}
-          mt="xs"
-        >
-          View Gallery
-        </Button>
+        <Link href={`/${spotId}?tab=gallery`} style={{ textDecoration: 'none' }}>
+          <Button
+            fullWidth
+            variant="light"
+            rightSection={<IconArrowRight size={16} />}
+            mt="xs"
+          >
+            View Gallery
+          </Button>
+        </Link>
 
-        <Button
-          fullWidth
-          variant="outline"
-          component={Link}
-          href={`/${spotId}?tab=upload`}
-          prefetch={false}
-          rightSection={<IconUpload size={16} />}
-        >
-          Upload
-        </Button>
+        <Link href={`/${spotId}?tab=upload`} style={{ textDecoration: 'none' }}>
+          <Button
+            fullWidth
+            variant="outline"
+            rightSection={<IconUpload size={16} />}
+          >
+            Upload
+          </Button>
+        </Link>
       </Stack>
     </Card>
   );
