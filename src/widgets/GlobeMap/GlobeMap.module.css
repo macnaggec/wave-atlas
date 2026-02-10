@@ -1,0 +1,107 @@
+.globeContainer {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-globe, 0);
+  background-color: #0a1628;
+  /* Let Mapbox fully control interaction */
+  touch-action: none; /* Changed back to none as we want Mapbox to handle ALL touch */
+  pointer-events: auto;
+
+  /* Create explicit stacking context */
+  isolation: isolate;
+  /* Ensure canvas fills container properly */
+  width: 100%;
+  height: 100%;
+}
+
+/* Remove the touch-action override - let Mapbox handle it */
+.globeContainer :global(.mapboxgl-canvas) {
+  outline: none;
+}
+
+/* Hide Mapbox logo and attribution for cleaner look - can be shown if needed */
+.globeContainer :global(.mapboxgl-ctrl-bottom-left),
+.globeContainer :global(.mapboxgl-ctrl-bottom-right) {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.globeContainer:hover :global(.mapboxgl-ctrl-bottom-left),
+.globeContainer:hover :global(.mapboxgl-ctrl-bottom-right) {
+  opacity: 1;
+}
+
+/* Globe atmosphere glow effect */
+.globeContainer :global(.mapboxgl-map) {
+  background: radial-gradient(
+    ellipse at center,
+    #1a365d 0%,
+    #0a1628 50%,
+    #000 100%
+  );
+}
+
+/* Loading state */
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0a1628;
+  z-index: 1;
+}
+
+.errorText {
+  color: white;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Make Mapbox Popup transparent so Mantine component controls the look */
+.globeContainer :global(.mapboxgl-popup) {
+  z-index: 200; /* Ensure popup is above other elements */
+}
+
+.globeContainer :global(.mapboxgl-popup-content) {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border: none;
+}
+
+/* Specific tooltip styling overrides */
+.popupTooltip :global(.mapboxgl-popup-content) {
+  pointer-events: none; /* Tooltips shouldn't block interaction */
+}
+
+.globeContainer :global(.mapboxgl-popup-tip) {
+  display: none; /* Hide the tip for a cleaner floating tooltip look */
+}
+
+/* Custom close button styling if using standard popup close button */
+.globeContainer :global(.mapboxgl-popup-close-button) {
+  color: white;
+  right: 8px; /* Moved slightly more inwards */
+  top: 8px;
+  font-size: 20px; /* Slights larger for better visual center */
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+  width: 28px; /* Slightly larger touch target */
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0; /* Critical for centering */
+  line-height: 1; /* Critical for vertical centering */
+  border: none;
+  cursor: pointer;
+
+  /* Optical adjustment for the × character which often sits high */
+  padding-bottom: 4px;
+}
+
+.globeContainer :global(.mapboxgl-popup-close-button):hover {
+  background: rgba(0, 0, 0, 0.7);
+}

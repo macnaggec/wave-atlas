@@ -1,0 +1,45 @@
+sequenceDiagram
+    actor Client
+    participant NextJS as Next.js Router
+    participant Factory as SafeApi Factory
+    participant Logic as Business Logic
+    participant ErrorHandler as Error Handler
+
+    Client->>NextJS: POST /api/resource
+    activate NextJS
+
+    NextJS->>Factory: Invoke Handler
+    activate Factory
+
+    Note over Factory: 1. Request Parsing
+
+    alt Malformed JSON
+        Factory-->>Client: 400 Bad Request
+    else Valid JSON
+
+        Note over Factory: 2. Zod Validation
+
+        alt Invalid Schema
+            Factory-->>Client: 400 Bad Request
+        else Valid Schema
+
+            Factory->>Logic: Run Handler({ body }, context)
+            activate Logic
+
+            alt Execution Succeeded
+                Logic-->>Factory: Return Data Object
+                Factory-->>Client: 200 OK (JSON)
+            else Execution Failed
+                Factory->>ErrorHandler: handleApiError(error)
+                activate ErrorHandler
+                Note right of ErrorHandler: Normalize -> Log
+                ErrorHandler-->>Factory: Return NextResponse
+                deactivate ErrorHandler
+
+                Factory-->>Client: 4xx / 5xx JSON Response
+            end
+        end
+    end
+
+    deactivate Factory
+    deactivate NextJS

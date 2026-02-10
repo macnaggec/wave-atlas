@@ -1,0 +1,50 @@
+sequenceDiagram
+    actor Client
+    participant Action as exported Action
+    participant Factory as SafeAction Factory
+    participant Logic as Business Logic
+    participant ErrorHandler as Error Handler
+
+    Client->>Action: Invoke Action(input)
+    activate Action
+
+    Action->>Factory: Execute Wrapper
+    activate Factory
+
+    Note over Factory: 1. Input Validation (Zod)
+
+    alt Invalid Input
+        Factory--xClient: Throw BadRequestError
+    else Valid Input
+
+        Note over Factory: 2. Auth Check
+
+        alt Unauthorized
+            Factory--xClient: Throw UnauthorizedError
+        else Authorized
+
+            Factory->>Logic: Run Handler(data, user)
+            activate Logic
+
+            alt Success Path
+                Logic-->>Factory: Return Data
+                Factory-->>Client: Return Data
+
+            else Error Path (e.g. Prisma Error)
+                Logic--xFactory: Throw Error
+                deactivate Logic
+
+                Factory->>ErrorHandler: normalizeError(error)
+                activate ErrorHandler
+                Note right of ErrorHandler: Map P2002 -> Conflict<br/>Map Unknown -> Internal
+                ErrorHandler-->>Factory: Return HttpError
+                deactivate ErrorHandler
+
+                Factory->>Factory: Logger.error()
+                Factory--xClient: Re-Throw HttpError
+            end
+        end
+    end
+
+    deactivate Factory
+    deactivate Action

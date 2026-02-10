@@ -1,0 +1,15 @@
+.dropzoneContent {
+  pointer-events: none;
+}
+
+.iconAccept {
+  color: var(--mantine-color-blue-6);
+}
+
+.iconReject {
+  color: var(--mantine-color-red-6);
+}
+
+.iconIdle {
+  color: var(--mantine-color-dimmed);
+}

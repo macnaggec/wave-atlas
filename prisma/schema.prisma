@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum MediaStatus {
+  DRAFT
+  PUBLISHED
+  DELETED
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  password         String? // For credentials auth (nullable for OAuth users)
+  name             String?
+  balance          Decimal  @default(0) @db.Decimal(10, 2)
+  stripeCustomerId String?  @map("stripe_customer_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  mediaItems   MediaItem[]   @relation("PhotographerMedia")
+  createdSpots Spot[]        @relation("UserCreatedSpots")
+  purchases    Purchase[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model MediaItem {
+  id             String      @id @default(uuid())
+  type           MediaType   @default(PHOTO)
+  photographerId String      @map("photographer_id")
+  spotId         String      @map("spot_id")
+  capturedAt     DateTime    @map("captured_at")
+  price          Decimal     @db.Decimal(8, 2)
+  watermarkUrl   String      @map("watermark_url")
+  originalUrl    String      @map("original_url")
+  status         MediaStatus @default(DRAFT)
+  deletedAt      DateTime?   @map("deleted_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  photographer User       @relation("PhotographerMedia", fields: [photographerId], references: [id])
+  spot         Spot       @relation(fields: [spotId], references: [id])
+  purchases    Purchase[]
+
+  @@map("media_items")
+}
+
+model Spot {
+  id           String   @id @default(uuid())
+  name         String // "Uluwatu"
+  location     String // "Bali, Indonesia"
+  lat          Decimal? @db.Decimal(10, 8)
+  lng          Decimal? @db.Decimal(11, 8)
+  searchRadius Int?     @map("search_radius") // для будущего
+  status       String   @default("verified") // "verified" | "unverified"
+  creatorId    String?  @map("creator_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mediaItems MediaItem[]
+  creator    User?       @relation("UserCreatedSpots", fields: [creatorId], references: [id])
+
+  @@map("spots")
+}
+
+model Purchase {
+  id                 String   @id @default(uuid())
+  mediaItemId        String   @map("media_item_id")
+  buyerId            String   @map("buyer_id")
+  amountPaid         Decimal  @map("amount_paid") @db.Decimal(8, 2)
+  platformFee        Decimal  @map("platform_fee") @db.Decimal(8, 2)
+  photographerEarned Decimal  @map("photographer_earned") @db.Decimal(8, 2)
+  purchasedAt        DateTime @default(now()) @map("purchased_at")
+
+  mediaItem MediaItem @relation(fields: [mediaItemId], references: [id])
+  buyer     User      @relation(fields: [buyerId], references: [id])
+
+  @@map("purchases")
+}
+
+model Transaction {
+  id                  String   @id @default(uuid())
+  userId              String   @map("user_id")
+  amount              Decimal  @db.Decimal(10, 2)
+  type                String // "sale" | "payout"
+  stripeTransactionId String?  @map("stripe_transaction_id")
+  status              String   @default("pending") // "pending" | "completed" | "failed"
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}

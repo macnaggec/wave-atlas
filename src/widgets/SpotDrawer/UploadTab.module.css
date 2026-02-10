@@ -1,0 +1,13 @@
+.controlsGroup {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+  padding-top: var(--mantine-spacing-md);
+  padding-bottom: var(--mantine-spacing-sm);
+  margin-top: calc(var(--mantine-spacing-md) * -1);
+}
+
+.popoverWrapper {
+  pointer-events: auto;
+}

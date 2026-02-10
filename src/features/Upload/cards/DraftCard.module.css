@@ -1,0 +1,5 @@
+.error {
+  outline: 3px solid var(--mantine-color-red-6);
+  outline-offset: -3px;
+  border-radius: var(--mantine-radius-md);
+}

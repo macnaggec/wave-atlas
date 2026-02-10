@@ -1,0 +1,1 @@
+export { MainLayoutClient } from './MainLayoutClient';

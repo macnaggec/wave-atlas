@@ -1,0 +1,35 @@
+/**
+ * LocationPicker styles
+ * Used for the map-based location selection component
+ */
+
+.container {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a1628;
+  z-index: 1;
+}
+
+.errorState {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a1628;
+  color: white;
+}
+
+.marker {
+  width: 24px;
+  height: 24px;
+}
