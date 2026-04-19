@@ -1,0 +1,16 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: surfdb_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data   # in-memory storage — fast, auto-wiped on stop
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d surfdb_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 10

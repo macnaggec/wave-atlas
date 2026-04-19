@@ -1,20 +1,23 @@
-'use client';
-
-import { useRef, useCallback, useState, useEffect } from 'react';
-import Map, { MapRef, NavigationControl, Source, Layer, Popup } from 'react-map-gl';
+import { useRef, useCallback, useState, useMemo, ReactNode } from 'react';
+import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { Spot } from 'entities/Spot/types';
-import { SpotPreviewCard } from 'features/SpotPreview';
+import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
 import { useMapImages } from './hooks/useMapImages';
-import { clusterLayer, clusterCountLayer, getUnclusteredPointLayer, getIconLayer, globeFog } from './layerStyles';
+import { useSpotFlyTo } from './hooks/useSpotFlyTo';
+import { usePinPlacementMode } from './hooks/usePinPlacementMode';
+import { TempPinMarker } from './ui/TempPinMarker';
+import { clusterLayer, clusterCountLayer, getUnclusteredPointLayer, getIconLayer, globeFog, SPOT_INTERACTIVE_LAYERS } from './layerStyles';
+import { getMapControls } from './mapControls';
 import classes from './GlobeMap.module.css';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
+if (!MAPBOX_TOKEN) throw new Error('Missing VITE_MAPBOX_ACCESS_TOKEN');
 
 // Default view: Shows most of the world
 const DEFAULT_VIEW = {
@@ -32,32 +35,64 @@ export interface GlobeMapHandle {
 
 export interface GlobeMapProps {
   spots?: Spot[];
-  selectedSpotId?: string | null;
-  onSpotSelect?: (spot: Spot) => void;
-  onClosePreview?: () => void;
   initialViewState?: {
     longitude: number;
     latitude: number;
     zoom: number;
   };
   mode?: PageMode;
+  initialSpotId?: string;
   onUploadConfirm?: (spot: Spot) => void;
   onUploadCancel?: () => void;
+  /** Render the popup content for a selected spot. Defaults to SpotPreviewCard. */
+  renderPopupContent?: (spot: Spot) => ReactNode;
 }
 
 export function GlobeMapComponent({
   spots = [],
-  selectedSpotId,
-  onSpotSelect,
-  onClosePreview,
   initialViewState = DEFAULT_VIEW,
   mode = 'explore',
+  initialSpotId,
   onUploadConfirm,
-  onUploadCancel
+  onUploadCancel,
+  renderPopupContent,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const activeSpotId = selectedSpotId ?? null;
+  const {
+    selectedSpotId: activeSpotId,
+    selectedSpot: activeSpot,
+    selectSpot,
+    clearSelection,
+    cameraState,
+    saveCameraState,
+  } = useMapStore();
+
+  const isPinMode = useMapStore((s) => s.interactionMode === 'pin-placement');
+  const { onClick: handlePinClick, cursor: pinCursor } = usePinPlacementMode();
+
+  // On hard nav to a spot URL with no prior session (camera at default Bali position),
+  // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
+  // flyTo would produce. useMemo with [] so it's computed once at mount, matching how
+  // react-map-gl treats initialViewState (ignored after first render).
+  const resolvedInitialView = useMemo(() => {
+    const isDefaultCamera =
+      cameraState.longitude === DEFAULT_VIEW.longitude &&
+      cameraState.latitude === DEFAULT_VIEW.latitude;
+    if (isDefaultCamera && initialSpotId) {
+      const spot = spots.find((s) => s.id === initialSpotId);
+      if (spot) {
+        return {
+          longitude: spot.coords[1],
+          latitude: spot.coords[0],
+          zoom: 12,
+          pitch: 0,
+          bearing: 0,
+        };
+      }
+    }
+    return cameraState;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial value only
 
   const {
     startSpinning,
@@ -65,7 +100,7 @@ export function GlobeMapComponent({
     onUserInteractionEnd,
   } = useGlobeAnimation(mapRef, {
     spinSpeed: 0.3,
-    enabled: true,
+    enabled: !isPinMode,
     maxSpinZoom: 3,
   });
 
@@ -75,63 +110,39 @@ export function GlobeMapComponent({
   const {
     hoveredSpot,
     cursor,
-    resetPreviewOffset,
-    onMapClick,
+    onMapClick: onSpotClick,
     onMouseEnter,
     onMouseLeave
   } = useMapInteraction({
     mapRef,
     spots,
-    onSpotClick: onSpotSelect,
-    onClearSelection: onClosePreview,
+    onSpotClick: (spot) => selectSpot(spot),
+    onClearSelection: clearSelection,
     onUserInteractionStart
+  });
+
+  const { resetPreviewOffset } = useSpotFlyTo({
+    mapRef,
+    spots,
+    isLoaded,
+    onUserInteractionStart,
   });
 
   const handlePopupClose = useCallback(() => {
     resetPreviewOffset();
-    onClosePreview?.();
-  }, [resetPreviewOffset, onClosePreview]);
+    clearSelection();
+  }, [resetPreviewOffset, clearSelection]);
+
+  const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
+    const { longitude, latitude, zoom, pitch, bearing } = e.viewState;
+    saveCameraState({ longitude, latitude, zoom, pitch, bearing });
+  }, [saveCameraState]);
 
   const handleLoad = useCallback(() => {
     setIsLoaded(true);
     loadImages();
     startSpinning();
   }, [startSpinning, loadImages]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    if (!activeSpotId) {
-      resetPreviewOffset();
-      return;
-    }
-
-    const spot = spots.find(s => s.id === activeSpotId);
-    if (!spot || !mapRef.current) return;
-
-    const map = mapRef.current.getMap();
-    map.flyTo({
-      center: [spot.coords[1], spot.coords[0]],
-      zoom: Math.max(map.getZoom(), 12),
-      padding: { top: 300 },
-      duration: 1500,
-      essential: true
-    });
-
-    onUserInteractionStart();
-  }, [activeSpotId, spots, isLoaded, resetPreviewOffset, onUserInteractionStart]);
-
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className={classes.globeContainer}>
-        <div className={classes.loading}>
-          <span className={classes.errorText}>
-            Missing NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN environment variable
-          </span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={classes.globeContainer}>
@@ -143,15 +154,16 @@ export function GlobeMapComponent({
 
       <Map
         ref={mapRef}
-        cursor={activeSpotId ? 'default' : cursor}
+        cursor={isPinMode ? pinCursor : (activeSpotId ? 'default' : cursor)}
         mapboxAccessToken={MAPBOX_TOKEN}
-        initialViewState={initialViewState}
+        initialViewState={resolvedInitialView}
+        onMoveEnd={handleMoveEnd}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
         projection={{ name: 'globe' as any }}
         fog={globeFog}
         onLoad={handleLoad}
-        onClick={onMapClick}
+        onClick={isPinMode ? handlePinClick : onSpotClick}
         onDragStart={onUserInteractionStart}
         onDragEnd={onUserInteractionEnd}
         onZoomStart={onUserInteractionStart}
@@ -161,18 +173,12 @@ export function GlobeMapComponent({
         onMouseDown={onUserInteractionStart}
         onTouchStart={onUserInteractionStart}
         onWheel={onUserInteractionStart}
-        interactiveLayerIds={['clusters', 'unclustered-point', 'unclustered-point-icon']}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        interactiveLayerIds={isPinMode ? [] : SPOT_INTERACTIVE_LAYERS}
+        onMouseEnter={isPinMode ? undefined : onMouseEnter}
+        onMouseLeave={isPinMode ? undefined : onMouseLeave}
         maxZoom={18}
         minZoom={1}
-        dragPan={!activeSpotId}
-        dragRotate={!activeSpotId}
-        scrollZoom={!activeSpotId}
-        touchPitch={!activeSpotId}
-        touchZoomRotate={!activeSpotId}
-        doubleClickZoom={!activeSpotId}
-        keyboard={!activeSpotId}
+        {...getMapControls(activeSpotId, mode)}
         trackResize={true}
         cooperativeGestures={false}
       >
@@ -219,10 +225,12 @@ export function GlobeMapComponent({
             className={classes.popupGallery}
             maxWidth="320px"
           >
-            <SpotPreviewCard spotId={activeSpotId as string} />
+            {activeSpot && renderPopupContent?.(activeSpot)}
           </Popup>
         )}
 
+
+        <TempPinMarker />
 
         <NavigationControl position="bottom-right" />
       </Map>

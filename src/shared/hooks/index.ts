@@ -1,1 +1,1 @@
-export { useUser } from './useUser';
+export { useGallerySelection } from './gallery';

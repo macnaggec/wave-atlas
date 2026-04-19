@@ -1,0 +1,8 @@
+.aliasLink {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.aliasInput {
+  flex: 1;
+}

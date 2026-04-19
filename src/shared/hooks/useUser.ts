@@ -1,22 +1,11 @@
-/**
- * Custom Hook for User Session
- *
- * Provides easy access to Auth.js session data in client components.
- * Replaces the old Redux-based user state.
- */
-
-"use client";
-
-import { useSession } from "next-auth/react";
+import { useSession } from 'shared/lib/auth';
 
 export function useUser() {
-  const { data: session, status } = useSession();
-
-  const isAuthenticated = Boolean(session?.user) && status !== "loading";
+  const { data: session, isPending } = useSession();
 
   return {
-    user: session?.user || null,
-    isLoading: status === "loading",
-    isAuthenticated,
+    user: session?.user ?? null,
+    isLoading: isPending,
+    isAuthenticated: !!session?.user,
   };
 }

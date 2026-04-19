@@ -1,0 +1,36 @@
+.root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.controls {
+  flex-shrink: 0;
+}
+
+.searchBar {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.avatar {
+  cursor: pointer;
+  box-shadow: 0 0 8px 2px rgba(99, 179, 237, 0.6);
+}
+
+.cartButton {
+  box-shadow: 0 0 8px 2px rgba(74, 222, 128, 0.6);
+}
+
+.cartIndicator {
+  box-shadow: 0 0 4px 1px rgba(249, 74, 132, 0.78);
+}

@@ -21,39 +21,117 @@ enum MediaStatus {
   DELETED
 }
 
-model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  password         String? // For credentials auth (nullable for OAuth users)
-  name             String?
-  balance          Decimal  @default(0) @db.Decimal(10, 2)
-  stripeCustomerId String?  @map("stripe_customer_id")
-  createdAt        DateTime @default(now()) @map("created_at")
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
 
-  mediaItems   MediaItem[]   @relation("PhotographerMedia")
-  createdSpots Spot[]        @relation("UserCreatedSpots")
-  purchases    Purchase[]
-  transactions Transaction[]
+enum TransactionType {
+  SALE
+  PAYOUT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  emailVerified      Boolean   @default(false) @map("email_verified")
+  password           String?
+  name               String?
+  image              String?
+  balance            Decimal   @default(0) @db.Decimal(10, 2)
+  externalCustomerId String?   @map("external_customer_id")
+  deletedAt          DateTime? @map("deleted_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  mediaItems     MediaItem[]     @relation("PhotographerMedia")
+  createdSpots   Spot[]          @relation("UserCreatedSpots")
+  purchases      Purchase[]
+  orders         Order[]
+  transactions   Transaction[]
+  payoutRequests PayoutRequest[]
+  sessions       Session[]
+  accounts       Account[]
 
   @@map("users")
 }
 
-model MediaItem {
-  id             String      @id @default(uuid())
-  type           MediaType   @default(PHOTO)
-  photographerId String      @map("photographer_id")
-  spotId         String      @map("spot_id")
-  capturedAt     DateTime    @map("captured_at")
-  price          Decimal     @db.Decimal(8, 2)
-  watermarkUrl   String      @map("watermark_url")
-  originalUrl    String      @map("original_url")
-  status         MediaStatus @default(DRAFT)
-  deletedAt      DateTime?   @map("deleted_at")
-  createdAt      DateTime    @default(now()) @map("created_at")
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  photographer User       @relation("PhotographerMedia", fields: [photographerId], references: [id])
-  spot         Spot       @relation(fields: [spotId], references: [id])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+model MediaItem {
+  id                 String      @id @default(uuid())
+  type               MediaType   @default(PHOTO)
+  photographerId     String      @map("photographer_id")
+  spotId             String      @map("spot_id")
+  capturedAt         DateTime    @map("captured_at")
+  price              Decimal     @db.Decimal(8, 2)
+  lightboxUrl        String      @map("lightbox_url")
+  thumbnailUrl       String      @map("thumbnail_url")
+  cloudinaryPublicId String      @map("cloudinary_public_id")
+  status             MediaStatus @default(DRAFT)
+  deletedAt          DateTime?   @map("deleted_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  photographer User        @relation("PhotographerMedia", fields: [photographerId], references: [id])
+  spot         Spot        @relation(fields: [spotId], references: [id])
   purchases    Purchase[]
+  orderItems   OrderItem[]
 
   @@map("media_items")
 }
@@ -64,6 +142,7 @@ model Spot {
   location     String // "Bali, Indonesia"
   lat          Decimal? @db.Decimal(10, 8)
   lng          Decimal? @db.Decimal(11, 8)
+  aliases      String[] // alternative and local names, used in search
   searchRadius Int?     @map("search_radius") // для будущего
   status       String   @default("verified") // "verified" | "unverified"
   creatorId    String?  @map("creator_id")
@@ -75,15 +154,46 @@ model Spot {
   @@map("spots")
 }
 
+model Order {
+  id              String      @id @default(uuid())
+  buyerId         String      @map("buyer_id")
+  externalOrderId String?     @unique @map("external_order_id")
+  totalAmount     Decimal     @map("total_amount") @db.Decimal(10, 2)
+  status          OrderStatus @default(PENDING)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  buyer     User        @relation(fields: [buyerId], references: [id])
+  items     OrderItem[]
+  purchases Purchase[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String @id @default(uuid())
+  orderId     String @map("order_id")
+  mediaItemId String @map("media_item_id")
+
+  order     Order     @relation(fields: [orderId], references: [id])
+  mediaItem MediaItem @relation(fields: [mediaItemId], references: [id])
+
+  @@map("order_items")
+}
+
 model Purchase {
   id                 String   @id @default(uuid())
+  orderId            String?  @map("order_id")
   mediaItemId        String   @map("media_item_id")
   buyerId            String   @map("buyer_id")
   amountPaid         Decimal  @map("amount_paid") @db.Decimal(8, 2)
   platformFee        Decimal  @map("platform_fee") @db.Decimal(8, 2)
   photographerEarned Decimal  @map("photographer_earned") @db.Decimal(8, 2)
   purchasedAt        DateTime @default(now()) @map("purchased_at")
+  // Generated at fulfillment via CloudinaryService.generatePermanentPreviewUrl
+  previewUrl         String?  @map("preview_url")
 
+  order     Order?    @relation(fields: [orderId], references: [id])
   mediaItem MediaItem @relation(fields: [mediaItemId], references: [id])
   buyer     User      @relation(fields: [buyerId], references: [id])
 
@@ -91,15 +201,30 @@ model Purchase {
 }
 
 model Transaction {
-  id                  String   @id @default(uuid())
-  userId              String   @map("user_id")
-  amount              Decimal  @db.Decimal(10, 2)
-  type                String // "sale" | "payout"
-  stripeTransactionId String?  @map("stripe_transaction_id")
-  status              String   @default("pending") // "pending" | "completed" | "failed"
-  createdAt           DateTime @default(now()) @map("created_at")
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  amount          Decimal           @db.Decimal(10, 2)
+  type            TransactionType
+  externalOrderId String?           @map("external_order_id")
+  status          TransactionStatus @default(PENDING)
+  createdAt       DateTime          @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
 
   @@map("transactions")
+}
+
+model PayoutRequest {
+  id                 String       @id @default(uuid())
+  photographerId     String       @map("photographer_id")
+  amount             Decimal      @db.Decimal(10, 2)
+  status             PayoutStatus @default(PENDING)
+  externalTransferId String?      @map("external_transfer_id")
+  note               String?
+  requestedAt        DateTime     @default(now()) @map("requested_at")
+  processedAt        DateTime?    @map("processed_at")
+
+  photographer User @relation(fields: [photographerId], references: [id])
+
+  @@map("payout_requests")
 }

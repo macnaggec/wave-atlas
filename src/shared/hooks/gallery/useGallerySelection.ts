@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /**
  * Options for useGallerySelection hook
@@ -13,6 +13,8 @@ export interface UseGallerySelectionOptions<T> {
   getId: (item: T) => string;
   /** Optional initial selection */
   initialSelection?: string[];
+  /** Called whenever the selected IDs change */
+  onChange?: (ids: readonly string[]) => void;
 }
 
 /**
@@ -36,6 +38,8 @@ export interface UseGallerySelectionReturn<T> {
   selectAll: () => void;
   /** Clear all selections */
   clearSelection: () => void;
+  /** Deselect specific items by ID */
+  deselectItems: (ids: string[]) => void;
   /** Whether any items are selected */
   hasSelection: boolean;
   /** Whether selection mode is enabled (shows checkboxes) */
@@ -73,6 +77,7 @@ export function useGallerySelection<T>({
   items,
   getId,
   initialSelection = [],
+  onChange,
 }: UseGallerySelectionOptions<T>): UseGallerySelectionReturn<T> {
   // Use Set for O(1) lookup instead of array
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -112,14 +117,24 @@ export function useGallerySelection<T>({
     setSelectedIds(new Set());
   }, []);
 
+  // Deselect specific items by ID
+  const deselectItems = useCallback((ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, []);
+
   // Enable selection mode
   const enableSelectionMode = useCallback(() => {
     setIsSelectionMode(true);
   }, []);
 
-  // Disable selection mode (without clearing selections)
+  // Disable selection mode and clear selections
   const disableSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
+    setSelectedIds(new Set());
   }, []);
 
   // Derive selected items array (memoized to prevent re-creation)
@@ -131,6 +146,10 @@ export function useGallerySelection<T>({
   const selectedIdsArray = useMemo(() => {
     return Array.from(selectedIds);
   }, [selectedIds]);
+
+  useEffect(() => {
+    onChange?.(selectedIdsArray);
+  }, [selectedIdsArray, onChange]);
 
   // Computed values
   const selectedCount = selectedIds.size;
@@ -146,6 +165,7 @@ export function useGallerySelection<T>({
     toggle,
     selectAll,
     clearSelection,
+    deselectItems,
     hasSelection,
     isSelectionMode,
     enableSelectionMode,

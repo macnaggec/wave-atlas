@@ -6,6 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+.github
+.agents
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -78,6 +80,8 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+.env.payments
+.env.payments.*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

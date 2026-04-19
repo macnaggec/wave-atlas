@@ -1,22 +1,44 @@
-// Upload Gallery - unified view for uploads and drafts
-export { default as UploadGallery } from './UploadGallery';
-export type { UploadGalleryProps } from './UploadGallery';
+/**
+ * UPLOAD FEATURE - Public API
+ *
+ * Organized by FSD layers:
+ * - model/  : Business logic (hooks, state)
+ * - ui/     : Presentational components
+ * - lib/    : Utilities and helpers
+ */
 
-// Publish Button
-export { PublishButton } from './PublishButton';
-export type { PublishButtonProps } from './PublishButton';
+// ============================================================================
+// MODEL - Business Logic & State
+// ============================================================================
+export { useUploadManager } from './model';
+export { useDraftMedia, useDraftMediaMutate, draftMediaKey } from './model';
+export type { UploadItem, QueueItem, UploadStatus } from './model';
 
-// Cards
-export { default as DraftCard } from './cards/DraftCard';
-export type { DraftCardProps, ValidationState } from './cards/DraftCard';
+// ============================================================================
+// UI - Main Components
+// ============================================================================
+export { UploadManager } from './ui/UploadManager';
+export type { UploadManagerProps } from './ui/UploadManager';
 
-// Overlays
-export { default as DraftOverlays } from './overlays/DraftOverlays';
-export type { DraftOverlaysProps } from './overlays/DraftOverlays';
+export { UploadIndicatorAffix, UploadIndicatorCompact } from './ui/UploadIndicator';
 
-export { default as UploadingOverlays } from './overlays/UploadingOverlays';
-export type { UploadingOverlaysProps } from './overlays/UploadingOverlays';
+export { UploadGallery } from './ui/UploadGallery';
+export type { UploadGalleryProps, UploadItemAction } from './ui/UploadGallery/types';
 
-// Toolbars
-export { default as BulkEditToolbar } from './toolbars/BulkEditToolbar';
-export type { BulkEditToolbarProps } from './toolbars/BulkEditToolbar';
+export { PublishButton } from './ui/UploadGallery/PublishButton';
+export type { PublishButtonProps } from './ui/UploadGallery/PublishButton';
+
+// ============================================================================
+// UI - Subcomponents (Cards, Overlays, Popovers)
+// ============================================================================
+export { default as DraftCard } from './ui/cards/DraftCard';
+export type { DraftCardProps, ValidationState } from './ui/cards/DraftCard';
+
+export { default as DraftOverlays } from './ui/overlays/DraftOverlays';
+export type { DraftOverlaysProps } from './ui/overlays/DraftOverlays';
+
+export { default as UploadingOverlays } from './ui/overlays/UploadingOverlays';
+export type { UploadingOverlaysProps } from './ui/overlays/UploadingOverlays';
+
+export { DateEditPopover, PriceEditPopover } from './ui/popovers';
+

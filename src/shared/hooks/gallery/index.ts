@@ -3,8 +3,5 @@ export type {
   UseGallerySelectionOptions,
   UseGallerySelectionReturn,
 } from './useGallerySelection';
-
-export { useGalleryFilterState } from './useGalleryFilters';
-export type {
-  GalleryFilters,
-} from './useGalleryFilters';
+export { useDateFilter } from './useDateFilter';
+export type { UseDateFilterOptions, UseDateFilterReturn } from './useDateFilter';

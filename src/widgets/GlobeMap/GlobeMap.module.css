@@ -58,9 +58,24 @@
   padding: 1rem;
 }
 
+.tempPin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0, 0, 0, 0.4);
+  animation: pin-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pin-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0, 0, 0, 0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4); }
+}
+
 /* Make Mapbox Popup transparent so Mantine component controls the look */
 .globeContainer :global(.mapboxgl-popup) {
-  z-index: 200; /* Ensure popup is above other elements */
+  z-index: 10; /* Above globe canvas, below panel overlay (199) */
 }
 
 .globeContainer :global(.mapboxgl-popup-content) {

@@ -1,0 +1,24 @@
+/* Fixed height so controls are always vertically centred regardless of image ratio.
+   max-height prevents the modal from scrolling on large viewports. */
+.root {
+  height: clamp(300px, 55vh, 600px);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Hide controls by default, reveal on carousel hover — Mantine Styles API pattern */
+.controls {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.root:hover .controls {
+  opacity: 1;
+}
+
+

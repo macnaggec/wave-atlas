@@ -3,8 +3,17 @@ import { mockDeep } from 'vitest-mock-extended'
 import '@testing-library/jest-dom'
 
 // Mock the Prisma client module globally
-vi.mock('shared/api/prismaClient', () => ({
+vi.mock('server/db', () => ({
   prisma: mockDeep(),
+}))
+
+// Mock the active payment adapter globally
+vi.mock('server/lib/payment/activeAdapter', () => ({
+  paymentAdapter: {
+    createCheckoutSession: vi.fn(),
+    verifyWebhook: vi.fn(),
+    parseWebhookEvent: vi.fn(),
+  },
 }))
 
 // Mock ResizeObserver for Mantine components

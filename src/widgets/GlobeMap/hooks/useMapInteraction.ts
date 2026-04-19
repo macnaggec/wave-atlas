@@ -21,18 +21,6 @@ export const useMapInteraction = ({
   const [cursor, setCursor] = useState<string>('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const resetPreviewOffset = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-
-    const center = map.getCenter();
-    map.easeTo({
-      center,
-      padding: { top: 0 },
-      duration: 600
-    });
-  }, [mapRef]);
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -43,9 +31,8 @@ export const useMapInteraction = ({
   }, []);
 
   const handleBackgroundClick = useCallback(() => {
-    resetPreviewOffset();
     onClearSelection?.();
-  }, [resetPreviewOffset, onClearSelection]);
+  }, [onClearSelection]);
 
   const handleClusterClick = useCallback((clusterId: number, coordinates: [number, number]) => {
     const map = mapRef.current?.getMap();
@@ -128,7 +115,6 @@ export const useMapInteraction = ({
   return {
     hoveredSpot,
     cursor,
-    resetPreviewOffset,
     onMapClick,
     onMouseEnter,
     onMouseLeave

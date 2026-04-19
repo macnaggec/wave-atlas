@@ -1,0 +1,34 @@
+.plate {
+  cursor: pointer;
+  height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 10ch;
+}
+
+.counter {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Pulsing animation for upload indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}

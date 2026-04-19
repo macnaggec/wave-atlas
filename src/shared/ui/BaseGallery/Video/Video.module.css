@@ -1,0 +1,12 @@
+.video {
+  max-width: 100%;
+}
+
+.fallback {
+  aspect-ratio: 16 / 9;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}

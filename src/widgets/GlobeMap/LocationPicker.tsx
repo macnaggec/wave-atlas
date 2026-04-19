@@ -9,7 +9,7 @@ import { LngLat } from 'shared/types/coordinates';
 import globeClasses from './GlobeMap.module.css';
 import classes from './LocationPicker.module.css';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 export interface LocationPickerProps {
   /** Current selected position [lng, lat] */
@@ -49,7 +49,7 @@ export function LocationPicker({
   if (!MAPBOX_TOKEN) {
     return (
       <div className={classes.errorState}>
-        Missing NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+        Missing VITE_MAPBOX_ACCESS_TOKEN
       </div>
     );
   }

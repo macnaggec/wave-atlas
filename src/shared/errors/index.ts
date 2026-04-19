@@ -29,7 +29,3 @@ export {
 export function isHttpError(error: unknown): error is HttpError {
   return error instanceof HttpError;
 }
-
-// Re-export utilities
-export { mapPrismaError } from './PrismaErrorMapper';
-export { mapAuthError, getAuthErrorMessage } from './NextAuthErrorMapper';

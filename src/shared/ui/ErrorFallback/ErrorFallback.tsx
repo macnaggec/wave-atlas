@@ -1,8 +1,7 @@
-'use client';
-
 import { Container, Title, Text, Button, Stack, Paper, Group } from '@mantine/core';
+import classes from './ErrorFallback.module.css';
 import { IconAlertTriangle, IconRefresh, IconHome } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback, memo } from 'react';
 
 interface ErrorFallbackProps {
@@ -20,12 +19,12 @@ export const ErrorFallback = memo(({
   reset,
   showHomeButton = true
 }: ErrorFallbackProps) => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   const handleGoHome = useCallback(() => {
-    router.push('/');
-  }, [router]);
+    void navigate({ to: '/' });
+  }, [navigate]);
 
   return (
     <Container size="sm" py="xl">
@@ -46,7 +45,7 @@ export const ErrorFallback = memo(({
               <Text size="xs" fw={600} mb="xs">
                 Development Error Details:
               </Text>
-              <Text size="xs" c="red" style={{ fontFamily: 'monospace', wordBreak: 'break-word' }}>
+              <Text size="xs" c="red" className={classes.errorText}>
                 {error.message}
               </Text>
               {error.digest && (

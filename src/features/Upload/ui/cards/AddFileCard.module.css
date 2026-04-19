@@ -1,0 +1,62 @@
+.card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1.5px dashed light-dark(
+    var(--mantine-color-gray-4),
+    var(--mantine-color-dark-4)
+  );
+  border-radius: var(--mantine-radius-md);
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-7)
+  );
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease;
+  overflow: hidden;
+  /* Isolate card to prevent reflows */
+  contain: layout style paint;
+}
+
+.card:hover {
+  border-color: var(--mantine-color-blue-6);
+  background-color: light-dark(
+    var(--mantine-color-blue-0),
+    var(--mantine-color-dark-6)
+  );
+}
+
+.card:active {
+  transform: translateY(0);
+}
+
+.content {
+  height: 100%;
+  padding: var(--mantine-spacing-xs);
+}
+
+.actionIcon {
+  transition: transform 200ms ease;
+}
+
+.card:hover .actionIcon {
+  /* Removed scale transform to prevent network requests */
+}
+
+.label {
+  color: light-dark(
+    var(--mantine-color-gray-7),
+    var(--mantine-color-dark-2)
+  );
+  transition: color 200ms ease;
+}
+
+.card:hover .label {
+  color: var(--mantine-color-blue-6);
+}
+
+.hiddenInput {
+  display: none;
+}

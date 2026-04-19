@@ -1,0 +1,87 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Kill port 3000",
+      "type": "shell",
+      "command": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "npm run build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start",
+      "type": "shell",
+      "command": "npm run start",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [
+        {
+          "owner": "next-start",
+          "pattern": {
+            "regexp": "^$",
+            "file": 1,
+            "line": 2,
+            "message": 3
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "▲ Next\\.js",
+            "endsPattern": "Ready in"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Restart: stop → build → start",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Kill port 3000",
+        "Build",
+        "Start"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Chrome: clear data → hard reload",
+      "type": "shell",
+      "command": "node scripts/chrome-reset.mjs",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Rebuild → clear Chrome",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Kill port 3000",
+        "Build",
+        "Start",
+        "Chrome: clear data → hard reload"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

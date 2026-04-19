@@ -1,5 +1,11 @@
 import { LayerProps, Fog } from 'react-map-gl';
 
+export const SPOT_INTERACTIVE_LAYERS: string[] = [
+  'clusters',
+  'unclustered-point',
+  'unclustered-point-icon',
+];
+
 export const globeFog: Fog = {
   color: 'rgb(186, 210, 235)',
   'high-color': 'rgb(36, 92, 223)',
@@ -56,9 +62,7 @@ export const getUnclusteredPointLayer = (activeSpotId: string | number | null): 
       'case',
       ['==', ['get', 'id'], activeSpotId],
       14, // Active radius
-      ['get', 'isUnverified'],
-      8,  // Unverified radius
-      14   // Default radius
+      14   // Default radius (verified + unverified)
     ],
     'circle-stroke-width': 1,
     'circle-stroke-color': '#ffffff',
@@ -79,7 +83,7 @@ export const getIconLayer = (activeSpotId: string | number | null): LayerProps =
       ['==', ['get', 'id'], activeSpotId],
       0.12, // Active
       ['get', 'isUnverified'],
-      0.15, // Unverified
+      0.12, // Unverified
       0.12   // Default
     ],
     'icon-allow-overlap': true,

@@ -24,15 +24,6 @@ const isToday = (date: Date) => {
   return date.toDateString() === today.toDateString();
 };
 
-// Pill button styles
-const BUTTON_STYLES = {
-  root: {
-    borderRadius: '20px',
-    paddingLeft: '12px',
-    paddingRight: '12px',
-  },
-};
-
 /**
  * Props for DatePickerPopover component
  */
@@ -70,23 +61,6 @@ export interface DatePickerPopoverProps {
  *
  * Base component for date selection with optional time range.
  * Can be customized with footer content for different use cases.
- *
- * @example
- * ```tsx
- * // Bulk edit use case
- * <DatePickerPopover
- *   value={date}
- *   showTimeRange
- *   onApply={(date, from, to) => handleBulkEdit(ids, date)}
- *   renderFooter={() => <Text>Applying to 5 items</Text>}
- * />
- *
- * // Filter use case
- * <DatePickerPopover
- *   value={filterDate}
- *   onApply={(date) => setDateFilter(date)}
- * />
- * ```
  */
 export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
   value,
@@ -195,7 +169,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
           rightSection={<IconChevronDown size={14} />}
           disabled={disabled}
           onClick={togglePopover}
-          styles={BUTTON_STYLES}
+          radius="xl"
         >
           {formattedDate}
         </Button>
@@ -238,6 +212,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
             <Button onClick={handleApply}>
               Apply
             </Button>
+
             <Button variant="subtle" onClick={handleCancel}>
               Cancel
             </Button>
