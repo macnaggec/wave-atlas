@@ -23,7 +23,10 @@ type MediaItemRow = {
  * Fulfills an order after payment confirmation.
  * Idempotent: exits early if externalOrderId already recorded.
  */
-export async function fulfillOrder(orderId: string, externalOrderId: string): Promise<void> {
+export async function fulfillOrder(
+  orderId: string,
+  externalOrderId: string
+): Promise<void> {
   const existing = await findOrderByExternalId(externalOrderId);
   if (existing) return;
 
@@ -34,7 +37,12 @@ export async function fulfillOrder(orderId: string, externalOrderId: string): Pr
   const itemIds = order.items.map((item) => item.mediaItemId);
   const mediaItems = await prisma.mediaItem.findMany({
     where: { id: { in: itemIds } },
-    select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
+    select: {
+      id: true,
+      price: true,
+      photographerId: true,
+      cloudinaryPublicId: true
+    },
   });
 
   const purchases = buildPurchases(mediaItems, order.buyerId);

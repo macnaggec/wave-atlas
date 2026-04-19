@@ -42,6 +42,7 @@ interface CCWebhookPayload {
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
+
   return value;
 }
 
@@ -61,6 +62,7 @@ async function createCheckoutSession(
   params: CreateCheckoutParams
 ): Promise<CheckoutSessionResult> {
   const { apiKey, shopId } = creds();
+
   const body = {
     amount: params.totalCents / 100,
     shop_id: shopId,
@@ -83,13 +85,18 @@ async function createCheckoutSession(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`CryptoCloud invoice creation failed (${response.status}): ${text}`);
+
+    throw new Error(`
+      CryptoCloud invoice creation failed (${response.status}): ${text}`
+    );
   }
 
   const data = (await response.json()) as CCInvoiceResponse;
 
   if (data.status !== 'success' || !data.result?.link) {
-    throw new Error(`CryptoCloud returned unexpected response: ${JSON.stringify(data)}`);
+    throw new Error(`
+      CryptoCloud returned unexpected response: ${JSON.stringify(data)}`
+    );
   }
 
   return { checkoutUrl: data.result.link };
@@ -108,8 +115,12 @@ async function createCheckoutSession(
  *   3. Compare signatures (constant-time)
  *   4. Decode JWT payload and reject if exp claim is in the past
  */
-function verifyWebhook(rawBody: string, _headers: Record<string, string>): boolean {
+function verifyWebhook(
+  rawBody: string,
+  _headers: Record<string, string>
+): boolean {
   let body: CCWebhookPayload;
+
   try {
     body = JSON.parse(rawBody) as CCWebhookPayload;
   } catch {
@@ -125,12 +136,15 @@ function verifyWebhook(rawBody: string, _headers: Record<string, string>): boole
   const [header, jwtPayload, receivedSig] = parts;
 
   return (
-    verifyHmacSignature(`${header}.${jwtPayload}`, receivedSig) &&
-    !isTokenExpired(jwtPayload)
+    verifyHmacSignature(`${header}.${jwtPayload}`, receivedSig)
+    && !isTokenExpired(jwtPayload)
   );
 }
 
-function verifyHmacSignature(signingInput: string, receivedSig: string): boolean {
+function verifyHmacSignature(
+  signingInput: string,
+  receivedSig: string
+): boolean {
   const { secretKey } = creds();
   const expectedSig = createHmac('sha256', secretKey)
     .update(signingInput)
@@ -177,10 +191,6 @@ function parseWebhookEvent(rawBody: string): PaymentWebhookEvent {
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------------
 
 export const cryptoCloudAdapter: PaymentAdapter = {
   createCheckoutSession,
