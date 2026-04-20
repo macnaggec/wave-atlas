@@ -110,6 +110,21 @@ export async function countDraftsBySpot(
   }));
 }
 
+export async function findDraftsBySpot(
+  spotId: string,
+  photographerId: string,
+): Promise<PrismaMediaItem[]> {
+  return prisma.mediaItem.findMany({
+    where: {
+      spotId,
+      photographerId,
+      status: MEDIA_STATUS.DRAFT,
+      deletedAt: null
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 export function mapPrismaToMediaItem(prismaMedia: PrismaMediaItem): MediaItem {
   return {
     id: prismaMedia.id,

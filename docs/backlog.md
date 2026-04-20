@@ -186,9 +186,8 @@
     - Discovered during `users.ts` audit (April 2026)
     - Fix: add `MediaRepository.findByIds()`; verify `$transaction` block is fully delegated to `OrderRepository.fulfill`
 
-45. 🟠 **P1** `[server]` `spots.ts` tRPC route calls `prisma.mediaItem.findMany` directly (line ~131) — should go through `MediaRepository`
-    - Discovered during `users.ts` audit (April 2026)
-    - Fix: add `MediaRepository.findPublishedBySpot(spotId)` and call it from the route
+45. ✅ ~~`spots.ts` tRPC route calls `prisma.mediaItem.findMany` directly (line ~131) — should go through `MediaRepository`~~
+    - Added `findDraftsBySpot(spotId, photographerId)` to `MediaRepository`; `spots.ts` now delegates to it and no longer imports `prisma` directly
 
 46. ✅ ~~`CheckoutService.ts` leaks `Prisma.Decimal` above the repository boundary~~
 
