@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { createOrder, findPurchasesByBuyer, markOrderFailed, findPurchaseByBuyerAndMedia, findPurchasedItemIds } from 'server/repositories/OrderRepository';
 import { findMediaByIds } from 'server/repositories/MediaRepository';
 import { MEDIA_STATUS } from 'entities/Media/constants';
@@ -9,7 +8,7 @@ import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors'
 type MediaItem = {
   id: string;
   status: string;
-  price: Prisma.Decimal;
+  price: number;
   photographerId: string;
 };
 
@@ -107,17 +106,17 @@ async function fetchAndValidateCartItems(
   return mediaItems;
 }
 
-function computeTotal(mediaItems: MediaItem[]): Prisma.Decimal {
-  return mediaItems.reduce((sum, item) => sum.add(item.price), new Prisma.Decimal(0));
+function computeTotal(mediaItems: MediaItem[]): number {
+  return mediaItems.reduce((sum, item) => sum + item.price, 0);
 }
 
 async function openPaymentSession(
   orderId: string,
   mediaItems: MediaItem[],
-  totalAmount: Prisma.Decimal,
+  totalAmount: number,
 ): Promise<string> {
   const appUrl = process.env.APP_URL!;
-  const totalCents = totalAmount.mul(100).toNumber();
+  const totalCents = Math.round(totalAmount * 100);
 
   try {
     const { checkoutUrl } = await paymentAdapter.createCheckoutSession({

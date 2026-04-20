@@ -52,13 +52,14 @@ export async function findMediaByIds(
 ): Promise<{
   id: string;
   status: string;
-  price: Prisma.Decimal;
+  price: number;
   photographerId: string
 }[]> {
-  return prisma.mediaItem.findMany({
+  const rows = await prisma.mediaItem.findMany({
     where: { id: { in: ids } },
     select: { id: true, status: true, price: true, photographerId: true },
   });
+  return rows.map((row) => ({ ...row, price: row.price.toNumber() }));
 }
 
 export type MediaFulfillmentItem = {

@@ -23,7 +23,7 @@ export type PurchaseWithMedia = PrismaPurchase & {
 
 export async function createOrder(data: {
   buyerId: string;
-  totalAmount: Prisma.Decimal;
+  totalAmount: number;
   itemIds: string[];
 }): Promise<OrderWithItems> {
   return prisma.order.create({
