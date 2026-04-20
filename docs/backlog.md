@@ -190,4 +190,15 @@
     - Discovered during `users.ts` audit (April 2026)
     - Fix: add `MediaRepository.findPublishedBySpot(spotId)` and call it from the route
 
+46. 🟡 **P2** `[refactor]` `CheckoutService.ts` leaks `Prisma.Decimal` above the repository boundary
+    - `import { Prisma } from '@prisma/client'` used in service-internal type `MediaItem.price: Prisma.Decimal` and in `computeTotal`
+    - Same violation fixed in `PurchaseFulfillmentService` (April 2026) — apply the same pattern here
+    - Fix: translate `price` to `number` inside `findMediaByIds` (repository boundary); remove `Prisma` import from `CheckoutService`; update `computeTotal` and `createOrder` call to use plain arithmetic
+    - Files: `CheckoutService.ts`, `MediaRepository.findMediaByIds`
+
+47. 🟡 **P2** `[refactor]` `MediaAuthorizationService.ts` uses a class + interface pattern inconsistent with the rest of the services layer
+    - All other services (`CheckoutService`, `PurchaseFulfillmentService`, `CloudinaryService`) export plain functions or a singleton object
+    - `IMediaAuthorizationService` interface and `MediaAuthorizationService` class exist solely for constructor DI, used only in tests via mock injection
+    - Fix: replace class with plain exported functions; use `vi.mock` in tests instead of constructor injection
+    - Files: `MediaAuthorizationService.ts`, any test files importing it
 

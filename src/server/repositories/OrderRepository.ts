@@ -2,7 +2,10 @@ import {
   Order as PrismaOrder,
   OrderItem as PrismaOrderItem,
   Purchase as PrismaPurchase,
+  Transaction as PrismaTransaction,
   OrderStatus,
+  TransactionStatus,
+  TransactionType,
   Prisma,
 } from '@prisma/client';
 import { prisma } from 'server/db';
@@ -106,5 +109,51 @@ export async function markOrderFailed(
   return prisma.order.update({
     where: { id: orderId },
     data: { status: OrderStatus.FAILED },
+  });
+}
+
+export type FulfillPurchaseData = {
+  mediaItemId: string;
+  buyerId: string;
+  amountPaid: number;
+  platformFee: number;
+  photographerEarned: number;
+  previewUrl: string | null;
+};
+
+export async function fulfill(
+  orderId: string,
+  externalOrderId: string,
+  purchases: FulfillPurchaseData[],
+  earningsMap: Map<string, number>,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.COMPLETED, externalOrderId },
+    });
+
+    await tx.purchase.createMany({
+      data: purchases.map((p) => ({ ...p, orderId })),
+    });
+
+    for (const [photographerId, amount] of earningsMap) {
+      const decimalAmount = new Prisma.Decimal(amount);
+
+      await tx.user.update({
+        where: { id: photographerId },
+        data: { balance: { increment: decimalAmount } },
+      });
+
+      await tx.transaction.create({
+        data: {
+          userId: photographerId,
+          amount: decimalAmount,
+          type: TransactionType.SALE,
+          externalOrderId,
+          status: TransactionStatus.COMPLETED,
+        } satisfies Omit<PrismaTransaction, 'id' | 'createdAt'>,
+      });
+    }
   });
 }

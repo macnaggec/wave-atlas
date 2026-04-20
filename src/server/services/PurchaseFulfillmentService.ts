@@ -1,23 +1,9 @@
-import {
-  OrderStatus,
-  Prisma,
-  Transaction as PrismaTransaction,
-  TransactionStatus,
-  TransactionType,
-} from '@prisma/client';
-import { prisma } from 'server/db';
-import { findOrderByExternalId, findOrderById } from 'server/repositories/OrderRepository';
+import { findOrderByExternalId, findOrderById, fulfill } from 'server/repositories/OrderRepository';
+import { findMediaByIdsForFulfillment } from 'server/repositories/MediaRepository';
 import { cloudinaryService } from 'server/services/CloudinaryService';
 
-const PLATFORM_FEE_RATE = new Prisma.Decimal('0.20');
-const PHOTOGRAPHER_RATE = new Prisma.Decimal('0.80');
-
-type MediaItemRow = {
-  id: string;
-  price: Prisma.Decimal;
-  photographerId: string;
-  cloudinaryPublicId: string;
-};
+const PLATFORM_FEE_RATE = 0.20;
+const PHOTOGRAPHER_RATE = 0.80;
 
 /**
  * Fulfills an order after payment confirmation.
@@ -35,68 +21,24 @@ export async function fulfillOrder(
 
   // itemIds come from OrderItem rows — not trusted from the external webhook payload
   const itemIds = order.items.map((item) => item.mediaItemId);
-  const mediaItems = await prisma.mediaItem.findMany({
-    where: { id: { in: itemIds } },
-    select: {
-      id: true,
-      price: true,
-      photographerId: true,
-      cloudinaryPublicId: true
-    },
-  });
+  const mediaItems = await findMediaByIdsForFulfillment(itemIds);
 
-  const purchases = buildPurchases(mediaItems, order.buyerId);
-  const earningsMap = buildEarningsMap(mediaItems);
-
-  await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: orderId },
-      data: { status: OrderStatus.COMPLETED, externalOrderId },
-    });
-
-    await tx.purchase.createMany({
-      data: purchases.map((p) => ({ ...p, orderId })),
-    });
-
-    for (const [photographerId, amount] of earningsMap) {
-      await tx.user.update({
-        where: { id: photographerId },
-        data: { balance: { increment: amount } },
-      });
-
-      await tx.transaction.create({
-        data: {
-          userId: photographerId,
-          amount,
-          type: TransactionType.SALE,
-          externalOrderId,
-          status: TransactionStatus.COMPLETED,
-        } satisfies Omit<PrismaTransaction, 'id' | 'createdAt'>,
-      });
-    }
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function buildPurchases(mediaItems: MediaItemRow[], buyerId: string) {
-  return mediaItems.map((item) => ({
+  const purchases = mediaItems.map((item) => ({
     mediaItemId: item.id,
-    buyerId,
+    buyerId: order.buyerId,
     amountPaid: item.price,
-    platformFee: item.price.mul(PLATFORM_FEE_RATE),
-    photographerEarned: item.price.mul(PHOTOGRAPHER_RATE),
+    platformFee: item.price * PLATFORM_FEE_RATE,
+    photographerEarned: item.price * PHOTOGRAPHER_RATE,
     previewUrl: cloudinaryService.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
   }));
-}
 
-function buildEarningsMap(mediaItems: MediaItemRow[]): Map<string, Prisma.Decimal> {
-  const map = new Map<string, Prisma.Decimal>();
+  const earningsMap = new Map<string, number>();
   for (const item of mediaItems) {
-    const earned = item.price.mul(PHOTOGRAPHER_RATE);
-    map.set(item.photographerId, (map.get(item.photographerId) ?? new Prisma.Decimal(0)).add(earned));
+    earningsMap.set(
+      item.photographerId,
+      (earningsMap.get(item.photographerId) ?? 0) + item.price * PHOTOGRAPHER_RATE,
+    );
   }
-  return map;
+
+  await fulfill(orderId, externalOrderId, purchases, earningsMap);
 }

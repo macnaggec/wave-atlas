@@ -61,6 +61,21 @@ export async function findMediaByIds(
   });
 }
 
+export type MediaFulfillmentItem = {
+  id: string;
+  price: number;
+  photographerId: string;
+  cloudinaryPublicId: string;
+};
+
+export async function findMediaByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]> {
+  const rows = await prisma.mediaItem.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
+  });
+  return rows.map((row) => ({ ...row, price: row.price.toNumber() }));
+}
+
 export async function findPublishedByPhotographer(photographerId: string) {
   return prisma.mediaItem.findMany({
     where: { photographerId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
