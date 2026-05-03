@@ -1,159 +1,87 @@
-import {
-  Order as PrismaOrder,
-  OrderItem as PrismaOrderItem,
-  Purchase as PrismaPurchase,
-  Transaction as PrismaTransaction,
-  OrderStatus,
-  TransactionStatus,
-  TransactionType,
-  Prisma,
-} from '@prisma/client';
+import { OrderStatus } from '@prisma/client';
 import { prisma } from 'server/db';
+import { runQuery } from './BaseRepository';
 
-export type OrderWithItems = PrismaOrder & { items: PrismaOrderItem[] };
-
-export type PurchaseWithMedia = PrismaPurchase & {
-  mediaItem: {
-    id: string;
-    cloudinaryPublicId: string;
-    thumbnailUrl: string;
-  };
+export type OrderWithItems = {
+  id: string;
+  buyerId: string;
+  externalOrderId: string | null;
+  totalAmount: number;
+  status: string;
+  items: { id: string; mediaItemId: string }[];
 };
 
-
-export async function createOrder(data: {
+export type CreateOrderData = {
   buyerId: string;
   totalAmount: number;
   itemIds: string[];
-}): Promise<OrderWithItems> {
-  return prisma.order.create({
-    data: {
-      buyerId: data.buyerId,
-      totalAmount: data.totalAmount,
-      items: {
-        createMany: {
-          data: data.itemIds.map((mediaItemId) => ({ mediaItemId })),
-        },
-      },
-    },
-    include: { items: true },
-  });
-}
-
-export async function findOrderById(
-  id: string
-): Promise<OrderWithItems | null> {
-  return prisma.order.findUnique({
-    where: { id },
-    include: { items: true }
-  });
-}
-
-export async function findOrderByExternalId(
-  externalOrderId: string
-): Promise<PrismaOrder | null> {
-  return prisma.order.findUnique({ where: { externalOrderId } });
-}
-
-export async function findPurchasesByBuyer(
-  buyerId: string
-): Promise<PurchaseWithMedia[]> {
-  return prisma.purchase.findMany({
-    where: { buyerId },
-    take: 50,
-    include: {
-      mediaItem: {
-        select: {
-          id: true,
-          cloudinaryPublicId: true,
-          thumbnailUrl: true,
-        },
-      },
-    },
-    orderBy: { purchasedAt: 'desc' },
-  });
-}
-
-export async function findPurchaseByBuyerAndMedia(
-  buyerId: string,
-  mediaItemId: string,
-): Promise<PurchaseWithMedia | null> {
-  return prisma.purchase.findFirst({
-    where: { buyerId, mediaItemId },
-    include: {
-      mediaItem: {
-        select: {
-          id: true,
-          cloudinaryPublicId: true,
-          thumbnailUrl: true,
-        },
-      },
-    },
-  });
-}
-
-export async function findPurchasedItemIds(
-  buyerId: string,
-  itemIds: string[],
-): Promise<string[]> {
-  const rows = await prisma.purchase.findMany({
-    where: { buyerId, mediaItemId: { in: itemIds } },
-    select: { mediaItemId: true },
-  });
-  return rows.map((r) => r.mediaItemId);
-}
-
-export async function markOrderFailed(
-  orderId: string
-): Promise<PrismaOrder> {
-  return prisma.order.update({
-    where: { id: orderId },
-    data: { status: OrderStatus.FAILED },
-  });
-}
-
-export type FulfillPurchaseData = {
-  mediaItemId: string;
-  buyerId: string;
-  amountPaid: number;
-  platformFee: number;
-  photographerEarned: number;
-  previewUrl: string | null;
 };
 
-export async function fulfill(
-  orderId: string,
-  externalOrderId: string,
-  purchases: FulfillPurchaseData[],
-  earningsMap: Map<string, number>,
-): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: orderId },
-      data: { status: OrderStatus.COMPLETED, externalOrderId },
-    });
-
-    await tx.purchase.createMany({
-      data: purchases.map((p) => ({ ...p, orderId })),
-    });
-
-    for (const [photographerId, amount] of earningsMap) {
-      const decimalAmount = new Prisma.Decimal(amount);
-
-      await tx.user.update({
-        where: { id: photographerId },
-        data: { balance: { increment: decimalAmount } },
-      });
-
-      await tx.transaction.create({
-        data: {
-          userId: photographerId,
-          amount: decimalAmount,
-          type: TransactionType.SALE,
-          externalOrderId,
-          status: TransactionStatus.COMPLETED,
-        } satisfies Omit<PrismaTransaction, 'id' | 'createdAt'>,
-      });
-    }
-  });
+export interface IOrderRepository {
+  createOrder(data: CreateOrderData): Promise<OrderWithItems>;
+  findOrderById(id: string): Promise<OrderWithItems | null>;
+  findOrderByExternalId(externalOrderId: string): Promise<{ id: string } | null>;
+  markOrderFailed(orderId: string): Promise<void>;
 }
+
+export class OrderRepository implements IOrderRepository {
+  createOrder(data: CreateOrderData): Promise<OrderWithItems> {
+    return runQuery(async () => {
+      const row = await prisma.order.create({
+        data: {
+          buyerId: data.buyerId,
+          totalAmount: data.totalAmount,
+          items: {
+            createMany: {
+              data: data.itemIds.map((mediaItemId) => ({ mediaItemId })),
+            },
+          },
+        },
+        include: { items: true },
+      });
+      return mapOrder(row);
+    });
+  }
+
+  findOrderById(id: string): Promise<OrderWithItems | null> {
+    return runQuery(async () => {
+      const row = await prisma.order.findUnique({ where: { id }, include: { items: true } });
+      return row ? mapOrder(row) : null;
+    });
+  }
+
+  findOrderByExternalId(externalOrderId: string): Promise<{ id: string } | null> {
+    return runQuery(() =>
+      prisma.order.findUnique({ where: { externalOrderId }, select: { id: true } })
+    );
+  }
+
+  markOrderFailed(orderId: string): Promise<void> {
+    return runQuery(async () => {
+      await prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.FAILED } });
+    });
+  }
+}
+
+export const orderRepository = new OrderRepository();
+
+type PrismaOrderWithItems = {
+  id: string;
+  buyerId: string;
+  externalOrderId: string | null;
+  totalAmount: { toNumber(): number };
+  status: string;
+  items: { id: string; mediaItemId: string }[];
+};
+
+function mapOrder(row: PrismaOrderWithItems): OrderWithItems {
+  return {
+    id: row.id,
+    buyerId: row.buyerId,
+    externalOrderId: row.externalOrderId,
+    totalAmount: row.totalAmount.toNumber(),
+    status: row.status,
+    items: row.items.map(({ id, mediaItemId }) => ({ id, mediaItemId })),
+  };
+}
+

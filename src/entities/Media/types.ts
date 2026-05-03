@@ -25,3 +25,29 @@ export interface MediaItem {
     asset_id: string;
   };
 }
+
+/** Mirrors Prisma MediaType enum without importing Prisma. */
+export type MediaType = 'PHOTO' | 'VIDEO';
+
+/**
+ * Shape returned by findPublishedByPhotographer.
+ * Carries the original media type and joined spot name needed by the uploads UI.
+ */
+export type PublishedMedia = {
+  id: string;
+  type: MediaType;
+  lightboxUrl: string;
+  price: number;
+  capturedAt: Date;
+  spotId: string;
+  photographerId: string;
+  spot: { id: string; name: string } | null;
+};
+
+/**
+ * MediaItem enriched with the linked photographer.
+ * Used in SpotDetails.mediaItems for the public gallery.
+ */
+export type SpotMediaItem = MediaItem & {
+  photographer: { id: string; name: string | null } | null;
+};

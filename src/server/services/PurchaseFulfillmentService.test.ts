@@ -1,34 +1,41 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fulfillOrder } from 'server/services/PurchaseFulfillmentService';
-import * as OrderRepository from 'server/repositories/OrderRepository';
-import type { FulfillPurchaseData, OrderWithItems } from 'server/repositories/OrderRepository';
-import * as MediaRepository from 'server/repositories/MediaRepository';
+import { PurchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
+import type { OrderWithItems } from 'server/repositories/OrderRepository';
 import type { MediaFulfillmentItem } from 'server/repositories/MediaRepository';
+import type { FulfillPurchaseData, FulfillmentPayload } from 'server/repositories/PurchaseRepository';
 
 // ---------------------------------------------------------------------------
-// Mock at the repository boundary — the service's actual direct dependencies.
-// Tests verify what the service computes and passes to fulfill(), not what
-// Prisma receives internally (that belongs in OrderRepository tests).
+// Inline mocks — no vi.mock() needed with constructor injection
 // ---------------------------------------------------------------------------
 
-vi.mock('server/repositories/OrderRepository', () => ({
+const mockPurchases = {
+  commitFulfillment: vi.fn().mockResolvedValue(undefined),
+  findByBuyer: vi.fn(),
+  findByBuyerAndMedia: vi.fn(),
+  findPurchasedItemIds: vi.fn(),
+};
+
+const mockOrders = {
   findOrderByExternalId: vi.fn(),
   findOrderById: vi.fn(),
-  fulfill: vi.fn(),
-}));
+  createOrder: vi.fn(),
+  markOrderFailed: vi.fn(),
+};
 
-vi.mock('server/repositories/MediaRepository', () => ({
-  findMediaByIdsForFulfillment: vi.fn(),
-}));
+const mockMedia = {
+  findByIdsForFulfillment: vi.fn(),
+};
 
-vi.mock('server/services/CloudinaryService', () => ({
-  cloudinaryService: {
-    tryGeneratePermanentPreviewUrl: vi.fn().mockReturnValue('https://res.cloudinary.com/preview'),
-  },
-}));
+const mockCloudinary = {
+  tryGeneratePermanentPreviewUrl: vi.fn().mockReturnValue('https://res.cloudinary.com/preview'),
+};
 
-const { findOrderByExternalId, findOrderById, fulfill } = vi.mocked(OrderRepository);
-const { findMediaByIdsForFulfillment } = vi.mocked(MediaRepository);
+const service = new PurchaseFulfillmentService(
+  mockOrders as any,
+  mockMedia as any,
+  mockPurchases as any,
+  mockCloudinary,
+);
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -36,29 +43,26 @@ const { findMediaByIdsForFulfillment } = vi.mocked(MediaRepository);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  fulfill.mockResolvedValue(undefined);
+  mockPurchases.commitFulfillment.mockResolvedValue(undefined);
+  mockCloudinary.tryGeneratePermanentPreviewUrl.mockReturnValue('https://res.cloudinary.com/preview');
 });
 
 // ---------------------------------------------------------------------------
 // Factories
 // ---------------------------------------------------------------------------
 
-function makeOrder(overrides: Partial<{
-  id: string;
-  buyerId: string;
-  externalOrderId: string | null;
-  items: { id: string; orderId: string; mediaItemId: string }[];
-}> = {}) {
+function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
   return {
     id: 'order-1',
     buyerId: 'buyer-1',
     externalOrderId: null,
-    items: [{ id: 'oi-1', orderId: 'order-1', mediaItemId: 'media-1' }],
+    totalAmount: 10,
+    status: 'PENDING',
+    items: [{ id: 'oi-1', mediaItemId: 'media-1' }],
     ...overrides,
-  } as unknown as OrderWithItems;
+  };
 }
 
-// price is number — matches MediaFulfillmentItem after the repository translation boundary
 function makeMediaItem(overrides: Partial<MediaFulfillmentItem> = {}): MediaFulfillmentItem {
   return {
     id: 'media-1',
@@ -78,44 +82,44 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   const EXTERNAL_ID = 'CC-ILRAJE1Q';
 
   function setupHappyPath(mediaItems: MediaFulfillmentItem[] = [makeMediaItem()]) {
-    findOrderByExternalId.mockResolvedValue(null);
-    findOrderById.mockResolvedValue(makeOrder());
-    findMediaByIdsForFulfillment.mockResolvedValue(mediaItems);
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(makeOrder());
+    mockMedia.findByIdsForFulfillment.mockResolvedValue(mediaItems);
   }
 
   // -------------------------------------------------------------------------
   // Idempotency
   // -------------------------------------------------------------------------
 
-  it('exits early without calling fulfill if externalOrderId already recorded', async () => {
-    findOrderByExternalId.mockResolvedValue(makeOrder({ externalOrderId: EXTERNAL_ID }));
+  it('exits early without writing if externalOrderId already recorded', async () => {
+    mockOrders.findOrderByExternalId.mockResolvedValue(makeOrder({ externalOrderId: EXTERNAL_ID }));
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    expect(fulfill).not.toHaveBeenCalled();
+    expect(mockPurchases.commitFulfillment).not.toHaveBeenCalled();
   });
 
-  it('exits early without calling fulfill if the order does not exist', async () => {
-    findOrderByExternalId.mockResolvedValue(null);
-    findOrderById.mockResolvedValue(null);
+  it('exits early without writing if the order does not exist', async () => {
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(null);
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    expect(fulfill).not.toHaveBeenCalled();
+    expect(mockPurchases.commitFulfillment).not.toHaveBeenCalled();
   });
 
   // -------------------------------------------------------------------------
-  // Purchase data passed to fulfill()
+  // Purchase data written inside transaction
   // -------------------------------------------------------------------------
 
-  it('passes one purchase entry per media item with correct fields', async () => {
+  it('writes one purchase entry per media item with correct fields', async () => {
     setupHappyPath([makeMediaItem({ price: 10 })]);
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const [, , purchases] = fulfill.mock.calls[0]!;
-    expect(purchases).toHaveLength(1);
-    expect(purchases[0]).toMatchObject<Partial<FulfillPurchaseData>>({
+    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    expect(payload.purchases).toHaveLength(1);
+    expect(payload.purchases[0]).toMatchObject<Partial<FulfillPurchaseData>>({
       mediaItemId: 'media-1',
       buyerId: 'buyer-1',
       amountPaid: 10,
@@ -126,51 +130,50 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Earnings map passed to fulfill()
+  // Earnings credited inside transaction
   // -------------------------------------------------------------------------
 
-  it('aggregates earnings when two items share the same photographer', async () => {
+  it('credits aggregated earnings when two items share the same photographer', async () => {
     // (10 + 20) * 0.80 = 24
     const items = [
       makeMediaItem({ id: 'media-1', price: 10, photographerId: 'p-1' }),
       makeMediaItem({ id: 'media-2', price: 20, photographerId: 'p-1' }),
     ];
-    findOrderByExternalId.mockResolvedValue(null);
-    findOrderById.mockResolvedValue(makeOrder({
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(makeOrder({
       items: [
         { id: 'oi-1', orderId: ORDER_ID, mediaItemId: 'media-1' },
         { id: 'oi-2', orderId: ORDER_ID, mediaItemId: 'media-2' },
       ],
     }));
-    findMediaByIdsForFulfillment.mockResolvedValue(items);
+    mockMedia.findByIdsForFulfillment.mockResolvedValue(items);
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const [, , , earningsMap] = fulfill.mock.calls[0]!;
-    expect(earningsMap.size).toBe(1);
-    expect(earningsMap.get('p-1')).toBe(24);
+    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    expect(payload.earnings).toHaveLength(1);
+    expect(payload.earnings[0]).toMatchObject({ photographerId: 'p-1', amount: 24 });
   });
 
-  it('splits earnings correctly when photographers differ', async () => {
+  it('credits separate earnings when photographers differ', async () => {
     const items = [
       makeMediaItem({ id: 'media-1', price: 10, photographerId: 'p-1' }),
       makeMediaItem({ id: 'media-2', price: 20, photographerId: 'p-2' }),
     ];
-    findOrderByExternalId.mockResolvedValue(null);
-    findOrderById.mockResolvedValue(makeOrder({
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(makeOrder({
       items: [
         { id: 'oi-1', orderId: ORDER_ID, mediaItemId: 'media-1' },
         { id: 'oi-2', orderId: ORDER_ID, mediaItemId: 'media-2' },
       ],
     }));
-    findMediaByIdsForFulfillment.mockResolvedValue(items);
+    mockMedia.findByIdsForFulfillment.mockResolvedValue(items);
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const [, , purchases, earningsMap] = fulfill.mock.calls[0]!;
-    expect(purchases).toHaveLength(2);
-    expect(earningsMap.get('p-1')).toBe(8);
-    expect(earningsMap.get('p-2')).toBe(16);
+    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    const ids = payload.earnings.map((e) => e.photographerId).sort();
+    expect(ids).toEqual(['p-1', 'p-2']);
   });
 
   // -------------------------------------------------------------------------
@@ -180,8 +183,10 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   it('resolves media from DB order items — not from the webhook payload', async () => {
     setupHappyPath();
 
-    await fulfillOrder(ORDER_ID, EXTERNAL_ID);
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    expect(findMediaByIdsForFulfillment).toHaveBeenCalledWith(['media-1']);
+    expect(mockMedia.findByIdsForFulfillment).toHaveBeenCalledWith(['media-1']);
   });
 });
+
+

@@ -1,44 +1,70 @@
-import { findOrderByExternalId, findOrderById, fulfill } from 'server/repositories/OrderRepository';
-import { findMediaByIdsForFulfillment } from 'server/repositories/MediaRepository';
+import type { IOrderRepository } from 'server/repositories/OrderRepository';
+import type { IMediaRepository } from 'server/repositories/MediaRepository';
+import type { IPurchaseRepository, FulfillPurchaseData } from 'server/repositories/PurchaseRepository';
+import { orderRepository } from 'server/repositories/OrderRepository';
+import { mediaRepository } from 'server/repositories/MediaRepository';
+import { purchaseRepository } from 'server/repositories/PurchaseRepository';
+import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
 
 const PLATFORM_FEE_RATE = 0.20;
 const PHOTOGRAPHER_RATE = 0.80;
 
-/**
- * Fulfills an order after payment confirmation.
- * Idempotent: exits early if externalOrderId already recorded.
- */
-export async function fulfillOrder(
-  orderId: string,
-  externalOrderId: string
-): Promise<void> {
-  const existing = await findOrderByExternalId(externalOrderId);
-  if (existing) return;
+export class PurchaseFulfillmentService {
+  constructor(
+    private orders: IOrderRepository,
+    private media: IMediaRepository,
+    private purchases: IPurchaseRepository,
+    private cloudinary: Pick<ICloudinaryService, 'tryGeneratePermanentPreviewUrl'>,
+  ) { }
 
-  const order = await findOrderById(orderId);
-  if (!order) return;
+  /**
+   * Fulfills an order after payment confirmation.
+   * Idempotent: exits early if externalOrderId already recorded.
+   * P2002 (@@unique externalOrderId race) is caught via BaseRepository.run → mapPrismaError → ConflictError,
+   * which callers treat as idempotent success.
+   */
+  async fulfillOrder(orderId: string, externalOrderId: string): Promise<void> {
+    const existing = await this.orders.findOrderByExternalId(externalOrderId);
+    if (existing) return;
 
-  // itemIds come from OrderItem rows — not trusted from the external webhook payload
-  const itemIds = order.items.map((item) => item.mediaItemId);
-  const mediaItems = await findMediaByIdsForFulfillment(itemIds);
+    const order = await this.orders.findOrderById(orderId);
+    if (!order) return;
 
-  const purchases = mediaItems.map((item) => ({
-    mediaItemId: item.id,
-    buyerId: order.buyerId,
-    amountPaid: item.price,
-    platformFee: item.price * PLATFORM_FEE_RATE,
-    photographerEarned: item.price * PHOTOGRAPHER_RATE,
-    previewUrl: cloudinaryService.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
-  }));
+    // itemIds come from OrderItem rows — not trusted from the external webhook payload
+    const itemIds = order.items.map((item) => item.mediaItemId);
+    const mediaItems = await this.media.findByIdsForFulfillment(itemIds);
 
-  const earningsMap = new Map<string, number>();
-  for (const item of mediaItems) {
-    earningsMap.set(
-      item.photographerId,
-      (earningsMap.get(item.photographerId) ?? 0) + item.price * PHOTOGRAPHER_RATE,
-    );
+    const purchaseData: FulfillPurchaseData[] = mediaItems.map((item) => ({
+      mediaItemId: item.id,
+      buyerId: order.buyerId,
+      amountPaid: item.price,
+      platformFee: item.price * PLATFORM_FEE_RATE,
+      photographerEarned: item.price * PHOTOGRAPHER_RATE,
+      previewUrl: this.cloudinary.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
+    }));
+
+    const earningsMap = new Map<string, number>();
+    for (const item of mediaItems) {
+      earningsMap.set(
+        item.photographerId,
+        (earningsMap.get(item.photographerId) ?? 0) + item.price * PHOTOGRAPHER_RATE,
+      );
+    }
+
+    await this.purchases.commitFulfillment({
+      orderId,
+      externalOrderId,
+      purchases: purchaseData.map((p) => ({ ...p, orderId })),
+      earnings: Array.from(earningsMap, ([photographerId, amount]) => ({ photographerId, amount })),
+    });
   }
-
-  await fulfill(orderId, externalOrderId, purchases, earningsMap);
 }
+
+export const purchaseFulfillmentService = new PurchaseFulfillmentService(
+  orderRepository,
+  mediaRepository,
+  purchaseRepository,
+  cloudinaryService,
+);
+

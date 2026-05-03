@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from 'server/trpc';
-import { createCheckoutSession, getPurchases, generateDownloadAccess } from 'server/services/CheckoutService';
+import { checkoutService } from 'server/services/CheckoutService';
 import { cartItemIdsSchema, mediaItemIdSchema } from 'shared/validation/checkoutSchemas';
 
 export const checkoutRouter = router({
@@ -13,7 +13,7 @@ export const checkoutRouter = router({
       itemIds: cartItemIdsSchema,
     }))
     .mutation(async ({ input, ctx }) => {
-      return createCheckoutSession(ctx.user.id, input.itemIds);
+      return checkoutService.createCheckoutSession(ctx.user.id, input.itemIds);
     }),
 
   /**
@@ -21,7 +21,7 @@ export const checkoutRouter = router({
    * Media URLs are watermarked previews only — download the original via getSignedDownloadUrl.
    */
   myPurchases: protectedProcedure.query(async ({ ctx }) => {
-    return getPurchases(ctx.user.id);
+    return checkoutService.getPurchases(ctx.user.id);
   }),
 
   /**
@@ -33,6 +33,6 @@ export const checkoutRouter = router({
   getSignedMediaAccess: protectedProcedure
     .input(z.object({ mediaItemId: mediaItemIdSchema }))
     .query(async ({ input, ctx }) => {
-      return generateDownloadAccess(ctx.user.id, input.mediaItemId);
+      return checkoutService.generateDownloadAccess(ctx.user.id, input.mediaItemId);
     }),
 });

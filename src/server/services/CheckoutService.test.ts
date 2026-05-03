@@ -1,16 +1,59 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Prisma } from '@prisma/client';
-import { createCheckoutSession } from 'server/services/CheckoutService';
-import { prismaMock } from 'test/setup/prisma';
-import { paymentAdapterMock } from 'test/setup/payment';
+import { CheckoutService } from 'server/services/CheckoutService';
+import type { IOrderRepository } from 'server/repositories/OrderRepository';
+import type { IMediaRepository } from 'server/repositories/MediaRepository';
+import type { IPurchaseRepository } from 'server/repositories/PurchaseRepository';
+import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter';
+import type { ICloudinaryService } from 'server/services/CloudinaryService';
+import type { OrderWithItems } from 'server/repositories/OrderRepository';
 import { BadRequestError, BadGatewayError } from 'shared/errors';
+
+// ---------------------------------------------------------------------------
+// Inline mocks — no vi.mock() needed with constructor injection
+// ---------------------------------------------------------------------------
+
+const mockOrders = {
+  createOrder: vi.fn(),
+  findOrderById: vi.fn(),
+  findOrderByExternalId: vi.fn(),
+  markOrderFailed: vi.fn(),
+};
+
+const mockMedia = {
+  findByIds: vi.fn(),
+};
+
+const mockPurchases = {
+  findByBuyer: vi.fn(),
+  findByBuyerAndMedia: vi.fn(),
+  findPurchasedItemIds: vi.fn(),
+};
+
+const mockPayment = {
+  createCheckoutSession: vi.fn(),
+  verifyWebhook: vi.fn(),
+  parseWebhookEvent: vi.fn(),
+};
+
+const mockCloudinary = {
+  generateSignedDownload: vi.fn(),
+  tryGeneratePermanentPreviewUrl: vi.fn(),
+};
+
+const service = new CheckoutService(
+  mockOrders as unknown as IOrderRepository,
+  mockMedia as unknown as IMediaRepository,
+  mockPurchases as unknown as IPurchaseRepository,
+  mockPayment as unknown as PaymentAdapter,
+  mockCloudinary as unknown as ICloudinaryService,
+);
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  vi.clearAllMocks();
   process.env.APP_URL = 'https://test.wave-atlas.com';
 });
 
@@ -21,33 +64,28 @@ beforeEach(() => {
 function makeMediaItem(overrides: Partial<{
   id: string;
   status: string;
-  price: Prisma.Decimal;
+  price: number;
   photographerId: string;
 }> = {}) {
   return {
     id: 'media-1',
     status: 'PUBLISHED',
-    price: new Prisma.Decimal('10.00'),
+    price: 10.00,
     photographerId: 'photographer-1',
     ...overrides,
   };
 }
 
-function makeOrder(mediaItemIds: string[]) {
+function makeOrder(mediaItemIds: string[]): OrderWithItems {
   return {
     id: 'order-uuid-1',
     buyerId: 'buyer-1',
-    totalAmount: new Prisma.Decimal('10.00'),
-    status: 'PENDING' as const,
-    externalOrderId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
     items: mediaItemIds.map((mediaItemId, i) => ({
       id: `item-${i}`,
       orderId: 'order-uuid-1',
       mediaItemId,
     })),
-  };
+  } as unknown as OrderWithItems;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,15 +93,10 @@ function makeOrder(mediaItemIds: string[]) {
 // ---------------------------------------------------------------------------
 
 function setupHappyPath(items = [makeMediaItem()]) {
-  // repositories read from prismaMock
-  prismaMock.mediaItem.findMany.mockResolvedValue(items as never);
-  prismaMock.purchase.findMany.mockResolvedValue([]);  // no prior purchases
-  prismaMock.order.create.mockResolvedValue(
-    makeOrder(items.map((m) => m.id)) as never
-  );
-
-  // payment adapter returns a checkout URL
-  paymentAdapterMock.createCheckoutSession.mockResolvedValue({
+  mockMedia.findByIds.mockResolvedValue(items);
+  mockPurchases.findPurchasedItemIds.mockResolvedValue([]);
+  mockOrders.createOrder.mockResolvedValue(makeOrder(items.map((m) => m.id)));
+  mockPayment.createCheckoutSession.mockResolvedValue({
     checkoutUrl: 'https://pay.cryptocloud.plus/mock-invoice',
   });
 }
@@ -83,7 +116,7 @@ describe('CheckoutService.createCheckoutSession', () => {
   it('returns checkoutUrl and orderId when cart is valid', async () => {
     setupHappyPath();
 
-    const result = await createCheckoutSession(BUYER_ID, ITEM_IDS);
+    const result = await service.createCheckoutSession(BUYER_ID, ITEM_IDS);
 
     expect(result.checkoutUrl).toBe(
       'https://pay.cryptocloud.plus/mock-invoice'
@@ -94,31 +127,24 @@ describe('CheckoutService.createCheckoutSession', () => {
   it('creates the order before calling the payment adapter', async () => {
     setupHappyPath();
 
-    await createCheckoutSession(BUYER_ID, ITEM_IDS);
+    await service.createCheckoutSession(BUYER_ID, ITEM_IDS);
 
-    // order.create must be called before createCheckoutSession
-    const orderCreateOrder = vi.mocked(prismaMock.order.create).mock
-      .invocationCallOrder[0];
-    const paymentCallOrder = paymentAdapterMock.createCheckoutSession.mock
-      .invocationCallOrder[0];
+    const orderCallOrder = mockOrders.createOrder.mock.invocationCallOrder[0];
+    const paymentCallOrder = mockPayment.createCheckoutSession.mock.invocationCallOrder[0];
 
-    expect(orderCreateOrder).toBeLessThan(paymentCallOrder);
+    expect(orderCallOrder).toBeLessThan(paymentCallOrder);
   });
 
   it('passes totalCents derived from DB prices — not from client input', async () => {
-    const item1 = makeMediaItem({
-      id: 'media-1', price: new Prisma.Decimal('15.50')
-    });
-    const item2 = makeMediaItem({
-      id: 'media-2', price: new Prisma.Decimal('9.50')
-    });
+    const item1 = makeMediaItem({ id: 'media-1', price: 15.50 });
+    const item2 = makeMediaItem({ id: 'media-2', price: 9.50 });
 
     setupHappyPath([item1, item2]);
 
-    await createCheckoutSession(BUYER_ID, ['media-1', 'media-2']);
+    await service.createCheckoutSession(BUYER_ID, ['media-1', 'media-2']);
 
     // 15.50 + 9.50 = 25.00 → 2500 cents
-    expect(paymentAdapterMock.createCheckoutSession).toHaveBeenCalledWith(
+    expect(mockPayment.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ totalCents: 2500 }),
     );
   });
@@ -128,37 +154,34 @@ describe('CheckoutService.createCheckoutSession', () => {
   // ---
 
   it('throws BadRequestError when cart is empty', async () => {
-    await expect(createCheckoutSession(BUYER_ID, [])).rejects.toThrow(BadRequestError);
-    await expect(createCheckoutSession(BUYER_ID, [])).rejects.toThrow('Cart is empty');
+    await expect(service.createCheckoutSession(BUYER_ID, [])).rejects.toThrow(BadRequestError);
+    await expect(service.createCheckoutSession(BUYER_ID, [])).rejects.toThrow('Cart is empty');
   });
 
   it('throws BadRequestError when an item id does not exist in DB', async () => {
     // DB returns fewer items than requested — one id is unknown
-    prismaMock.mediaItem.findMany.mockResolvedValue([makeMediaItem()] as never);
+    mockMedia.findByIds.mockResolvedValue([makeMediaItem()]);
 
     await expect(
-      createCheckoutSession(BUYER_ID, ['media-1', 'media-UNKNOWN']),
+      service.createCheckoutSession(BUYER_ID, ['media-1', 'media-UNKNOWN']),
     ).rejects.toThrow('One or more items not found');
   });
 
   it('throws BadRequestError when a cart item is not published', async () => {
-    prismaMock.mediaItem.findMany.mockResolvedValue([
+    mockMedia.findByIds.mockResolvedValue([
       makeMediaItem({ id: 'media-1', status: 'DRAFT' }),
-    ] as never);
+    ]);
 
-    await expect(createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(
+    await expect(service.createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(
       'Some items are no longer available',
     );
   });
 
   it('throws BadRequestError when buyer already purchased an item', async () => {
-    prismaMock.mediaItem.findMany.mockResolvedValue([makeMediaItem()] as never);
-    // findPurchasedItemIds returns a non-empty list → already purchased
-    prismaMock.purchase.findMany.mockResolvedValue([
-      { mediaItemId: 'media-1' },
-    ] as never);
+    mockMedia.findByIds.mockResolvedValue([makeMediaItem()]);
+    mockPurchases.findPurchasedItemIds.mockResolvedValue(['media-1']);
 
-    await expect(createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(
+    await expect(service.createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(
       'Some items already purchased',
     );
   });
@@ -168,13 +191,14 @@ describe('CheckoutService.createCheckoutSession', () => {
   // ---
 
   it('marks the order as FAILED and throws BadGatewayError when payment adapter rejects', async () => {
-    prismaMock.mediaItem.findMany.mockResolvedValue([makeMediaItem()] as never);
-    prismaMock.purchase.findMany.mockResolvedValue([]);
-    prismaMock.order.create.mockResolvedValue(makeOrder(ITEM_IDS) as never);
-    prismaMock.order.update.mockResolvedValue({} as never); // markOrderFailed
-    paymentAdapterMock.createCheckoutSession.mockRejectedValue(new Error('CryptoCloud down'));
+    mockMedia.findByIds.mockResolvedValue([makeMediaItem()]);
+    mockPurchases.findPurchasedItemIds.mockResolvedValue([]);
+    mockOrders.createOrder.mockResolvedValue(makeOrder(ITEM_IDS));
+    mockOrders.markOrderFailed.mockResolvedValue({});
+    mockPayment.createCheckoutSession.mockRejectedValue(new Error('CryptoCloud down'));
 
-    await expect(createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(BadGatewayError);
-    expect(prismaMock.order.update).toHaveBeenCalledOnce();
+    await expect(service.createCheckoutSession(BUYER_ID, ITEM_IDS)).rejects.toThrow(BadGatewayError);
+    expect(mockOrders.markOrderFailed).toHaveBeenCalledOnce();
   });
 });
+

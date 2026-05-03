@@ -197,4 +197,12 @@
     - Fix: replace class with plain exported functions; use `vi.mock` in tests instead of constructor injection
     - Files: `MediaAuthorizationService.ts`, any test files importing it
 
-48. thumnails in galleries using image with watermark. only public lightboxes should be with watermark.
+48. 🟡 **P2** `[bug]` thumnails in galleries using image with watermark. only public lightboxes should be with watermark.
+
+49. 🟢 **P3** `[refactor]` Hook logging and tracing into `runQuery` utility
+    - Class-based `BaseRepository` was considered and rejected — plain `runQuery` in `BaseRepository.ts` is sufficient
+    - `runQuery` already handles error mapping (via `mapPrismaError`); it is the single cross-cutting entry point
+    - Remaining work: add optional `operationName?: string` param; call `logger.error` inside the catch block
+    - Each call site passes `'RepositoryName.methodName'` — no class or `this.constructor.name` needed
+    - Prerequisite: #33 (structured logger) must land first
+    - Enables: consistent error logging and future tracing across all repos in one place
