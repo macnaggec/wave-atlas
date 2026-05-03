@@ -5,13 +5,15 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { DateFilterPopover } from 'shared/ui/DatePickerPopover';
 import { MediaItem } from 'entities/Media/types';
 import { useGallerySelection, useDateFilter } from 'shared/hooks/gallery';
+import { useUser } from 'shared/hooks/useUser';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox from './ui/MediaLightbox';
+import { usePublicGalleryActions } from './model/usePublicGalleryActions';
 
-const ACTIONS_CART: PublicCardAction[] = ['cart'];
-const ACTIONS_CART_SHARE: PublicCardAction[] = ['cart', 'share'];
-const ACTIONS_NONE: PublicCardAction[] = [];
-const ACTIVE_CART: PublicCardAction[] = ['cart'];
+const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
+  cart: IconShoppingBag,
+  share: IconShare,
+};
 
 export interface PublicGalleryProps {
   /** Published media items for this spot */
@@ -32,8 +34,7 @@ export interface PublicGalleryProps {
   /** Callback when user shares items */
   onShare?: (items: MediaItem[]) => void;
 
-  /**
-   * Message to display when gallery is empty
+  /**   * Message to display when gallery is empty
    * @default "No media available."
    */
   emptyMessage?: string;
@@ -54,25 +55,21 @@ export interface PublicGalleryProps {
  * - Search results
  *
  * For upload/draft management, use UploadGallery feature instead.
- *
- * @example
- * ```tsx
- * <PublicGallery
- *   items={spotMedia}
- *   onAddToCart={(items) => addToCart(items)}
- *   onShare={(items) => shareMedia(items)}
- * />
- * ```
  */
 const PublicGallery: FC<PublicGalleryProps> = memo(({
   items,
   spotName,
-  cartItemIds = new Set(),
+  cartItemIds = new Set<string>(),
   onCartToggle,
   onCartBulkAdd,
   onShare,
   emptyMessage = 'No media available.',
 }) => {
+  const { getCardActions, getCartBulkState } = usePublicGalleryActions({
+    cartItemIds,
+    hasShare: !!onShare,
+  });
+  const { user } = useUser();
   // ========================================================================
   // DATE FILTER
   // ========================================================================
@@ -98,48 +95,51 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  const ownedItemIds = useMemo(
+    () => new Set(filteredItems.filter(i => i.photographerId === user?.id).map(i => i.id)),
+    [filteredItems, user?.id],
+  );
+
   const handleCardClick = useCallback((itemId: string) => {
     const index = filteredItems.findIndex(i => i.id === itemId);
     if (index !== -1) setLightboxIndex(index);
   }, [filteredItems]);
 
-  const handleLightboxClose = useCallback(() => {
-    setLightboxIndex(null);
-  }, []);
-
   // ========================================================================
   // ACTION HANDLERS
   // ========================================================================
 
-  const handleShare = useCallback((selectedItems: MediaItem[]) => {
-    onShare?.(selectedItems);
-  }, [onShare]);
-
-  // Single card action handler
   const handleCardAction = useCallback((action: PublicCardAction, itemId: string) => {
     const item = filteredItems.find(i => i.id === itemId);
     if (!item) return;
     if (action === 'cart') onCartToggle?.(item);
-    if (action === 'share') handleShare([item]);
-  }, [filteredItems, onCartToggle, handleShare]);
+    if (action === 'share') onShare?.([item]);
+  }, [filteredItems, onCartToggle, onShare]);
 
-  // Memoized menu actions for bulk operations
-  const renderMenuActions = useCallback((selectedItems: MediaItem[]) => (
-    <>
-      <Menu.Item
-        leftSection={<IconShoppingBag size={14} />}
-        onClick={() => { onCartBulkAdd?.(selectedItems); selection.disableSelectionMode(); }}>
-        Add {selectedItems.length} to cart
-      </Menu.Item>
-      {onShare && (
-        <Menu.Item
-          leftSection={<IconShare size={14} />}
-          onClick={() => { handleShare(selectedItems); selection.disableSelectionMode(); }}>
-          Share {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
-        </Menu.Item>
-      )}
-    </>
-  ), [onShare, onCartBulkAdd, handleShare, selection]);
+  const renderMenuActions = useCallback((selectedItems: MediaItem[]) => {
+    const { actions, noActionsLabel } = getCartBulkState(selectedItems);
+
+    return (
+      <>
+        {actions.map(({ key, label, payload }) => {
+          const Icon = ACTION_ICONS[key];
+          return (
+            <Menu.Item key={key} leftSection={<Icon size={14} />}
+              onClick={() => {
+                if (key === 'cart') onCartBulkAdd?.(payload);
+                if (key === 'share') onShare?.(payload);
+                selection.disableSelectionMode();
+              }}>
+              {label}
+            </Menu.Item>
+          );
+        })}
+        {actions.length === 0 && (
+          <Menu.Item disabled>{noActionsLabel}</Menu.Item>
+        )}
+      </>
+    );
+  }, [getCartBulkState, onCartBulkAdd, onShare, selection]);
 
   // ========================================================================
   // RENDER
@@ -149,26 +149,29 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
     return <Text c="dimmed" fs="italic">{emptyMessage}</Text>;
   }
 
-  // Calculate available actions based on provided callbacks
-  const availableActions = useMemo(
-    () => onShare ? ACTIONS_CART_SHARE : ACTIONS_CART,
-    [onShare]
-  );
-
   return (
     <>
       <BaseGallery
         items={filteredItems}
         selection={selection}
-        renderCard={(item, context) => (
-          <PublicCard
-            mediaItem={item}
-            actions={context.isSelectionMode ? ACTIONS_NONE : availableActions}
-            activeActions={context.isSelectionMode ? ACTIONS_NONE : (cartItemIds.has(item.id) ? ACTIVE_CART : ACTIONS_NONE)}
-            onAction={handleCardAction}
-            onCardClick={context.isSelectionMode ? undefined : handleCardClick}
-          />
-        )}
+        renderCard={(item, context) => {
+          const {
+            actions,
+            activeActions,
+            isOwn,
+          } = getCardActions(item, context.isSelectionMode);
+
+          return (
+            <PublicCard
+              mediaItem={item}
+              actions={actions}
+              activeActions={activeActions}
+              onAction={handleCardAction}
+              onCardClick={context.isSelectionMode ? undefined : handleCardClick}
+              showOwnerBadge={isOwn}
+            />
+          );
+        }}
         emptyState={<Text c="dimmed" fs="italic">No photos on this date.</Text>}
         toolbar={
           <Group justify="space-between" w="100%">
@@ -190,8 +193,10 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         items={filteredItems}
         initialIndex={lightboxIndex ?? 0}
         opened={lightboxIndex !== null}
-        onClose={handleLightboxClose}
-        spotName={spotName}
+        onClose={() => setLightboxIndex(null)}
+        cartItemIds={cartItemIds}
+        onCartToggle={onCartToggle}
+        ownedItemIds={ownedItemIds}
       />
     </>
   );

@@ -2,8 +2,10 @@ import { useCallback, useEffect } from 'react';
 import { useDeleteMedia } from 'entities/Media/model/useDeleteMedia';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
+import { MediaItem } from 'entities/Media/types';
+import { notify } from 'shared/lib/notifications';
 import { UploadItem } from './types';
-import { UploadPipeline } from './UploadPipeline';
+import { createUploadPipeline } from './UploadPipeline';
 import { useDraftMediaMutate } from './useDraftMedia';
 
 /**
@@ -189,7 +191,7 @@ export const useUploadManager = (
     if (!file) return;
 
     const pipeline = createPipeline(id);
-    let mediaItem: ReturnType<UploadPipeline['saveToDatabase']> extends Promise<infer T> ? T : never;
+    let mediaItem: MediaItem;
 
     try {
       const exifData = await pipeline.extractMetadata(file);
@@ -215,7 +217,12 @@ export const useUploadManager = (
       useUploadStore.getState().incrementSessionCompleted();
 
     } catch (error: unknown) {
-      pipeline.handleError(error, file);
+      const errorMessage = pipeline.handleError(error);
+
+      if (errorMessage) {
+        notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
+      }
+
       return;
     }
 
@@ -238,7 +245,7 @@ export const useUploadManager = (
   };
 
   const createPipeline = (id: string) => {
-    return new UploadPipeline(
+    return createUploadPipeline(
       spotId,
       (updates) => {
         // Update store even if component unmounted (background uploads).
@@ -248,7 +255,11 @@ export const useUploadManager = (
     );
   };
 
-  const uploadNewFile = async (id: string, file: File, pipeline: UploadPipeline) => {
+  const uploadNewFile = async (
+    id: string,
+    file: File,
+    pipeline: ReturnType<typeof createUploadPipeline>
+  ) => {
     const signature = await pipeline.getSignature();
 
     const { promise, abort } = pipeline.uploadToCloud(

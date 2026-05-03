@@ -91,6 +91,12 @@ export class CheckoutService {
       );
     }
 
+    const ownedItems = mediaItems.filter((m) => m.photographerId === buyerId);
+
+    if (ownedItems.length > 0) {
+      throw new BadRequestError('You cannot purchase your own media');
+    }
+
     const purchasedIds = await this.purchases.findPurchasedItemIds(buyerId, itemIds);
 
     if (purchasedIds.length > 0) {

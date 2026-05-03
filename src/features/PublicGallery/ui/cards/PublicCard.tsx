@@ -1,15 +1,13 @@
 'use client';
 
 import React, { FC, memo, useCallback } from 'react';
-import { ActionIcon, Group } from '@mantine/core';
+import { ActionIcon, Badge, Group } from '@mantine/core';
 import { IconShoppingCartPlus, IconShoppingCartMinus, IconHeart, IconShare, IconFlag } from '@tabler/icons-react';
 import { MediaItem } from 'entities/Media/types';
 import { BaseCard } from 'shared/ui/BaseGallery';
+import type { PublicCardAction } from '../../model/types';
 
-/**
- * Available action types for PublicCard
- */
-export type PublicCardAction = 'cart' | 'favorites' | 'share' | 'report';
+export type { PublicCardAction };
 
 /**
  * Props for PublicCard component
@@ -29,6 +27,9 @@ export interface PublicCardProps {
 
   /** Callback when card is clicked to open lightbox */
   onCardClick?: (id: string) => void;
+
+  /** Show owner badge overlay (e.g. in selection mode when item belongs to viewer) */
+  showOwnerBadge?: boolean;
 }
 
 /**
@@ -38,10 +39,30 @@ const ACTION_ICONS: Record<
   PublicCardAction,
   { icon: typeof IconShoppingCartPlus; label: string; color: string; variant: string }
 > = {
-  cart: { icon: IconShoppingCartPlus, label: 'Add to cart', color: 'green', variant: 'filled' },
-  favorites: { icon: IconHeart, label: 'Add to favorites', color: 'red', variant: 'filled' },
-  share: { icon: IconShare, label: 'Share', color: 'gray', variant: 'filled' },
-  report: { icon: IconFlag, label: 'Report', color: 'orange', variant: 'filled' },
+  cart: {
+    icon: IconShoppingCartPlus,
+    label: 'Add to cart',
+    color: 'green',
+    variant: 'filled'
+  },
+  favorites: {
+    icon: IconHeart,
+    label: 'Add to favorites',
+    color: 'red',
+    variant: 'filled'
+  },
+  share: {
+    icon: IconShare,
+    label: 'Share',
+    color: 'gray',
+    variant: 'filled'
+  },
+  report: {
+    icon: IconFlag,
+    label: 'Report',
+    color: 'orange',
+    variant: 'filled'
+  },
 };
 
 /**
@@ -63,12 +84,19 @@ const ACTION_ICONS_ACTIVE: Partial<Record<
  * - Clean design for public-facing galleries
  * - Parent controls which actions to show (empty array during selection mode)
  */
+const OWNER_BADGE = (
+  <Badge size="xs" variant="filled" color="gray" radius="sm">
+    Yours
+  </Badge>
+);
+
 const PublicCard: FC<PublicCardProps> = memo(({
   mediaItem,
   actions = [],
   activeActions = [],
   onAction,
   onCardClick,
+  showOwnerBadge = false,
 }) => {
   const { resource } = mediaItem;
   const thumbnailUrl = resource.resource_type === 'image'
@@ -86,6 +114,7 @@ const PublicCard: FC<PublicCardProps> = memo(({
       playbackUrl={resource.playback_url}
       alt={`Media ${resource.asset_id}`}
       onClick={onCardClick ? handleClick : undefined}
+      overlays={showOwnerBadge ? OWNER_BADGE : undefined}
       actions={
         actions.length > 0 ? (
           <Group gap="xs">

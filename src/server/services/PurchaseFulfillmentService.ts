@@ -6,6 +6,7 @@ import { mediaRepository } from 'server/repositories/MediaRepository';
 import { purchaseRepository } from 'server/repositories/PurchaseRepository';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
+import { ConflictError } from 'shared/errors';
 
 const PLATFORM_FEE_RATE = 0.20;
 const PHOTOGRAPHER_RATE = 0.80;
@@ -52,12 +53,18 @@ export class PurchaseFulfillmentService {
       );
     }
 
-    await this.purchases.commitFulfillment({
-      orderId,
-      externalOrderId,
-      purchases: purchaseData.map((p) => ({ ...p, orderId })),
-      earnings: Array.from(earningsMap, ([photographerId, amount]) => ({ photographerId, amount })),
-    });
+    try {
+      await this.purchases.commitFulfillment({
+        orderId,
+        externalOrderId,
+        purchases: purchaseData.map((p) => ({ ...p, orderId })),
+        earnings: Array.from(earningsMap, ([photographerId, amount]) => ({ photographerId, amount })),
+      });
+    } catch (err) {
+      // P2002 on externalOrderId unique constraint — concurrent webhook delivered the same event
+      if (err instanceof ConflictError) return;
+      throw err;
+    }
   }
 }
 

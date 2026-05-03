@@ -187,6 +187,29 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     expect(mockMedia.findByIdsForFulfillment).toHaveBeenCalledWith(['media-1']);
   });
+
+  // -------------------------------------------------------------------------
+  // Race-condition idempotency: ConflictError from commitFulfillment
+  // Guards the catch block that makes the DB unique-constraint race safe.
+  // -------------------------------------------------------------------------
+
+  it('swallows ConflictError from commitFulfillment — treats it as idempotent success', async () => {
+    const { ConflictError } = await import('shared/errors');
+    setupHappyPath();
+    mockPurchases.commitFulfillment.mockRejectedValue(
+      new ConflictError('external_order_id already exists'),
+    );
+
+    await expect(service.fulfillOrder(ORDER_ID, EXTERNAL_ID)).resolves.toBeUndefined();
+  });
+
+  it('rethrows non-ConflictError from commitFulfillment — does not swallow real failures', async () => {
+    setupHappyPath();
+    const boom = new Error('DB connection lost');
+    mockPurchases.commitFulfillment.mockRejectedValue(boom);
+
+    await expect(service.fulfillOrder(ORDER_ID, EXTERNAL_ID)).rejects.toThrow('DB connection lost');
+  });
 });
 
 

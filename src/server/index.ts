@@ -11,6 +11,7 @@ import { appRouter } from 'server/router';
 import { createContext } from 'server/trpc';
 import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import { purchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
+import { logger } from 'shared/lib/logger';
 
 const app = new Hono();
 
@@ -46,10 +47,15 @@ app.post('/api/webhook/cryptocloud', async (c) => {
 
   const event = paymentAdapter.parseWebhookEvent(rawBody);
   if (event.type === 'order.completed') {
-    await purchaseFulfillmentService.fulfillOrder(
-      event.customData.orderId,
-      event.externalOrderId,
-    );
+    try {
+      await purchaseFulfillmentService.fulfillOrder(
+        event.customData.orderId,
+        event.externalOrderId,
+      );
+    } catch (err) {
+      logger.error('[webhook] Fulfillment failed', { err });
+      return c.json({ error: 'Fulfillment error' }, 500);
+    }
   }
 
   return c.json({ ok: true });

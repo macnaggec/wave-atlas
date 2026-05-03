@@ -81,19 +81,16 @@
 
 25. 🟢 **P3** `[feature]` Decide how video media is handled end-to-end
 
-26. 🔴 **P0** `[bug]` Users can add their own published media to the cart
+26. ✅ ~~Users can add their own published media to the cart~~
 
 27. 🟠 **P1** `[error-handling]` Audit server service error handling — apply the same abstract error pattern used in `CheckoutService` consistently across all services
 
-28. 🔴 **P0** `[security]` `media.signCloudinary` — no folder ownership check; any authenticated user can obtain a valid upload signature for another user's spot folder
-    - `folder` input is `z.string().optional()` with no ownership check
-    - Fix: extract spotId from folder param, query DB to verify `spot.photographerId === ctx.user.id`, throw `FORBIDDEN` if not
+28. ✅ ~~`media.signCloudinary` — no folder ownership check; any authenticated user can obtain a valid upload signature for another user's spot folder~~
+    - Input changed from `folder?: string` to `spotId: uuid`; server queries `spot.creatorId`, throws `ForbiddenError` if mismatch
     - File: `src/server/routes/media.ts` → `signCloudinary` procedure
-    - Open question: does each user need their own isolated Cloudinary folder?
 
-29. 🔴 **P0** `[security]` `media.create` — `thumbnailUrl` and `lightboxUrl` accept any URL, allowing external URL injection
-    - Currently any URL passes `z.url()` validation — a user could store arbitrary external URLs in the DB
-    - Fix: add Zod `.refine()` requiring both URLs start with `https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/`
+29. ✅ ~~`media.create` — `thumbnailUrl` and `lightboxUrl` accept any URL, allowing external URL injection~~
+    - Added `.refine()` on both fields requiring `https://res.cloudinary.com/{VITE_CLOUDINARY_CLOUD_NAME}/` prefix
     - File: `src/server/routes/media.ts` → `create` input schema
 
 30. 🟡 **P2** `[ux]` Owner's upload gallery shows watermarked lightbox after page refresh
@@ -110,21 +107,11 @@
 
 32. 🟡 **P2** `[refactor]` Rename `photographerId` → `ownerId` / `authorId` / `creatorId` across the codebase
 
-33. 🟡 **P2** `[logging]` Add structured server-side logger — replace all raw `console.*` calls
-    - Risk: raw `err` objects in production may expose Cloudinary internals, stack traces, or the API secret
-    - Create `src/server/lib/logger.ts` with env-aware `warn` / `error` methods (full error in dev, message-only in prod)
-    - Migrate `CloudinaryService.tryGeneratePermanentPreviewUrl` → `logger.warn`
-    - Future upgrade path: swap internal `console.*` for `pino` or OpenTelemetry in one file
-    ```ts
-    export const logger = {
-      warn(message: string, err?: unknown) {
-        process.env.NODE_ENV === 'production' ? console.warn(message) : console.warn(message, err);
-      },
-      error(message: string, err?: unknown) {
-        process.env.NODE_ENV === 'production' ? console.error(message) : console.error(message, err);
-      },
-    };
-    ```
+33. ✅ ~~Add structured server-side logger — replace all raw `console.*` calls~~
+    - `src/shared/lib/logger.ts` created with class-based Logger: env-aware pretty-print (dev) vs JSON (prod)
+    - `CloudinaryService.tryGeneratePermanentPreviewUrl` migrated to `logger.warn`
+    - Webhook handler uses `logger.error`
+    - Remaining: one raw `console.log` in `src/server/index.ts` startup message (non-sensitive, low priority)
 
 34. 🟡 **P2** `[perf]` Gallery infinite scroll + virtualised list
     - Spot galleries (GlobeScene, SpotPanel) load all media upfront — will degrade as data grows
@@ -139,44 +126,33 @@
     - Fix: `queryClient.prefetchQuery` with an `Image` object `onload` promise; browser caches before modal opens
     - File: `src/app/routes/_drawer.me.purchases.tsx` — add `onMouseEnter` to each `<Card>`
 
-36. 🔴 **P0** `[security]` Upload pipeline is missing four validation guards
-    1. **Folder ownership**: verify the target spot belongs to the current user before signing (see #28)
-    2. **File type whitelist**: validate `resource_type` in `media.create` against an allowlist in `MEDIA_UPLOAD_CONFIG`
-    3. **File size limit**: check `file.size` before XHR in `cloudinary-client.ts`; reject if > `MAX_FILE_SIZE` (e.g. 100 MB)
-    4. **Rate limiting**: cap `media.signCloudinary` at e.g. 10 signatures/user/minute
-    - Files: `src/server/routes/media.ts`, `src/entities/Media/constants.ts`, `src/shared/lib/cloudinary-client.ts`, `src/server/middleware/rateLimiter.ts` (NEW)
+36. 🔴 **P0** `[security]` Upload pipeline is missing validation guards
+    1. ✅ ~~**Folder ownership**: verify the target spot belongs to the current user before signing (see #28)~~
+    2. ❌ **File type whitelist**: validate `resource_type` in `media.create` against an allowlist — `resource_type` is passed through `cloudinaryTransport.ts` but never validated server-side
+    3. ❌ **File size limit**: `MAX_FILE_SIZE_IMAGE`/`VIDEO` constants exist in `src/entities/Media/constants.ts` but are NOT enforced before the XHR upload in `cloudinaryTransport.ts`
+    4. ❌ **Rate limiting**: no `src/server/middleware/` directory exists; `media.signCloudinary` has no rate cap
+    - Files: `src/server/routes/media.ts`, `src/features/Upload/model/cloudinaryTransport.ts`, `src/server/middleware/rateLimiter.ts` (NEW)
 
 37. 🔴 **P0** `[security]` Webhook endpoint has no rate limiting — susceptible to replay-flood DoS
     - Public URL — a captured valid payload can be replayed indefinitely; each replay passes signature check and hits the DB
     - Fix: middleware tracking requests per IP (and/or `invoice_id`); reject with HTTP 429 above threshold (e.g. 20 req/min per IP)
     - Files: `src/server/index.ts`, `src/server/middleware/rateLimiter.ts` (NEW or extend from #36)
 
-38. 🔴 **P0** `[security]` Webhook fulfillment: non-atomic idempotency check — vulnerable to race-condition double fulfillment
-    - App-level `if order.status === FULFILLED → return` is not atomic; two simultaneous webhooks can both pass before either writes `FULFILLED`
-    - Fix: add `@@unique([externalOrderId])` on `Order` in Prisma schema; P2002 → `ConflictError` → transaction rolls back
-    - Files: `prisma/schema.prisma`, migration, `PurchaseFulfillmentService.ts` (catch `ConflictError` as idempotent success)
+38. ✅ ~~Webhook fulfillment: non-atomic idempotency check — vulnerable to race-condition double fulfillment~~
+    - `@@unique` on `externalOrderId` was already in the schema
+    - `PurchaseFulfillmentService.fulfillOrder` now catches `ConflictError` (P2002) as idempotent success
 
-39. 🟠 **P1** `[error-handling]` Wire `PrismaErrorMapper` into all repositories — it is implemented but never called
-    - P2002/P2025 currently surface to the client as generic `INTERNAL_SERVER_ERROR`
-    - Fix: wrap write operations in try/catch → `throw mapPrismaError(err)` in `OrderRepository`, `MediaRepository`, and others
-    - Required by #38: the unique-constraint race fix depends on P2002 mapping to `ConflictError`
+39. ✅ ~~Wire `PrismaErrorMapper` into all repositories~~
+    - All repositories (`Media`, `Order`, `Purchase`, `Spot`, `User`) already use `runQuery` from `BaseRepository`, which calls `mapPrismaError` in its catch — P2002/P2025 are fully mapped
 
 40. 🟠 **P1** `[error-handling]` Payment adapters throw plain `new Error()` — internal provider details may leak to the client
     - Not `HttpError` instances → tRPC may include the raw `.message` in the response body (leaks provider names and internal API responses)
-    - Fix: replace runtime API failure throws with `new InternalServerError('Payment provider error')` and log details via `logger.error` (#33)
-    - Files: `CryptoCloudAdapter.ts`, `CryptomusAdapter.ts`, `NOWPaymentsAdapter.ts`, `LemonSqueezyAdapter.ts`
+    - Confirmed: `CryptoCloudAdapter.ts` lines 44, 89, 97, 179 throw `new Error(...)` directly
+    - Fix: replace with `new BadGatewayError('Payment provider error')` (pattern already used in `CheckoutService`) and log details via `logger.error` (#33 ✅)
+    - Files: `src/server/lib/payment/CryptoCloudAdapter.ts`
 
-41. 🔴 **P0** `[error-handling]` Webhook handler has no try/catch around `handleEvent` — uncontrolled 500 exposes stack traces and triggers dangerous provider retries on partially-written fulfillments
-    - Fix: wrap in try/catch, log safely via `logger.error` (#33), return a controlled `{ error: 'Fulfillment error' }` with status 500
-    - Note: returning 500 intentionally so the provider retries — safe only after #38 and #39 are in place
-    ```ts
-    try {
-      await webhookService.handleEvent(rawBody);
-    } catch (err) {
-      logger.error('[webhook] Fulfillment failed', err);
-      return c.json({ error: 'Fulfillment error' }, 500);
-    }
-    ```
+41. ✅ ~~Webhook handler has no try/catch around `handleEvent` — uncontrolled 500 exposes stack traces and triggers dangerous provider retries on partially-written fulfillments~~
+    - Wrapped `fulfillOrder` in try/catch; logs via `logger.error`; returns controlled `{ error: 'Fulfillment error' }` with status 500
 
 42. ✅ ~~Flatten `SpotRepository.ts` — remove `ISpotRepository` interface and `PrismaSpotRepository` class; replace with plain exported async functions~~
 

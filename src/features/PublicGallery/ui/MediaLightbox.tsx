@@ -8,10 +8,9 @@ import {
   Stack,
 } from '@mantine/core';
 import { Carousel } from '@mantine/carousel';
-import { IconShoppingCartPlus, IconShoppingCartCheck, IconShoppingCartMinus } from '@tabler/icons-react';
+import { IconShoppingCartPlus, IconShoppingCartMinus } from '@tabler/icons-react';
 import { MediaItem } from 'entities/Media/types';
 import { formatPrice } from 'shared/lib/currency';
-import { useCartItem } from 'features/Cart/model/useCartItem';
 import carouselClasses from 'shared/ui/carousel.module.css';
 import classes from './MediaLightbox.module.css';
 
@@ -28,32 +27,14 @@ export interface MediaLightboxProps {
   /** Close callback */
   onClose: () => void;
 
-  /** Spot name used for cart item label */
-  spotName: string;
-}
+  /** IDs currently in the cart — drives cart button active state */
+  cartItemIds?: Set<string>;
 
-function getLightboxUrl(item: MediaItem): string {
-  return item.lightboxUrl;
-}
+  /** Called when the cart button is clicked for an item */
+  onCartToggle?: (item: MediaItem) => void;
 
-interface CartButtonProps {
-  item: MediaItem;
-  spotName: string;
-}
-
-/** Isolated component so useCartItem hook re-mounts cleanly when current item changes. */
-function LightboxCartButton({ item, spotName }: CartButtonProps) {
-  const { isInCart, addToCart, removeFromCart } = useCartItem(item, spotName);
-  return (
-    <Button
-      variant={isInCart ? 'light' : 'subtle'}
-      color={isInCart ? 'red' : 'green'}
-      leftSection={isInCart ? <IconShoppingCartMinus size={16} /> : <IconShoppingCartPlus size={16} />}
-      onClick={isInCart ? removeFromCart : addToCart}
-    >
-      {isInCart ? 'Remove from cart' : 'Add to cart'}
-    </Button>
-  );
+  /** IDs of media items owned by the current user — cart button hidden for these */
+  ownedItemIds?: Set<string>;
 }
 
 /**
@@ -67,9 +48,10 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
   initialIndex,
   opened,
   onClose,
-  spotName,
+  cartItemIds = new Set<string>(),
+  onCartToggle,
+  ownedItemIds = new Set<string>(),
 }) => {
-  // Track which slide is active to show its price/date in the footer
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   const handleSlideChange = useCallback((index: number) => {
@@ -80,6 +62,8 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
 
   const currentItem = items[currentIndex];
   const hasMultiple = items.length > 1;
+  const isOwn = ownedItemIds.has(currentItem.id);
+  const isInCart = cartItemIds.has(currentItem.id);
 
   return (
     <Modal
@@ -106,7 +90,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
           {items.map((item) => (
             <Carousel.Slide key={item.id}>
               <img
-                src={getLightboxUrl(item)}
+                src={item.lightboxUrl}
                 alt={`Media preview ${item.id}`}
                 className={classes.image}
               />
@@ -128,8 +112,15 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
             </Text>
           </Group>
 
-          {currentItem.price > 0 && (
-            <LightboxCartButton item={currentItem} spotName={spotName} />
+          {currentItem.price > 0 && !isOwn && onCartToggle && (
+            <Button
+              variant={isInCart ? 'light' : 'subtle'}
+              color={isInCart ? 'red' : 'green'}
+              leftSection={isInCart ? <IconShoppingCartMinus size={16} /> : <IconShoppingCartPlus size={16} />}
+              onClick={() => onCartToggle(currentItem)}
+            >
+              {isInCart ? 'Remove from cart' : 'Add to cart'}
+            </Button>
           )}
         </Group>
       </Stack>
