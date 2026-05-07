@@ -10,6 +10,7 @@ import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
 import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors';
+import { logger } from 'shared/lib/logger';
 
 export class CheckoutService {
   constructor(
@@ -29,9 +30,17 @@ export class CheckoutService {
     itemIds: string[],
   ): Promise<{ checkoutUrl: string; orderId: string }> {
     const mediaItems = await this.fetchAndValidateCartItems(buyerId, itemIds);
-    const totalAmount = mediaItems.reduce((sum, item) => sum + item.price, 0);
-    const order = await this.orders.createOrder({ buyerId, totalAmount, itemIds });
-    const checkoutUrl = await this.openPaymentSession(order.id, mediaItems, totalAmount);
+    const totalCents = mediaItems.reduce((sum, item) => sum + item.price, 0);
+    const order = await this.orders.createOrder({
+      buyerId,
+      totalAmount: totalCents,
+      itemIds
+    });
+    const checkoutUrl = await this.openPaymentSession(
+      order.id,
+      mediaItems,
+      totalCents
+    );
 
     return { checkoutUrl, orderId: order.id };
   }
@@ -111,10 +120,9 @@ export class CheckoutService {
   private async openPaymentSession(
     orderId: string,
     mediaItems: { id: string }[],
-    totalAmount: number,
+    totalCents: number,
   ): Promise<string> {
     const appUrl = process.env.APP_URL!;
-    const totalCents = Math.round(totalAmount * 100);
 
     try {
       const { checkoutUrl } = await this.payment.createCheckoutSession({
@@ -126,7 +134,8 @@ export class CheckoutService {
       });
 
       return checkoutUrl;
-    } catch {
+    } catch (err) {
+      logger.error('[CheckoutService] Payment gateway error', { err, orderId });
       await this.orders.markOrderFailed(orderId);
       throw new BadGatewayError('Failed to create checkout session');
     }

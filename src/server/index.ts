@@ -11,7 +11,11 @@ import { appRouter } from 'server/router';
 import { createContext } from 'server/trpc';
 import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import { purchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
+import { createRateLimiter } from 'server/lib/rateLimiter';
 import { logger } from 'shared/lib/logger';
+
+// 20 webhook requests per IP per minute — prevents replay-flood DoS
+const webhookLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 
 const app = new Hono();
 
@@ -38,6 +42,17 @@ app.get('/api/health', (c) => c.json({ ok: true }));
 
 // CryptoCloud webhook — raw body required for HMAC verification, must NOT go through tRPC
 app.post('/api/webhook/cryptocloud', async (c) => {
+  const ip =
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    c.req.header('cf-connecting-ip') ??
+    'unknown';
+
+  try {
+    webhookLimiter(ip);
+  } catch {
+    return c.json({ error: 'Too many requests' }, 429);
+  }
+
   const rawBody = await c.req.text();
   const headers = Object.fromEntries(c.req.raw.headers.entries());
 

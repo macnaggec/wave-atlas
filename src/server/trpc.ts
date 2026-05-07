@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { Context } from 'hono';
 import superjson from 'superjson';
+import { ZodError } from 'zod';
 import { auth } from 'server/auth';
 import { isHttpError } from 'shared/errors';
 
@@ -26,6 +27,7 @@ const STATUS_TO_CODE: Record<number, TRPCError['code']> = {
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
   409: 'CONFLICT',
+  429: 'TOO_MANY_REQUESTS',
 };
 
 const t = initTRPC.context<TRPCContext>().create({
@@ -37,6 +39,11 @@ const t = initTRPC.context<TRPCContext>().create({
         STATUS_TO_CODE[cause.statusCode] ??
         (cause.statusCode < 500 ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR');
       return { ...shape, message: cause.message, data: { ...shape.data, code } };
+    }
+    // Zod input validation errors — extract first human-readable issue message
+    if (cause instanceof ZodError) {
+      const message = cause.issues[0]?.message ?? 'Invalid input';
+      return { ...shape, message };
     }
     return shape;
   },

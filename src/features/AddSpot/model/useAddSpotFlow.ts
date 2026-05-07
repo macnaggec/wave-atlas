@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { spotNameSchema, spotLocationSchema } from 'shared/validation/spotSchemas';
+import { notify } from 'shared/lib/notifications';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { useReverseGeocode } from './useReverseGeocode';
 import type { Spot } from 'entities/Spot/types';
 
@@ -133,6 +135,8 @@ export function useAddSpotFlow(): AddSpotFlowState {
       } else {
         await create();
       }
+    } catch (err) {
+      notify.error(getErrorMessage(err), 'Failed to create spot');
     } finally {
       setIsCheckingNearby(false);
     }

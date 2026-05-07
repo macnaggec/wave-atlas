@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { BadGatewayError } from 'shared/errors';
+import { logger } from 'shared/lib/logger';
 import type {
   PaymentAdapter,
   CreateCheckoutParams,
@@ -85,18 +87,15 @@ async function createCheckoutSession(
 
   if (!response.ok) {
     const text = await response.text();
-
-    throw new Error(`
-      CryptoCloud invoice creation failed (${response.status}): ${text}`
-    );
+    logger.error('[CryptoCloud] Invoice creation failed', { status: response.status, body: text });
+    throw new BadGatewayError('Payment provider error');
   }
 
   const data = (await response.json()) as CCInvoiceResponse;
 
   if (data.status !== 'success' || !data.result?.link) {
-    throw new Error(`
-      CryptoCloud returned unexpected response: ${JSON.stringify(data)}`
-    );
+    logger.error('[CryptoCloud] Unexpected invoice response', { data });
+    throw new BadGatewayError('Payment provider error');
   }
 
   return { checkoutUrl: data.result.link };
@@ -176,7 +175,8 @@ function parseWebhookEvent(rawBody: string): PaymentWebhookEvent {
   const payload = JSON.parse(rawBody) as CCWebhookPayload;
 
   if (payload.status !== 'success') {
-    throw new Error(`Unhandled CryptoCloud event: ${payload.status}`);
+    logger.warn('[CryptoCloud] Non-actionable webhook status — ignoring', { status: payload.status });
+    return { type: 'order.ignored' };
   }
 
   return {

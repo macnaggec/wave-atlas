@@ -66,7 +66,7 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
 function makeMediaItem(overrides: Partial<MediaFulfillmentItem> = {}): MediaFulfillmentItem {
   return {
     id: 'media-1',
-    price: 10,
+    price: 1000,
     photographerId: 'photographer-1',
     cloudinaryPublicId: 'waves/photo-001',
     ...overrides,
@@ -113,7 +113,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   // -------------------------------------------------------------------------
 
   it('writes one purchase entry per media item with correct fields', async () => {
-    setupHappyPath([makeMediaItem({ price: 10 })]);
+    setupHappyPath([makeMediaItem({ price: 1000 })]);
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
@@ -122,9 +122,9 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
     expect(payload.purchases[0]).toMatchObject<Partial<FulfillPurchaseData>>({
       mediaItemId: 'media-1',
       buyerId: 'buyer-1',
-      amountPaid: 10,
-      platformFee: 2,
-      photographerEarned: 8,
+      amountPaid: 1000,
+      platformFee: 200,
+      photographerEarned: 800,
       previewUrl: 'https://res.cloudinary.com/preview',
     });
   });
@@ -134,16 +134,16 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   // -------------------------------------------------------------------------
 
   it('credits aggregated earnings when two items share the same photographer', async () => {
-    // (10 + 20) * 0.80 = 24
+    // (1000 + 2000) * 0.80 = 2400
     const items = [
-      makeMediaItem({ id: 'media-1', price: 10, photographerId: 'p-1' }),
-      makeMediaItem({ id: 'media-2', price: 20, photographerId: 'p-1' }),
+      makeMediaItem({ id: 'media-1', price: 1000, photographerId: 'p-1' }),
+      makeMediaItem({ id: 'media-2', price: 2000, photographerId: 'p-1' }),
     ];
     mockOrders.findOrderByExternalId.mockResolvedValue(null);
     mockOrders.findOrderById.mockResolvedValue(makeOrder({
       items: [
-        { id: 'oi-1', orderId: ORDER_ID, mediaItemId: 'media-1' },
-        { id: 'oi-2', orderId: ORDER_ID, mediaItemId: 'media-2' },
+        { id: 'oi-1', mediaItemId: 'media-1' },
+        { id: 'oi-2', mediaItemId: 'media-2' },
       ],
     }));
     mockMedia.findByIdsForFulfillment.mockResolvedValue(items);
@@ -152,19 +152,19 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
     expect(payload.earnings).toHaveLength(1);
-    expect(payload.earnings[0]).toMatchObject({ photographerId: 'p-1', amount: 24 });
+    expect(payload.earnings[0]).toMatchObject({ photographerId: 'p-1', amount: 2400 });
   });
 
   it('credits separate earnings when photographers differ', async () => {
     const items = [
-      makeMediaItem({ id: 'media-1', price: 10, photographerId: 'p-1' }),
-      makeMediaItem({ id: 'media-2', price: 20, photographerId: 'p-2' }),
+      makeMediaItem({ id: 'media-1', price: 1000, photographerId: 'p-1' }),
+      makeMediaItem({ id: 'media-2', price: 2000, photographerId: 'p-2' }),
     ];
     mockOrders.findOrderByExternalId.mockResolvedValue(null);
     mockOrders.findOrderById.mockResolvedValue(makeOrder({
       items: [
-        { id: 'oi-1', orderId: ORDER_ID, mediaItemId: 'media-1' },
-        { id: 'oi-2', orderId: ORDER_ID, mediaItemId: 'media-2' },
+        { id: 'oi-1', mediaItemId: 'media-1' },
+        { id: 'oi-2', mediaItemId: 'media-2' },
       ],
     }));
     mockMedia.findByIdsForFulfillment.mockResolvedValue(items);

@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
+import { BadGatewayError } from 'shared/errors';
 import { cryptoCloudAdapter } from './CryptoCloudAdapter';
 
 // ---------------------------------------------------------------------------
@@ -118,15 +119,57 @@ describe('CryptoCloudAdapter.parseWebhookEvent', () => {
     const event = cryptoCloudAdapter.parseWebhookEvent(rawBody);
 
     expect(event.type).toBe('order.completed');
+    if (event.type !== 'order.completed') return;
     expect(event.externalOrderId).toBe('ILRAJE1Q');
     expect(event.customData.orderId).toBe('order-abc-123');
   });
 
-  it('throws for a non-success status payload', () => {
+  it('returns order.ignored (not throws) for a non-success status payload', () => {
     const rawBody = makeWebhookBody(makeJwt(), 'fail');
 
-    expect(() => cryptoCloudAdapter.parseWebhookEvent(rawBody)).toThrow(
-      /Unhandled CryptoCloud event/,
-    );
+    const event = cryptoCloudAdapter.parseWebhookEvent(rawBody);
+
+    expect(event.type).toBe('order.ignored');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createCheckoutSession
+// ---------------------------------------------------------------------------
+describe('CryptoCloudAdapter.createCheckoutSession', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const validParams = {
+    orderId: 'order-123',
+    itemIds: ['item-1'],
+    totalCents: 1500,
+    itemCount: 1,
+    successUrl: 'https://example.com/success',
+  };
+
+  it('throws BadGatewayError when the API returns a non-ok HTTP response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => 'Service Unavailable',
+    }));
+
+    await expect(
+      cryptoCloudAdapter.createCheckoutSession(validParams)
+    ).rejects.toBeInstanceOf(BadGatewayError);
+  });
+
+  it('throws BadGatewayError when the API returns a non-success response body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'error', result: null }),
+    }));
+
+    await expect(
+      cryptoCloudAdapter.createCheckoutSession(validParams)
+    ).rejects.toBeInstanceOf(BadGatewayError);
   });
 });

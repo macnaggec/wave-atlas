@@ -1,13 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import { QueueItem } from '../../model';
+import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+
+interface Selection {
+  hasSelection: boolean;
+  selectedIds: readonly string[];
+  selectedItems: QueueItem[];
+}
 
 interface UseMetadataControlsProps {
   completedItems: QueueItem[];
   hasActiveUploads: boolean;
-  selectedCount: number;
-  hasSelection: boolean;
-  selectedIds: readonly string[];
-  selectedItems: QueueItem[];
+  selection: Selection;
   onBulkDateEdit?: (selectedIds: string[], date: Date) => void;
   onBulkPriceEdit?: (selectedIds: string[], price: number) => void;
 }
@@ -25,15 +29,13 @@ interface UseMetadataControlsProps {
 export function useMetadataControls({
   completedItems,
   hasActiveUploads,
-  selectedCount,
-  hasSelection,
-  selectedIds,
-  selectedItems,
+  selection,
   onBulkDateEdit,
   onBulkPriceEdit,
 }: UseMetadataControlsProps) {
+  const { hasSelection, selectedIds, selectedItems } = selection;
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedPrice, setSelectedPrice] = useState<number>(0);
+  const [selectedPrice, setSelectedPrice] = useState<number>(MIN_MEDIA_PRICE_CENTS / 100);
 
   // Check if selected items (or all if none selected) have EXIF dates
   const hasExifDates = useMemo(() => {
@@ -78,7 +80,6 @@ export function useMetadataControls({
   return {
     selectedDate,
     selectedPrice,
-    selectedCount,
     totalCount: completedItems.length,
     hasExifDates,
     isDisabled,

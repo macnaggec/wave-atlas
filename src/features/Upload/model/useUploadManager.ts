@@ -4,6 +4,8 @@ import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { MediaItem } from 'entities/Media/types';
 import { notify } from 'shared/lib/notifications';
+import { MEDIA_UPLOAD_LIMITS } from 'entities/Media/constants';
+import { UploadError } from './UploadError';
 import { UploadItem } from './types';
 import { createUploadPipeline } from './UploadPipeline';
 import { useDraftMediaMutate } from './useDraftMedia';
@@ -194,6 +196,7 @@ export const useUploadManager = (
     let mediaItem: MediaItem;
 
     try {
+      validateFileSize(file);
       const exifData = await pipeline.extractMetadata(file);
       const store = useUploadStore.getState();
       const existingCloudinaryResult = store.uploadQueue
@@ -333,4 +336,15 @@ function createPendingItems(files: File[], spotId: string): UploadItem[] {
     status: 'pending' as const,
     progress: 0,
   }));
+}
+
+function validateFileSize(file: File): void {
+  const maxSize = file.type.startsWith('video/')
+    ? MEDIA_UPLOAD_LIMITS.MAX_FILE_SIZE_VIDEO
+    : MEDIA_UPLOAD_LIMITS.MAX_FILE_SIZE_IMAGE;
+
+  if (file.size > maxSize) {
+    const limitMb = maxSize / 1024 / 1024;
+    throw new UploadError('FILE_TOO_LARGE', `File exceeds the ${limitMb} MB limit`);
+  }
 }

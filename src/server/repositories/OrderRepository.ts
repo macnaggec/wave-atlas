@@ -69,7 +69,7 @@ type PrismaOrderWithItems = {
   id: string;
   buyerId: string;
   externalOrderId: string | null;
-  totalAmount: { toNumber(): number };
+  totalAmount: number;
   status: string;
   items: { id: string; mediaItemId: string }[];
 };
@@ -79,7 +79,7 @@ function mapOrder(row: PrismaOrderWithItems): OrderWithItems {
     id: row.id,
     buyerId: row.buyerId,
     externalOrderId: row.externalOrderId,
-    totalAmount: row.totalAmount.toNumber(),
+    totalAmount: row.totalAmount,
     status: row.status,
     items: row.items.map(({ id, mediaItemId }) => ({ id, mediaItemId })),
   };

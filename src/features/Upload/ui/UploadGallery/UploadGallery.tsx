@@ -1,8 +1,6 @@
-'use client';
-
 import { FC, memo, useMemo, useCallback } from 'react';
-import { Button, Group, Menu, rem, ActionIcon } from '@mantine/core';
-import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
+import { Button, Group, Menu, rem } from '@mantine/core';
+import { IconTrash } from '@tabler/icons-react';
 import { UploadItem, QueueItem } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { useUploadStore } from '../../model/uploadStore';
@@ -13,19 +11,6 @@ import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
 import { useMetadataControls } from './useMetadataControls';
 import { UploadGalleryProps, UploadItemAction } from './types';
-
-/**
- * Action icon configuration for upload items
- */
-const ACTION_ICONS: Record<
-  UploadItemAction,
-  { icon: typeof IconTrash; label: string; color: string }
-> = {
-  delete: { icon: IconTrash, label: 'Delete', color: 'red' },
-  cancel: { icon: IconX, label: 'Cancel', color: 'gray' },
-  retry: { icon: IconRefresh, label: 'Retry', color: 'blue' },
-  edit: { icon: IconPencil, label: 'Edit', color: 'gray' },
-};
 
 /**
  * UploadGallery - Unified gallery view for uploads and drafts
@@ -80,10 +65,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   const metadataState = useMetadataControls({
     completedItems,
     hasActiveUploads,
-    selectedCount: selection.selectedCount,
-    hasSelection: selection.hasSelection,
-    selectedIds: selection.selectedIds,
-    selectedItems: selection.selectedItems,
+    selection,
     onBulkDateEdit,
     onBulkPriceEdit,
   });
@@ -139,44 +121,18 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
 
   const renderCard = useCallback(
     (item: QueueItem, context: { isSelectionMode: boolean }) => {
-      // Hide individual actions during selection mode - actions move to toolbar menu
-      const shouldShowActions = actions.length > 0 && !context.isSelectionMode;
-
-      // In-progress items get cancel; completed/error items get the configured actions
       const isInProgress = !['completed', 'error'].includes(item.status);
-      const itemActions = isInProgress ? ['cancel' as UploadItemAction] : actions;
+      const itemActions = context.isSelectionMode
+        ? []
+        : isInProgress ? ['cancel' as UploadItemAction] : actions;
 
       return (
         <UploadCardRenderer
           item={item}
           onRetry={onRetry}
-          actions={
-            shouldShowActions ? (
-              <Group gap="xs">
-                {itemActions.map((actionType) => {
-                  const config = ACTION_ICONS[actionType];
-                  const Icon = config.icon;
-
-                  return (
-                    <ActionIcon
-                      key={actionType}
-                      variant="filled"
-                      color={config.color}
-                      size="sm"
-                      radius="xl"
-                      aria-label={config.label}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAction?.(actionType, item.id);
-                      }}
-                    >
-                      <Icon size={14} />
-                    </ActionIcon>
-                  );
-                })}
-              </Group>
-            ) : undefined
-          }
+          actions={itemActions}
+          onAction={onAction}
+          hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
         />
       );
     },
@@ -214,7 +170,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
               showPriceEdit={!!onBulkPriceEdit}
               selectedDate={metadataState.selectedDate}
               selectedPrice={metadataState.selectedPrice}
-              selectedCount={metadataState.selectedCount}
+              selectedCount={selection.selectedCount}
               totalCount={metadataState.totalCount}
               hasExifDates={metadataState.hasExifDates}
               disabled={metadataState.isDisabled}

@@ -53,6 +53,9 @@ export const MEDIA_UPLOAD_LIMITS = {
   MAX_UPLOADS_PER_DAY: 100, // Prevents abuse
 } as const;
 
+/** Minimum media price in cents. All published media must cost at least $3.00. */
+export const MIN_MEDIA_PRICE_CENTS = 300;
+
 export type MediaStatus = typeof MEDIA_STATUS[keyof typeof MEDIA_STATUS];
 export type PhotoStatus = MediaStatus; // Legacy alias
 export type MediaResourceType = typeof MEDIA_RESOURCE_TYPE[keyof typeof MEDIA_RESOURCE_TYPE];

@@ -52,7 +52,7 @@ model User {
   password           String?
   name               String?
   image              String?
-  balance            Decimal   @default(0) @db.Decimal(10, 2)
+  balance            Int       @default(0) @db.Integer
   externalCustomerId String?   @map("external_customer_id")
   deletedAt          DateTime? @map("deleted_at")
   createdAt          DateTime  @default(now()) @map("created_at")
@@ -120,7 +120,7 @@ model MediaItem {
   photographerId     String      @map("photographer_id")
   spotId             String      @map("spot_id")
   capturedAt         DateTime    @map("captured_at")
-  price              Decimal     @db.Decimal(8, 2)
+  price              Int
   lightboxUrl        String      @map("lightbox_url")
   thumbnailUrl       String      @map("thumbnail_url")
   cloudinaryPublicId String      @map("cloudinary_public_id")
@@ -158,7 +158,7 @@ model Order {
   id              String      @id @default(uuid())
   buyerId         String      @map("buyer_id")
   externalOrderId String?     @unique @map("external_order_id")
-  totalAmount     Decimal     @map("total_amount") @db.Decimal(10, 2)
+  totalAmount     Int         @map("total_amount")
   status          OrderStatus @default(PENDING)
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -186,9 +186,9 @@ model Purchase {
   orderId            String?  @map("order_id")
   mediaItemId        String   @map("media_item_id")
   buyerId            String   @map("buyer_id")
-  amountPaid         Decimal  @map("amount_paid") @db.Decimal(8, 2)
-  platformFee        Decimal  @map("platform_fee") @db.Decimal(8, 2)
-  photographerEarned Decimal  @map("photographer_earned") @db.Decimal(8, 2)
+  amountPaid         Int      @map("amount_paid")
+  platformFee        Int      @map("platform_fee")
+  photographerEarned Int      @map("photographer_earned")
   purchasedAt        DateTime @default(now()) @map("purchased_at")
   // Generated at fulfillment via CloudinaryService.generatePermanentPreviewUrl
   previewUrl         String?  @map("preview_url")
@@ -203,7 +203,7 @@ model Purchase {
 model Transaction {
   id              String            @id @default(uuid())
   userId          String            @map("user_id")
-  amount          Decimal           @db.Decimal(10, 2)
+  amount          Int
   type            TransactionType
   externalOrderId String?           @map("external_order_id")
   status          TransactionStatus @default(PENDING)
@@ -217,7 +217,7 @@ model Transaction {
 model PayoutRequest {
   id                 String       @id @default(uuid())
   photographerId     String       @map("photographer_id")
-  amount             Decimal      @db.Decimal(10, 2)
+  amount             Int
   status             PayoutStatus @default(PENDING)
   externalTransferId String?      @map("external_transfer_id")
   note               String?

@@ -40,7 +40,6 @@ export function createUploadPipeline(
       apiKey: signature.apiKey,
       cloudName: signature.cloudName,
       folder: signature.folder,
-      type: signature.type,
       eager: signature.eager,
       onProgress,
     });

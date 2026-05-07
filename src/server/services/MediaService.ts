@@ -1,11 +1,15 @@
+import { MediaType } from '@prisma/client';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
-import type { IResourceTypeMapper } from 'server/services/ResourceTypeMapper';
-import { resourceTypeMapper } from 'server/services/ResourceTypeMapper';
-import { MEDIA_STATUS } from 'entities/Media/constants';
+import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
 import type { MediaStatus } from 'entities/Media/constants';
 import type { MediaItem } from 'entities/Media/types';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
+
+const CLOUDINARY_TYPE_MAP: Record<string, MediaType> = {
+  video: MediaType.VIDEO,
+  image: MediaType.PHOTO,
+};
 
 export type CreateMediaInput = {
   spotId: string;
@@ -34,22 +38,11 @@ export type PublishInput = {
   capturedAt?: Date;
 };
 
-export interface IMediaService {
-  createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem>;
-  updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem>;
-  deleteMedia(userId: string, mediaId: string): Promise<void>;
-  updateBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<MediaItem[]>;
-  publish(userId: string, mediaIds: string[], data: PublishInput): Promise<MediaItem[]>;
-}
-
-export class MediaService implements IMediaService {
-  constructor(
-    private media: IMediaRepository,
-    private typeMapper: IResourceTypeMapper,
-  ) { }
+export class MediaService {
+  constructor(private media: IMediaRepository) { }
 
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
-    const resourceType = this.typeMapper.mapToMediaType(input.cloudinaryResult.resource_type);
+    const resourceType = CLOUDINARY_TYPE_MAP[input.cloudinaryResult.resource_type.toLowerCase()] ?? MediaType.PHOTO;
     return this.media.createMedia({
       spotId: input.spotId,
       photographerId: userId,
@@ -58,7 +51,7 @@ export class MediaService implements IMediaService {
       thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
       lightboxUrl: input.cloudinaryResult.lightboxUrl,
       capturedAt: input.capturedAt ?? new Date(),
-      price: input.price ?? 0,
+      price: input.price ?? MIN_MEDIA_PRICE_CENTS,
       status: MEDIA_STATUS.DRAFT,
     });
   }
@@ -94,7 +87,18 @@ export class MediaService implements IMediaService {
     mediaIds: string[],
     data: PublishInput
   ): Promise<MediaItem[]> {
-    await Promise.all(mediaIds.map((id) => this.assertOwns(userId, id)));
+    const items = await Promise.all(mediaIds.map((id) => this.assertOwns(userId, id)));
+
+    for (const item of items) {
+      if (item.status !== MEDIA_STATUS.DRAFT) {
+        throw new BadRequestError(`Media ${item.id} is not a draft`);
+      }
+      const finalPrice = data.price ?? item.price; // both in cents
+      if (finalPrice < MIN_MEDIA_PRICE_CENTS) {
+        throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
+      }
+    }
+
     const updateData: {
       status: typeof MEDIA_STATUS.PUBLISHED;
       price?: number;
@@ -118,4 +122,4 @@ export class MediaService implements IMediaService {
   }
 }
 
-export const mediaService = new MediaService(mediaRepository, resourceTypeMapper);
+export const mediaService = new MediaService(mediaRepository);

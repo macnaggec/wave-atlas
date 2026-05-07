@@ -16,6 +16,7 @@ export {
   NotFoundError,
   ConflictError,
   UnprocessableEntityError,
+  TooManyRequestsError,
 } from './ClientErrors';
 
 // Server errors (5xx)

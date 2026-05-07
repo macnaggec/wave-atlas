@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { router, protectedProcedure } from 'server/trpc';
 import { checkoutService } from 'server/services/CheckoutService';
 import { cartItemIdsSchema, mediaItemIdSchema } from 'shared/validation/checkoutSchemas';
+import { createRateLimiter } from 'server/lib/rateLimiter';
+
+// 5 checkout session creations per user per minute — prevents CryptoCloud API abuse
+const createCheckoutLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
 
 export const checkoutRouter = router({
   /**
@@ -12,6 +16,10 @@ export const checkoutRouter = router({
     .input(z.object({
       itemIds: cartItemIdsSchema,
     }))
+    .use(({ ctx, next }) => {
+      createCheckoutLimiter(ctx.user.id);
+      return next();
+    })
     .mutation(async ({ input, ctx }) => {
       return checkoutService.createCheckoutSession(ctx.user.id, input.itemIds);
     }),

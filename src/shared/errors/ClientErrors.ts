@@ -59,3 +59,13 @@ export class UnprocessableEntityError extends HttpError {
     super(message, 422, 'UNPROCESSABLE_ENTITY', details);
   }
 }
+
+/**
+ * 429 Too Many Requests
+ * Client has exceeded the rate limit for this resource
+ */
+export class TooManyRequestsError extends HttpError {
+  constructor(message: string = 'Too many requests', details?: unknown) {
+    super(message, 429, 'TOO_MANY_REQUESTS', details);
+  }
+}

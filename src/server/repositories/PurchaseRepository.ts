@@ -2,7 +2,6 @@ import {
   OrderStatus,
   TransactionStatus,
   TransactionType,
-  Prisma,
 } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from './BaseRepository';
@@ -64,7 +63,7 @@ export class PurchaseRepository implements IPurchaseRepository {
         },
         orderBy: { purchasedAt: 'desc' },
       });
-      return rows.map((row) => ({ ...row, amountPaid: row.amountPaid.toNumber() }));
+      return rows.map((row) => ({ ...row, amountPaid: row.amountPaid }));
     });
   }
 
@@ -82,7 +81,7 @@ export class PurchaseRepository implements IPurchaseRepository {
           },
         },
       });
-      return row ? { ...row, amountPaid: row.amountPaid.toNumber() } : null;
+      return row ? { ...row, amountPaid: row.amountPaid } : null;
     });
   }
 
@@ -107,17 +106,15 @@ export class PurchaseRepository implements IPurchaseRepository {
         await tx.purchase.createMany({ data: payload.purchases });
 
         for (const { photographerId, amount } of payload.earnings) {
-          const decimalAmount = new Prisma.Decimal(amount);
-
           await tx.user.update({
             where: { id: photographerId },
-            data: { balance: { increment: decimalAmount } },
+            data: { balance: { increment: amount } },
           });
 
           await tx.transaction.create({
             data: {
               userId: photographerId,
-              amount: decimalAmount,
+              amount,
               type: TransactionType.SALE,
               externalOrderId: payload.externalOrderId,
               status: TransactionStatus.COMPLETED,

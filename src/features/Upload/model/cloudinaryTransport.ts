@@ -1,4 +1,5 @@
 import { logger } from 'shared/lib/logger';
+import { mediaCloudinaryResultSchema } from 'shared/validation/mediaSchemas';
 import { UploadError } from './UploadError';
 import type { CloudinaryResult } from './types';
 
@@ -14,8 +15,6 @@ interface CloudinaryUploadParams {
   apiKey: string;
   cloudName: string;
   folder: string;
-  /** Delivery type — must match the signed param */
-  type: 'authenticated';
   /** Eager transform string — must match the signed param */
   eager: string;
   onProgress?: (progress: number) => void;
@@ -28,12 +27,12 @@ interface RawCloudinaryResponse {
   eager?: Array<{ secure_url: string }>;
 }
 
-export interface CloudinaryUpload {
+interface CloudinaryUpload {
   promise: Promise<CloudinaryResult>;
   abort: () => void;
 }
 
-export const uploadToCloudinary = (params: CloudinaryUploadParams): CloudinaryUpload => {
+export function uploadToCloudinary(params: CloudinaryUploadParams): CloudinaryUpload {
   const { cloudName, onProgress } = params;
 
   const xhr = new XMLHttpRequest();
@@ -59,13 +58,13 @@ export const uploadToCloudinary = (params: CloudinaryUploadParams): CloudinaryUp
     };
 
     xhr.onerror = () => reject(new UploadError('NETWORK_ERROR', 'Network error during upload'));
-    xhr.onabort = () => reject(new Error('Upload cancelled'));
+    xhr.onabort = () => reject(new UploadError('NETWORK_ERROR', 'Upload cancelled'));
 
     xhr.send(buildFormData(params));
   });
 
   return { promise, abort };
-};
+}
 
 function buildFormData(params: CloudinaryUploadParams): FormData {
   const formData = new FormData();
@@ -74,7 +73,7 @@ function buildFormData(params: CloudinaryUploadParams): FormData {
   formData.append('timestamp', params.timestamp.toString());
   formData.append('signature', params.signature);
   formData.append('folder', params.folder);
-  formData.append('type', params.type);
+  formData.append('type', 'authenticated');
   formData.append('eager', params.eager);
 
   return formData;
@@ -94,25 +93,21 @@ function parseSuccessResponse(
     return;
   }
 
-  const eager = raw.eager ?? [];
-  const thumbnailUrl = eager[0]?.secure_url;
-  const lightboxUrl = eager[1]?.secure_url;
+  const parsed = mediaCloudinaryResultSchema.safeParse({
+    publicId: raw.public_id,
+    thumbnailUrl: raw.eager?.[0]?.secure_url,
+    lightboxUrl: raw.eager?.[1]?.secure_url,
+    resource_type: raw.resource_type,
+  });
 
-  if (!thumbnailUrl || !lightboxUrl) {
-    reject(new UploadError(
-      'INVALID_RESPONSE',
-      'Cloudinary response missing eager transform URLs — check named transform configuration',
-    ));
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? 'Invalid Cloudinary response';
+    reject(new UploadError('INVALID_RESPONSE', msg));
 
     return;
   }
 
-  resolve({
-    publicId: raw.public_id,
-    resource_type: raw.resource_type,
-    thumbnailUrl,
-    lightboxUrl
-  });
+  resolve(parsed.data);
 }
 
 function parseRejectedResponse(xhr: XMLHttpRequest): UploadError {

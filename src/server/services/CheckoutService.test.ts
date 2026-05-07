@@ -70,7 +70,7 @@ function makeMediaItem(overrides: Partial<{
   return {
     id: 'media-1',
     status: 'PUBLISHED',
-    price: 10.00,
+    price: 1000,
     photographerId: 'photographer-1',
     ...overrides,
   };
@@ -136,14 +136,14 @@ describe('CheckoutService.createCheckoutSession', () => {
   });
 
   it('passes totalCents derived from DB prices — not from client input', async () => {
-    const item1 = makeMediaItem({ id: 'media-1', price: 15.50 });
-    const item2 = makeMediaItem({ id: 'media-2', price: 9.50 });
+    const item1 = makeMediaItem({ id: 'media-1', price: 1550 });
+    const item2 = makeMediaItem({ id: 'media-2', price: 950 });
 
     setupHappyPath([item1, item2]);
 
     await service.createCheckoutSession(BUYER_ID, ['media-1', 'media-2']);
 
-    // 15.50 + 9.50 = 25.00 → 2500 cents
+    // 1550 + 950 = 2500 cents
     expect(mockPayment.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ totalCents: 2500 }),
     );

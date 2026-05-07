@@ -10,7 +10,7 @@ export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
     photographerId: row.photographerId,
     spotId: row.spotId,
     capturedAt: row.capturedAt,
-    price: Math.round(Number(row.price) * 100),
+    price: row.price,
     lightboxUrl: row.lightboxUrl,
     thumbnailUrl: row.thumbnailUrl,
     cloudinaryPublicId: row.cloudinaryPublicId,
@@ -33,7 +33,7 @@ function mapToPublishedMedia(
     id: row.id,
     type: row.type,
     lightboxUrl: row.lightboxUrl,
-    price: Number(row.price),
+    price: row.price,
     capturedAt: row.capturedAt,
     spotId: row.spotId,
     photographerId: row.photographerId,
@@ -118,7 +118,7 @@ export class MediaRepository implements IMediaRepository {
         where: { id: { in: ids } },
         select: { id: true, status: true, price: true, photographerId: true },
       });
-      return rows.map((row) => ({ ...row, price: row.price.toNumber() }));
+      return rows.map((row) => ({ ...row, price: row.price }));
     });
   }
 
@@ -128,7 +128,7 @@ export class MediaRepository implements IMediaRepository {
         where: { id: { in: ids } },
         select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
       });
-      return rows.map((row) => ({ ...row, price: row.price.toNumber() }));
+      return rows.map((row) => ({ ...row, price: row.price }));
     });
   }
 

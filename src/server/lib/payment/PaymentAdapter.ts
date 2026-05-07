@@ -21,18 +21,22 @@ export interface CheckoutSessionResult {
  * Normalised webhook event — provider-agnostic shape.
  * customData carries whatever we embedded at checkout time (orderId, itemIds).
  */
-export interface PaymentWebhookEvent {
-  /** Normalised event type. Adapters map provider-specific names to these. */
-  type: 'order.completed';
-  /** Provider's own order identifier — stored as externalOrderId in our DB. */
-  externalOrderId: string;
-  customData: {
-    orderId: string;
-    itemIds: string[];
+export type PaymentWebhookEvent =
+  | {
+    type: 'order.completed';
+    /** Provider's own order identifier — stored as externalOrderId in our DB. */
+    externalOrderId: string;
+    customData: {
+      orderId: string;
+      itemIds: string[];
+    };
+  }
+  | {
+    /** Non-actionable event (e.g. failed payment, overpaid) — safely ignored. */
+    type: 'order.ignored';
   };
-}
 
-export type PaymentAdapter = {
+export interface PaymentAdapter {
   /**
    * Creates a hosted checkout session and returns a redirect URL.
    * All pricing must be passed in — provider must not be queried for prices.

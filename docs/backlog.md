@@ -41,7 +41,8 @@
 10. 🟡 **P2** `[bug]` Preview card photos stack vertically instead of showing a carousel
     - Decide on source media: last uploaded photo vs. curated admin picks
 
-11. 🔴 **P0** `[security]` Restrict Mapbox public token to production/staging domains in the Mapbox dashboard to prevent quota abuse
+11. � **P3** `[security]` *(post-deploy)* Restrict Mapbox public token to production/staging domains in the Mapbox dashboard to prevent quota abuse
+    - Address as soon as production domain is obtained
     - Dashboard: https://account.mapbox.com/access-tokens/
 
 12. ✅ ~~Audit `useTRPC()` data-fetching patterns and verify all error paths use `shared/errors` utilities (`getErrorMessage`, `ClientErrors`, etc.) consistently~~
@@ -61,7 +62,10 @@
     - Keep current XHR pipeline for direct uploads (progress tracking, per-file abort, full UI control)
     - Apply file size/type validation from #36 at the Cloudinary URL-fetch step
 
-17. 🔴 **P0** `[error-handling]` Fix silent swallowing of errors across the codebase
+17. ✅ ~~Fix silent swallowing of errors across the codebase~~
+    - `CheckoutService`: logs original payment gateway error (with `orderId`) via `logger.error` before rethrowing `BadGatewayError`
+    - `usePurchaseDownload`: added `catch` → `notify.error` so signed-URL failures surface to the user
+    - `useAddSpotFlow`: added `catch` → `notify.error` so spot creation / nearby-check failures surface to the user
 
 18. 🟠 **P1** `[feature]` Design and implement payment system UX
 
@@ -69,12 +73,13 @@
 
 20. 🟡 **P2** `[perf]` Add virtualised lists for all galleries (see also #34)
 
-21. 🟠 **P1** `[bug]` Free photos show watermarks in the lightbox preview — they should not
+21. ✅ ~~Free photos show watermarks in the lightbox preview~~
+    - Resolved by removing the free tier: all published media requires a minimum price of $3. Watermarks on public lightboxes are now correct by design.
 
 22. 🟡 **P2** `[ux]` Design UX for displaying original file resolution and metadata
 
-23. 🟠 **P1** `[bug]` Two related issues:
-    - Edit price control must enforce a minimum of $3
+23. � **P2** `[bug]` Two related issues:
+    - ~~Edit price control must enforce a minimum of $3~~ ✅ Resolved: `MIN_MEDIA_PRICE_CENTS = 300` enforced at schema level (`mediaBatchUpdateSchema`, `mediaPublishSchema`), service level (`MediaService.publish`), and UI (`PriceEditPopover min={3}`)
     - Close the preview card when any drawer opens (not only when dismissed from the card itself — see also #4)
 
 24. 🟡 **P2** `[feature]` Add "Buy Now" that bypasses the cart
@@ -126,17 +131,16 @@
     - Fix: `queryClient.prefetchQuery` with an `Image` object `onload` promise; browser caches before modal opens
     - File: `src/app/routes/_drawer.me.purchases.tsx` — add `onMouseEnter` to each `<Card>`
 
-36. 🔴 **P0** `[security]` Upload pipeline is missing validation guards
+36. ✅ ~~Upload pipeline missing validation guards~~
     1. ✅ ~~**Folder ownership**: verify the target spot belongs to the current user before signing (see #28)~~
-    2. ❌ **File type whitelist**: validate `resource_type` in `media.create` against an allowlist — `resource_type` is passed through `cloudinaryTransport.ts` but never validated server-side
-    3. ❌ **File size limit**: `MAX_FILE_SIZE_IMAGE`/`VIDEO` constants exist in `src/entities/Media/constants.ts` but are NOT enforced before the XHR upload in `cloudinaryTransport.ts`
-    4. ❌ **Rate limiting**: no `src/server/middleware/` directory exists; `media.signCloudinary` has no rate cap
-    - Files: `src/server/routes/media.ts`, `src/features/Upload/model/cloudinaryTransport.ts`, `src/server/middleware/rateLimiter.ts` (NEW)
+    2. ✅ ~~**File type whitelist**: `resource_type` in `mediaCloudinaryResultSchema` changed from `z.string()` to `z.enum(['image', 'video'])`~~
+    3. ✅ ~~**File size limit**: guard added at top of `uploadToCloudinary` in `cloudinaryTransport.ts`; rejects with `FILE_TOO_LARGE` before XHR starts; uses `MEDIA_UPLOAD_LIMITS` constants~~
+    4. ✅ ~~**Rate limiting**: `createRateLimiter` utility in `src/server/lib/rateLimiter.ts`; `signCloudinary` capped at 10/user/min via tRPC `.use()` middleware~~
 
-37. 🔴 **P0** `[security]` Webhook endpoint has no rate limiting — susceptible to replay-flood DoS
-    - Public URL — a captured valid payload can be replayed indefinitely; each replay passes signature check and hits the DB
-    - Fix: middleware tracking requests per IP (and/or `invoice_id`); reject with HTTP 429 above threshold (e.g. 20 req/min per IP)
-    - Files: `src/server/index.ts`, `src/server/middleware/rateLimiter.ts` (NEW or extend from #36)
+37. ✅ ~~Webhook endpoint rate limiting — replay-flood DoS~~
+    - `webhookLimiter` (20 req/IP/min) added to `/api/webhook/cryptocloud` in `src/server/index.ts`
+    - Uses same `createRateLimiter` utility as #36.4
+    - IP extracted from `x-forwarded-for` / `cf-connecting-ip` headers
 
 38. ✅ ~~Webhook fulfillment: non-atomic idempotency check — vulnerable to race-condition double fulfillment~~
     - `@@unique` on `externalOrderId` was already in the schema
@@ -145,11 +149,11 @@
 39. ✅ ~~Wire `PrismaErrorMapper` into all repositories~~
     - All repositories (`Media`, `Order`, `Purchase`, `Spot`, `User`) already use `runQuery` from `BaseRepository`, which calls `mapPrismaError` in its catch — P2002/P2025 are fully mapped
 
-40. 🟠 **P1** `[error-handling]` Payment adapters throw plain `new Error()` — internal provider details may leak to the client
-    - Not `HttpError` instances → tRPC may include the raw `.message` in the response body (leaks provider names and internal API responses)
-    - Confirmed: `CryptoCloudAdapter.ts` lines 44, 89, 97, 179 throw `new Error(...)` directly
-    - Fix: replace with `new BadGatewayError('Payment provider error')` (pattern already used in `CheckoutService`) and log details via `logger.error` (#33 ✅)
-    - Files: `src/server/lib/payment/CryptoCloudAdapter.ts`
+40. ✅ ~~Payment adapters throw plain `new Error()` — internal provider details may leak to the client~~
+    - `createCheckoutSession` HTTP error + unexpected response: now `logger.error(...)` + `throw new BadGatewayError('Payment provider error')`
+    - `parseWebhookEvent` non-success status: no longer throws — returns `{ type: 'order.ignored' }` (safe, webhook handler already gates on `order.completed`)
+    - `PaymentWebhookEvent` type extended to discriminated union `'order.completed' | 'order.ignored'`
+    - File: `src/server/lib/payment/CryptoCloudAdapter.ts`, `src/server/lib/payment/PaymentAdapter.ts`
 
 41. ✅ ~~Webhook handler has no try/catch around `handleEvent` — uncontrolled 500 exposes stack traces and triggers dangerous provider retries on partially-written fulfillments~~
     - Wrapped `fulfillOrder` in try/catch; logs via `logger.error`; returns controlled `{ error: 'Fulfillment error' }` with status 500
@@ -182,3 +186,9 @@
     - Each call site passes `'RepositoryName.methodName'` — no class or `this.constructor.name` needed
     - Prerequisite: #33 (structured logger) must land first
     - Enables: consistent error logging and future tracing across all repos in one place
+
+50. 🟢 **P3** `[infra]` *(post-deploy)* Wire server logger to a production log aggregator
+    - Current logger writes structured JSON to stdout — useful only if the host captures it
+    - **Recommended**: Pino (replace `console.log(JSON.stringify(...))` in `logger.ts`) + Logtail / Axiom / Datadog as the sink
+    - Single change point: `shared/lib/logger.ts` transport layer
+    - Prerequisite: hosting provider chosen and deployed

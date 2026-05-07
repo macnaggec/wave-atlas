@@ -1,4 +1,5 @@
 import { MediaItem } from 'entities/Media/types';
+import type { MediaResourceType } from 'entities/Media/constants';
 
 /**
  * Upload status lifecycle:
@@ -44,7 +45,7 @@ export interface CloudinaryResult {
   publicId: string;
   thumbnailUrl: string;
   lightboxUrl: string;
-  resource_type: string;
+  resource_type: MediaResourceType;
 }
 
 /**

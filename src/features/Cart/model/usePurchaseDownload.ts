@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTRPCClient } from 'app/lib/trpc';
+import { notify } from 'shared/lib/notifications';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 
 /**
  * Manages signed download access for a purchased media item.
@@ -16,6 +18,8 @@ export function usePurchaseDownload() {
     try {
       const { downloadUrl } = await trpcClient.checkout.getSignedMediaAccess.query({ mediaItemId });
       window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      notify.error(getErrorMessage(err), 'Download Failed');
     } finally {
       setDownloadingId(null);
     }
