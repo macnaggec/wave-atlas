@@ -31,11 +31,13 @@ export class CheckoutService {
   ): Promise<{ checkoutUrl: string; orderId: string }> {
     const mediaItems = await this.fetchAndValidateCartItems(buyerId, itemIds);
     const totalCents = mediaItems.reduce((sum, item) => sum + item.price, 0);
+
     const order = await this.orders.createOrder({
       buyerId,
       totalAmount: totalCents,
       itemIds
     });
+
     const checkoutUrl = await this.openPaymentSession(
       order.id,
       mediaItems,
@@ -127,16 +129,16 @@ export class CheckoutService {
     try {
       const { checkoutUrl } = await this.payment.createCheckoutSession({
         orderId,
-        itemIds: mediaItems.map((m) => m.id),
         totalCents,
-        itemCount: mediaItems.length,
         successUrl: `${appUrl}/me/purchases?order=${orderId}`,
+        failUrl: `${appUrl}/cart`,
       });
 
       return checkoutUrl;
     } catch (err) {
       logger.error('[CheckoutService] Payment gateway error', { err, orderId });
       await this.orders.markOrderFailed(orderId);
+
       throw new BadGatewayError('Failed to create checkout session');
     }
   }

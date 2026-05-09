@@ -143,10 +143,9 @@ describe('CryptoCloudAdapter.createCheckoutSession', () => {
 
   const validParams = {
     orderId: 'order-123',
-    itemIds: ['item-1'],
     totalCents: 1500,
-    itemCount: 1,
     successUrl: 'https://example.com/success',
+    failUrl: 'https://example.com/fail',
   };
 
   it('throws BadGatewayError when the API returns a non-ok HTTP response', async () => {

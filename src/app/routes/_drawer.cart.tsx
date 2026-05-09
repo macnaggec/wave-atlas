@@ -66,7 +66,9 @@ function CartDrawerRoute() {
               disabled={checkout.isPending}
               color="green"
               className={classes.checkoutButton}
-              onClick={() => checkout.mutate({ itemIds: items.map((i) => i.id) })}
+              onClick={() => checkout.mutate({
+                itemIds: items.map((i) => i.id)
+              })}
             >
               Checkout · {formatPrice(totalCents())}
             </Button>

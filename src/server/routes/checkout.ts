@@ -21,7 +21,10 @@ export const checkoutRouter = router({
       return next();
     })
     .mutation(async ({ input, ctx }) => {
-      return checkoutService.createCheckoutSession(ctx.user.id, input.itemIds);
+      return checkoutService.createCheckoutSession(
+        ctx.user.id,
+        input.itemIds
+      );
     }),
 
   /**

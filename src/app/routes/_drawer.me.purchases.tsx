@@ -1,16 +1,34 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { Card, Center, Group, Image, Loader, SimpleGrid, Text } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { Center, SimpleGrid, Skeleton, Text } from '@mantine/core';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useEffectEvent, useState } from 'react';
 import { useTRPC } from 'app/lib/trpc';
+import { trpcProxy } from 'app/lib/trpcClient';
 import { usePurchaseDownload } from 'features/Cart/model/usePurchaseDownload';
-import DownloadButton from 'features/Cart/ui/DownloadButton';
+import PurchaseCard from 'features/Cart/ui/PurchaseCard';
 import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
-import { formatPrice } from 'shared/lib/currency';
+import { notify } from 'shared/lib/notifications';
 
 export const Route = createFileRoute('/_drawer/me/purchases')({
+  validateSearch: (search): { order?: string } => ({
+    order: typeof search.order === 'string' ? search.order : undefined,
+  }),
+  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(
+    trpcProxy.checkout.myPurchases.queryOptions()
+  ),
+  pendingComponent: PurchasesPending,
   component: PurchasesTab,
 });
+
+function PurchasesPending() {
+  return (
+    <SimpleGrid cols={2} spacing="sm" p="sm">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} height={160} radius="md" />
+      ))}
+    </SimpleGrid>
+  );
+}
 
 /**
  * PurchasesTab — shows media purchased by the authenticated user.
@@ -19,19 +37,31 @@ export const Route = createFileRoute('/_drawer/me/purchases')({
  */
 function PurchasesTab() {
   const trpc = useTRPC();
-  const { data: purchases = [], isLoading } = useQuery(trpc.checkout.myPurchases.queryOptions());
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { data: purchases } = useSuspenseQuery(trpc.checkout.myPurchases.queryOptions());
   const { download, isDownloading, isAnyDownloading } = usePurchaseDownload();
+  const { order } = Route.useSearch();
+
+  const onPaymentReturn = useEffectEvent(() => {
+    notify.success('Your files are ready to download.', 'Payment successful');
+    void queryClient.invalidateQueries(trpc.checkout.myPurchases.queryOptions());
+    void navigate({ to: '/me/purchases', search: {}, replace: true });
+  });
+
+  useEffect(() => {
+    if (order) onPaymentReturn();
+  }, [order]);
 
   const [lightboxMediaItemId, setLightboxMediaItemId] = useState<string | null>(null);
-  const lightboxPurchase = purchases.find(p => p.mediaItem.id === lightboxMediaItemId) ?? null;
+  const lightboxPurchase = useMemo(
+    () => purchases.find((p) => p.mediaItem.id === lightboxMediaItemId) ?? null,
+    [purchases, lightboxMediaItemId],
+  );
 
-  if (isLoading) {
-    return (
-      <Center mih={200}>
-        <Loader size="sm" />
-      </Center>
-    );
-  }
+  const handlePreview = useCallback((mediaItemId: string) => {
+    setLightboxMediaItemId(mediaItemId);
+  }, []);
 
   if (purchases.length === 0) {
     return (
@@ -45,38 +75,14 @@ function PurchasesTab() {
     <>
       <SimpleGrid cols={2} spacing="sm" p="sm">
         {purchases.map((p) => (
-          <Card
+          <PurchaseCard
             key={p.id}
-            padding="xs"
-            radius="md"
-            withBorder
-            style={{ cursor: p.previewUrl ? 'pointer' : 'default' }}
-            onClick={() => p.previewUrl && setLightboxMediaItemId(p.mediaItem.id)}
-          >
-            <Card.Section>
-              <Image
-                src={p.mediaItem.thumbnailUrl}
-                height={120}
-                fit="cover"
-                alt="Purchased media"
-              />
-            </Card.Section>
-
-            <Group justify="space-between" mt="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed">
-                {formatPrice(p.amountPaid)}
-              </Text>
-              <span onClick={e => e.stopPropagation()}>
-                <DownloadButton
-                  mediaItemId={p.mediaItem.id}
-                  size="sm"
-                  loading={isDownloading(p.mediaItem.id)}
-                  disabled={isAnyDownloading}
-                  onDownload={download}
-                />
-              </span>
-            </Group>
-          </Card>
+            purchase={p}
+            isDownloading={isDownloading(p.mediaItem.id)}
+            isAnyDownloading={isAnyDownloading}
+            onDownload={download}
+            onPreview={handlePreview}
+          />
         ))}
       </SimpleGrid>
 

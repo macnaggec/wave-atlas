@@ -104,11 +104,8 @@
     - Fix: add a third eager transform `t_wave_atlas_lightbox_owner` (800px, no watermark, authenticated delivery); store in a new `ownerLightboxUrl` DB column
     - Requires: new Cloudinary named transform, Prisma migration, updated `MediaRepository.create`, updated `UploadPipeline.saveToDatabase`
 
-31. 🟡 **P2** `[perf]` `media.updateBatch` issues 2 DB reads per item — collapse to 1
-    - `ensureCanModify()` → `findById` (read #1); then route → `findById` again for status check (read #2)
-    - 20-item batch = 40 DB round-trips instead of 20
-    - Fix: extend `ensureCanModify()` to also return status, or add `ensureCanModifyDraft(userId, mediaId)` checking ownership + `DRAFT` status in one query
-    - Files: `MediaAuthorizationService.ts`, `src/server/routes/media.ts` → `updateBatch`
+31. ✅ ~~`media.updateBatch` issues 2 DB reads per item — collapse to 1~~
+    - Resolved as part of #47: `MediaAuthorizationService` class removed; `assertOwns` in `MediaService` does 1 read that also returns the item for status check; `updateBatch` no longer calls `findById` twice per item
 
 32. 🟡 **P2** `[refactor]` Rename `photographerId` → `ownerId` / `authorId` / `creatorId` across the codebase
 
@@ -171,11 +168,8 @@
 
 46. ✅ ~~`CheckoutService.ts` leaks `Prisma.Decimal` above the repository boundary~~
 
-47. ✅ **P2** `[refactor]` `MediaAuthorizationService.ts` uses a class + interface pattern inconsistent with the rest of the services layer
-    - All other services (`CheckoutService`, `PurchaseFulfillmentService`, `CloudinaryService`) export plain functions or a singleton object
-    - `IMediaAuthorizationService` interface and `MediaAuthorizationService` class exist solely for constructor DI, used only in tests via mock injection
-    - Fix: replace class with plain exported functions; use `vi.mock` in tests instead of constructor injection
-    - Files: `MediaAuthorizationService.ts`, any test files importing it
+47. ✅ ~~`MediaAuthorizationService.ts` uses a class + interface pattern inconsistent with the rest of the services layer~~
+    - `MediaAuthorizationService.ts` removed entirely; ownership check folded into `MediaService.assertOwns` (private method); `vi.mock` used in tests
 
 48. 🟡 **P2** `[bug]` thumnails in galleries using image with watermark. only public lightboxes should be with watermark.
 

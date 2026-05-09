@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
-// Active payment adapter — change this import to swap providers.
+// Active payment adapter — change PAYMENT_PROVIDER env var to swap providers.
 // Everything else in the codebase imports from here, not from a concrete adapter.
 // ---------------------------------------------------------------------------
 
-export { cryptoCloudAdapter as paymentAdapter } from 'server/lib/payment/CryptoCloudAdapter';
+import { cryptoCloudAdapter } from 'server/lib/payment/CryptoCloudAdapter';
+import { mockPaymentAdapter } from 'server/lib/payment/MockPaymentAdapter';
+
+export const paymentAdapter =
+  process.env.PAYMENT_PROVIDER === 'mock' ? mockPaymentAdapter : cryptoCloudAdapter;

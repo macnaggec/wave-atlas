@@ -7,10 +7,9 @@
 
 export interface CreateCheckoutParams {
   orderId: string;
-  itemIds: string[];
   totalCents: number;
-  itemCount: number;
   successUrl: string;
+  failUrl: string;
 }
 
 export interface CheckoutSessionResult {
@@ -19,7 +18,7 @@ export interface CheckoutSessionResult {
 
 /**
  * Normalised webhook event — provider-agnostic shape.
- * customData carries whatever we embedded at checkout time (orderId, itemIds).
+ * customData carries the orderId we embedded at checkout time.
  */
 export type PaymentWebhookEvent =
   | {
@@ -28,7 +27,6 @@ export type PaymentWebhookEvent =
     externalOrderId: string;
     customData: {
       orderId: string;
-      itemIds: string[];
     };
   }
   | {

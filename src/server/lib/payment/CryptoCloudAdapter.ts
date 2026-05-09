@@ -72,6 +72,8 @@ async function createCheckoutSession(
     add_fields: {
       order_id: params.orderId,
     },
+    success_url: params.successUrl,
+    fail_url: params.failUrl,
   };
 
   const response = await fetch(
@@ -149,7 +151,10 @@ function verifyHmacSignature(
     .update(signingInput)
     .digest('base64url');
   try {
-    return timingSafeEqual(Buffer.from(expectedSig), Buffer.from(receivedSig));
+    return timingSafeEqual(
+      Buffer.from(expectedSig),
+      Buffer.from(receivedSig)
+    );
   } catch {
     return false;
   }
@@ -186,8 +191,6 @@ function parseWebhookEvent(rawBody: string): PaymentWebhookEvent {
     customData: {
       // order_id is our Wave Atlas orderId passed via add_fields at creation
       orderId: payload.order_id ?? '',
-      // itemIds are not available from webhook — WebhookService reads them from DB
-      itemIds: [],
     },
   };
 }
