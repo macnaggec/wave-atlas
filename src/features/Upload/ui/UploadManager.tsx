@@ -117,7 +117,6 @@ export function UploadManager({
       />
       <PublishButton
         total={publishStats.total}
-        ready={publishStats.ready}
         allReady={publishStats.allReady}
         hasActiveUploads={hasActiveUploads}
         isPublishing={isPublishing}

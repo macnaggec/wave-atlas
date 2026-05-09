@@ -1,0 +1,22 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  /* Containing block for all position: absolute floating buttons */
+  position: relative;
+}
+
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.floatingAction {
+  position: absolute;
+  bottom: var(--mantine-spacing-xl);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}

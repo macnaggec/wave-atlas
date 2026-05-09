@@ -1,10 +1,20 @@
 import { createFileRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Drawer, Skeleton, Tabs, Text } from '@mantine/core';
+import { Skeleton, Tabs, Text } from '@mantine/core';
+import { useCallback } from 'react';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
+import { useCartStore } from 'features/Cart/model/cartStore';
+import { CartButton } from 'features/Cart/ui/CartButton';
+import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
+import { useTabNavigation } from 'shared/hooks';
 
 export const Route = createFileRoute('/_drawer/$spotId')({
   component: SpotLayout,
 });
+
+const TAB_ROUTES = {
+  gallery: '/$spotId',
+  upload: '/$spotId/upload',
+} as const;
 
 /**
  * SpotLayout — drawer content structure for a spot.
@@ -15,38 +25,47 @@ export const Route = createFileRoute('/_drawer/$spotId')({
 function SpotLayout() {
   const { spotId } = Route.useParams();
   const navigate = useNavigate();
-  const isUpload = useRouterState({
-    select: (s) => s.location.pathname.endsWith('/upload'),
-  });
   const { data: preview } = useSpotPreview(spotId);
+  const cartCount = useCartStore((s) => s.items.length);
+
+  const {
+    activeTab,
+    handleTabChange
+  } = useTabNavigation(TAB_ROUTES, { spotId });
+
+  const isUpload = activeTab === 'upload';
+
+  const handleCartClick = useCallback(() => {
+    void navigate({ to: '/cart' });
+  }, [navigate]);
 
   return (
     <>
-      <Drawer.Header>
+      <DrawerHeader>
         {preview ? (
           <Text fw={600} size="lg">{preview.name}</Text>
         ) : (
           <Skeleton height={22} width={160} radius="sm" />
         )}
-        <Drawer.CloseButton />
-      </Drawer.Header>
+      </DrawerHeader>
 
-      <Tabs
-        value={isUpload ? 'upload' : 'gallery'}
-        onChange={(tab) => {
-          if (tab === 'upload') navigate({ to: '/$spotId/upload', params: { spotId } });
-          else navigate({ to: '/$spotId', params: { spotId } });
-        }}
-      >
+      <Tabs value={activeTab} onChange={handleTabChange}>
         <Tabs.List px="md">
           <Tabs.Tab value="gallery">Gallery</Tabs.Tab>
           <Tabs.Tab value="upload">Upload</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
-      <Drawer.Body>
+      <DrawerBody>
         <Outlet />
-      </Drawer.Body>
+      </DrawerBody>
+
+      {!isUpload && (
+        <CartButton
+          count={cartCount}
+          onClick={handleCartClick}
+        />
+      )}
     </>
   );
 }

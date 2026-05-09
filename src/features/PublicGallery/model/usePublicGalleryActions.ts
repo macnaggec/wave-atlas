@@ -54,11 +54,18 @@ export function usePublicGalleryActions({
   cartItemIds,
   hasShare
 }: UsePublicGalleryActionsParams) {
-  const { user } = useUser();
+  const { user, isLoading } = useUser();
+
+  const isOwnId = useCallback(
+    (photographerId: string) => isLoading || photographerId === user?.id,
+    [user?.id, isLoading],
+  );
 
   const getCardActions = useCallback(
     (item: MediaItem, isSelectionMode: boolean): CardActionResult => {
-      const isOwn = item.photographerId === user?.id;
+      // While session loads, treat items as non-interactive to avoid briefly
+      // showing cart buttons on own items before user identity is known.
+      const isOwn = isOwnId(item.photographerId);
       if (isSelectionMode || isOwn) {
         return { actions: ACTIONS_NONE, activeActions: ACTIONS_NONE, isOwn };
       }
@@ -68,18 +75,12 @@ export function usePublicGalleryActions({
         isOwn,
       };
     },
-    [user?.id, cartItemIds, hasShare],
-  );
-
-  const getBuyableItems = useCallback(
-    (items: MediaItem[]): MediaItem[] =>
-      items.filter((i) => i.photographerId !== user?.id),
-    [user?.id],
+    [isOwnId, cartItemIds, hasShare],
   );
 
   const getCartBulkState = useCallback(
     (selectedItems: MediaItem[]): CartBulkState => {
-      const buyableItems = getBuyableItems(selectedItems);
+      const buyableItems = selectedItems.filter((i) => !isOwnId(i.photographerId));
       const toAddItems = buyableItems.filter((i) => !cartItemIds.has(i.id));
 
       const counts = {
@@ -120,8 +121,8 @@ export function usePublicGalleryActions({
         noActionsLabel: emptyReason ? EMPTY_LABELS[emptyReason] : null,
       };
     },
-    [getBuyableItems, cartItemIds, hasShare],
+    [isOwnId, cartItemIds, hasShare],
   );
 
-  return { getCardActions, getCartBulkState };
+  return { getCardActions, getCartBulkState, isOwnId, userId: user?.id };
 }

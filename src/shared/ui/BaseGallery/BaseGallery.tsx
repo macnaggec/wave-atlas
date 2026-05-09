@@ -1,18 +1,9 @@
-'use client';
-
-import React, { FC, ReactNode, memo, useCallback } from 'react';
-import { Stack, Box } from '@mantine/core';
+import React, { ReactNode, memo, useCallback, useRef } from 'react';
+import { Stack } from '@mantine/core';
 import styles from './BaseGallery.module.css';
 import SelectionCheckbox from './SelectionCheckbox';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
-import { MediaItem } from 'entities/Media/types';
-
-/**
- * Reusable style objects to prevent inline object creation
- */
-const POINTER_CURSOR = { cursor: 'pointer' } as const;
-const DEFAULT_CURSOR = { cursor: 'default' } as const;
-const RELATIVE_POSITION = { position: 'relative' as const };
+import { useScrollHidden } from 'shared/hooks';
 
 /**
  * Context passed to renderCard for each item
@@ -28,11 +19,8 @@ export interface CardContext {
   isSelectionMode: boolean;
 }
 
-/**
- * Props for the BaseGallery component
- * @template T - Type of items in the gallery (defaults to MediaItem)
- */
-export interface BaseGalleryProps<T = MediaItem> {
+/** Props for the BaseGallery component */
+export interface BaseGalleryProps<T extends { id: string }> {
   /** Array of items to display in the gallery */
   items: T[];
 
@@ -83,7 +71,7 @@ export interface BaseGalleryProps<T = MediaItem> {
  * />
  * ```
  */
-const BaseGallery = memo(<T extends { id: string } = MediaItem>({
+function BaseGallery<T extends { id: string }>({
   items,
   renderCard,
   getId = (item: T) => item.id,
@@ -93,7 +81,7 @@ const BaseGallery = memo(<T extends { id: string } = MediaItem>({
   emptyState,
   gap = 'md',
   'aria-label': ariaLabel = 'Gallery',
-}: BaseGalleryProps<T>) => {
+}: BaseGalleryProps<T>) {
   // Stable click handler to avoid creating new functions per item
   const handleItemClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -105,10 +93,20 @@ const BaseGallery = memo(<T extends { id: string } = MediaItem>({
     [selection]
   );
 
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useScrollHidden(toolbarRef, selection?.isSelectionMode ?? false);
+
   return (
     <Stack gap={gap}>
-      {/* Toolbar slot - for filters, selection controls, bulk actions */}
-      {toolbar}
+      {/* Toolbar slot — sticky, hides on scroll down, reveals on scroll up */}
+      {toolbar && (
+        <div
+          ref={toolbarRef}
+          className={styles.toolbar}
+        >
+          {toolbar}
+        </div>
+      )}
 
       {/* Main gallery grid */}
       <div className={styles.gallery} role="grid" aria-label={ariaLabel}>
@@ -131,9 +129,9 @@ const BaseGallery = memo(<T extends { id: string } = MediaItem>({
               role="gridcell"
               data-item-id={itemId}
               onClick={showCheckbox ? handleItemClick : undefined}
-              style={showCheckbox ? POINTER_CURSOR : DEFAULT_CURSOR}
+              data-selectable={showCheckbox}
             >
-              <div style={RELATIVE_POSITION}>
+              <div className={styles.itemInner}>
                 {renderCard(item, {
                   index,
                   isFirst: index === 0,
@@ -155,10 +153,6 @@ const BaseGallery = memo(<T extends { id: string } = MediaItem>({
       {items.length === 0 && emptyState}
     </Stack>
   );
-}) as <T extends { id: string } = MediaItem>(
-  props: BaseGalleryProps<T>
-) => React.ReactElement;
+}
 
-(BaseGallery as any).displayName = 'BaseGallery';
-
-export default BaseGallery;
+export default memo(BaseGallery) as typeof BaseGallery;

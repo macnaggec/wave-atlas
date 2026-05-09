@@ -1,6 +1,13 @@
-import { createFileRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Drawer, Tabs, Text } from '@mantine/core';
-import { useCallback } from 'react';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { Tabs, Text } from '@mantine/core';
+import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
+import { useTabNavigation } from 'shared/hooks';
+
+const TAB_ROUTES = {
+  uploads: '/me',
+  purchases: '/me/purchases',
+  favorites: '/me/favorites',
+} as const;
 
 export const Route = createFileRoute('/_drawer/me')({
   component: MeLayout,
@@ -13,33 +20,13 @@ export const Route = createFileRoute('/_drawer/me')({
  * Three URL-driven tabs: uploads (/me), purchases (/me/purchases), favorites (/me/favorites).
  */
 function MeLayout() {
-  const navigate = useNavigate();
-
-  const activeTab = useRouterState({
-    select: (s) => {
-      const p = s.location.pathname;
-      if (p.endsWith('/purchases')) return 'purchases';
-      if (p.endsWith('/favorites')) return 'favorites';
-      return 'uploads';
-    },
-  });
-
-  const handleTabChange = useCallback(
-    (tab: string | null) => {
-      if (!tab) return;
-      if (tab === 'purchases') void navigate({ to: '/me/purchases' });
-      else if (tab === 'favorites') void navigate({ to: '/me/favorites' });
-      else void navigate({ to: '/me' });
-    },
-    [navigate],
-  );
+  const { activeTab, handleTabChange } = useTabNavigation(TAB_ROUTES);
 
   return (
     <>
-      <Drawer.Header>
+      <DrawerHeader>
         <Text fw={600} size="lg">My Collection</Text>
-        <Drawer.CloseButton />
-      </Drawer.Header>
+      </DrawerHeader>
 
       <Tabs value={activeTab} onChange={handleTabChange}>
         <Tabs.List px="md">
@@ -49,9 +36,9 @@ function MeLayout() {
         </Tabs.List>
       </Tabs>
 
-      <Drawer.Body>
+      <DrawerBody>
         <Outlet />
-      </Drawer.Body>
+      </DrawerBody>
     </>
   );
 }

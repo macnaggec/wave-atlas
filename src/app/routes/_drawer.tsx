@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { DrawerLayout as DrawerLayoutPanel } from 'shared/ui/DrawerLayout';
 
 export const Route = createFileRoute('/_drawer')({
   component: DrawerLayout,
@@ -13,5 +14,9 @@ export const Route = createFileRoute('/_drawer')({
  * inside the root-owned Drawer.Content.
  */
 function DrawerLayout() {
-  return <Outlet />;
+  return (
+    <DrawerLayoutPanel>
+      <Outlet />
+    </DrawerLayoutPanel>
+  );
 }

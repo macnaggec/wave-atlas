@@ -1,15 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Box, Drawer, Text, Button } from '@mantine/core';
-import { IconShoppingCart } from '@tabler/icons-react';
+import { Text } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { notify } from 'shared/lib/notifications';
-import { formatPrice } from 'shared/lib/currency';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 import CartCard from 'features/Cart/ui/CartCard';
+import { CheckoutButton } from 'features/Cart/ui/CheckoutButton';
 import type { CartItem } from 'features/Cart/model/types';
-import classes from './_drawer.cart.module.css';
+import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
 
 /**
  * CartDrawerRoute — drawer content for the cart route (/cart).
@@ -39,43 +38,35 @@ function CartDrawerRoute() {
 
   return (
     <>
-      <Drawer.Header>
+      <DrawerHeader>
         <Text fw={600} size="lg">
           Cart{items.length > 0 ? ` (${items.length})` : ''}
         </Text>
-        <Drawer.CloseButton />
-      </Drawer.Header>
+      </DrawerHeader>
 
-      <Drawer.Body>
+      <DrawerBody>
         <BaseGallery<CartItem>
           items={items}
-          renderCard={(item) => <CartCard item={item} onRemove={remove} />}
+          renderCard={(item) => (
+            <CartCard item={item} onRemove={remove} />
+          )}
           emptyState={
             <Text c="dimmed" size="sm" ta="center" mt="xl">
               Your cart is empty
             </Text>
           }
         />
+      </DrawerBody>
 
-        {items.length > 0 && (
-          <Box className={classes.checkoutAnchor}>
-            <Button
-              size="lg"
-              leftSection={<IconShoppingCart size={20} />}
-              loading={checkout.isPending}
-              disabled={checkout.isPending}
-              color="green"
-              className={classes.checkoutButton}
-              onClick={() => checkout.mutate({
-                itemIds: items.map((i) => i.id)
-              })}
-            >
-              Checkout · {formatPrice(totalCents())}
-            </Button>
-
-          </Box>
-        )}
-      </Drawer.Body>
+      {items.length > 0 && (
+        <CheckoutButton
+          totalCents={totalCents()}
+          isPending={checkout.isPending}
+          onCheckout={() => checkout.mutate(
+            { itemIds: items.map((i) => i.id) }
+          )}
+        />
+      )}
     </>
   );
 }

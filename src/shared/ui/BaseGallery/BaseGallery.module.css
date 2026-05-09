@@ -1,14 +1,21 @@
+/* Toolbar hides on scroll down, reveals on scroll up via transform. */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--mantine-color-body);
+  transition: transform 220ms ease;
+}
+
+.toolbar[data-hidden] {
+  transform: translateY(-100%);
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   width: 100%;
-}
-
-@media (max-width: 1200px) {
-  .gallery {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 @media (max-width: 900px) {
@@ -26,15 +33,12 @@
 .gallery-item {
   position: relative;
   width: 100%;
+}
+
+.gallery-item[data-selectable='true'] {
   cursor: pointer;
 }
 
-.gallery-item img,
-.gallery-item video {
-  display: block;
-  object-fit: cover;
-}
-
-.modalContent {
-  line-height: 0;
+.itemInner {
+  position: relative;
 }

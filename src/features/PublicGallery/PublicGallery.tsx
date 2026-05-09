@@ -5,7 +5,6 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { DateFilterPopover } from 'shared/ui/DatePickerPopover';
 import { MediaItem } from 'entities/Media/types';
 import { useGallerySelection, useDateFilter } from 'shared/hooks/gallery';
-import { useUser } from 'shared/hooks/useUser';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox from './ui/MediaLightbox';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
@@ -65,11 +64,11 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   onShare,
   emptyMessage = 'No media available.',
 }) => {
-  const { getCardActions, getCartBulkState } = usePublicGalleryActions({
+  const { getCardActions, getCartBulkState, isOwnId, userId } = usePublicGalleryActions({
     cartItemIds,
     hasShare: !!onShare,
   });
-  const { user } = useUser();
+
   // ========================================================================
   // DATE FILTER
   // ========================================================================
@@ -96,8 +95,11 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const ownedItemIds = useMemo(
-    () => new Set(filteredItems.filter(i => i.photographerId === user?.id).map(i => i.id)),
-    [filteredItems, user?.id],
+    () => new Set(filteredItems
+      .filter(i => i.photographerId === userId)
+      .map(i => i.id)
+    ),
+    [filteredItems, userId],
   );
 
   const handleCardClick = useCallback((itemId: string) => {
