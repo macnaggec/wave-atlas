@@ -1,14 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Text } from '@mantine/core';
+import { Text, TextInput } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
+import { useState, useCallback } from 'react';
 import { useTRPC } from 'app/lib/trpc';
 import { useCartStore } from 'features/Cart/model/cartStore';
+import { useUser } from 'shared/hooks/useUser';
 import { notify } from 'shared/lib/notifications';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 import CartCard from 'features/Cart/ui/CartCard';
 import { CheckoutButton } from 'features/Cart/ui/CheckoutButton';
 import type { CartItem } from 'features/Cart/model/types';
 import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
+
+export const Route = createFileRoute('/_drawer/cart')({
+  component: CartDrawerRoute,
+});
 
 /**
  * CartDrawerRoute — drawer content for the cart route (/cart).
@@ -22,6 +28,8 @@ function CartDrawerRoute() {
   const clear = useCartStore((s) => s.clear);
   const totalCents = useCartStore((s) => s.totalCents);
   const trpc = useTRPC();
+  const { isAuthenticated } = useUser();
+  const [guestEmail, setGuestEmail] = useState('');
 
   const checkout = useMutation({
     ...trpc.checkout.create.mutationOptions(),
@@ -36,6 +44,23 @@ function CartDrawerRoute() {
     },
   });
 
+  const handleCheckout = useCallback(() => {
+    checkout.mutate({
+      itemIds: items.map((i) => i.id),
+      guestEmail: !isAuthenticated && guestEmail.trim() ? guestEmail.trim() : undefined,
+    });
+  }, [checkout.mutate, items, isAuthenticated, guestEmail]);
+
+  const handleEmailChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setGuestEmail(e.currentTarget.value),
+    [],
+  );
+
+  const renderCartCard = useCallback(
+    (item: CartItem) => <CartCard item={item} onRemove={remove} />,
+    [remove],
+  );
+
   return (
     <>
       <DrawerHeader>
@@ -47,9 +72,7 @@ function CartDrawerRoute() {
       <DrawerBody>
         <BaseGallery<CartItem>
           items={items}
-          renderCard={(item) => (
-            <CartCard item={item} onRemove={remove} />
-          )}
+          renderCard={renderCartCard}
           emptyState={
             <Text c="dimmed" size="sm" ta="center" mt="xl">
               Your cart is empty
@@ -59,18 +82,27 @@ function CartDrawerRoute() {
       </DrawerBody>
 
       {items.length > 0 && (
-        <CheckoutButton
-          totalCents={totalCents()}
-          isPending={checkout.isPending}
-          onCheckout={() => checkout.mutate(
-            { itemIds: items.map((i) => i.id) }
+        <>
+          {!isAuthenticated && (
+            <TextInput
+              px="md"
+              pb="xs"
+              pt="sm"
+              label="Email (optional)"
+              description="We'll send your download link here"
+              placeholder="you@example.com"
+              type="email"
+              value={guestEmail}
+              onChange={handleEmailChange}
+            />
           )}
-        />
+          <CheckoutButton
+            totalCents={totalCents()}
+            isPending={checkout.isPending}
+            onCheckout={handleCheckout}
+          />
+        </>
       )}
     </>
   );
 }
-
-export const Route = createFileRoute('/_drawer/cart')({
-  component: CartDrawerRoute,
-});

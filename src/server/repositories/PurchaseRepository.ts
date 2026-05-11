@@ -1,8 +1,3 @@
-import {
-  OrderStatus,
-  TransactionStatus,
-  TransactionType,
-} from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from './BaseRepository';
 
@@ -18,71 +13,75 @@ export type PurchaseWithMedia = {
   };
 };
 
-export type FulfillPurchaseData = {
-  mediaItemId: string;
-  buyerId: string;
-  amountPaid: number;
-  platformFee: number;
-  photographerEarned: number;
-  previewUrl: string | null;
-};
-
-export type EarningsEntry = {
-  photographerId: string;
-  amount: number;
-};
-
-export type FulfillmentPayload = {
-  orderId: string;
-  externalOrderId: string;
-  purchases: (FulfillPurchaseData & { orderId: string })[];
-  earnings: EarningsEntry[];
-};
-
 export interface IPurchaseRepository {
   findByBuyer(buyerId: string): Promise<PurchaseWithMedia[]>;
   findByBuyerAndMedia(buyerId: string, mediaItemId: string): Promise<PurchaseWithMedia | null>;
+  findByDownloadToken(token: string): Promise<PurchaseWithMedia | null>;
+  findByIdAndOrder(purchaseId: string, orderId: string): Promise<PurchaseWithMedia | null>;
+  findByOrder(orderId: string): Promise<{ id: string; previewUrl: string | null; mediaItem: { id: string; thumbnailUrl: string } }[]>;
   findPurchasedItemIds(buyerId: string, itemIds: string[]): Promise<string[]>;
-  commitFulfillment(payload: FulfillmentPayload): Promise<void>;
 }
+
+const PURCHASE_WITH_MEDIA_SELECT = {
+  id: true,
+  purchasedAt: true,
+  amountPaid: true,
+  previewUrl: true,
+  mediaItem: {
+    select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true },
+  },
+} as const;
 
 export class PurchaseRepository implements IPurchaseRepository {
   findByBuyer(buyerId: string): Promise<PurchaseWithMedia[]> {
-    return runQuery(async () => {
-      const rows = await prisma.purchase.findMany({
+    return runQuery(() =>
+      prisma.purchase.findMany({
         where: { buyerId },
         take: 50,
-        select: {
-          id: true,
-          purchasedAt: true,
-          amountPaid: true,
-          previewUrl: true,
-          mediaItem: {
-            select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true },
-          },
-        },
+        select: PURCHASE_WITH_MEDIA_SELECT,
         orderBy: { purchasedAt: 'desc' },
-      });
-      return rows.map((row) => ({ ...row, amountPaid: row.amountPaid }));
-    });
+      })
+    );
   }
 
   findByBuyerAndMedia(buyerId: string, mediaItemId: string): Promise<PurchaseWithMedia | null> {
-    return runQuery(async () => {
-      const row = await prisma.purchase.findFirst({
+    return runQuery(() =>
+      prisma.purchase.findFirst({
         where: { buyerId, mediaItemId },
+        select: PURCHASE_WITH_MEDIA_SELECT,
+      })
+    );
+  }
+
+  findByDownloadToken(token: string): Promise<PurchaseWithMedia | null> {
+    return runQuery(() =>
+      prisma.purchase.findUnique({
+        where: { downloadToken: token },
+        select: PURCHASE_WITH_MEDIA_SELECT,
+      })
+    );
+  }
+
+  findByIdAndOrder(purchaseId: string, orderId: string): Promise<PurchaseWithMedia | null> {
+    return runQuery(() =>
+      prisma.purchase.findFirst({
+        where: { id: purchaseId, orderId },
+        select: PURCHASE_WITH_MEDIA_SELECT,
+      })
+    );
+  }
+
+  findByOrder(orderId: string): Promise<{ id: string; previewUrl: string | null; mediaItem: { id: string; thumbnailUrl: string } }[]> {
+    return runQuery(() =>
+      prisma.purchase.findMany({
+        where: { orderId },
         select: {
           id: true,
-          purchasedAt: true,
-          amountPaid: true,
           previewUrl: true,
-          mediaItem: {
-            select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true },
-          },
+          mediaItem: { select: { id: true, thumbnailUrl: true } },
         },
-      });
-      return row ? { ...row, amountPaid: row.amountPaid } : null;
-    });
+      })
+    );
   }
 
   findPurchasedItemIds(buyerId: string, itemIds: string[]): Promise<string[]> {
@@ -93,36 +92,6 @@ export class PurchaseRepository implements IPurchaseRepository {
       });
       return rows.map((r) => r.mediaItemId);
     });
-  }
-
-  commitFulfillment(payload: FulfillmentPayload): Promise<void> {
-    return runQuery(() =>
-      prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: payload.orderId },
-          data: { status: OrderStatus.COMPLETED, externalOrderId: payload.externalOrderId },
-        });
-
-        await tx.purchase.createMany({ data: payload.purchases });
-
-        for (const { photographerId, amount } of payload.earnings) {
-          await tx.user.update({
-            where: { id: photographerId },
-            data: { balance: { increment: amount } },
-          });
-
-          await tx.transaction.create({
-            data: {
-              userId: photographerId,
-              amount,
-              type: TransactionType.SALE,
-              externalOrderId: payload.externalOrderId,
-              status: TransactionStatus.COMPLETED,
-            },
-          });
-        }
-      })
-    );
   }
 }
 

@@ -4,7 +4,8 @@ import { runQuery } from './BaseRepository';
 
 export type OrderWithItems = {
   id: string;
-  buyerId: string;
+  buyerId: string | null;
+  guestEmail: string | null;
   externalOrderId: string | null;
   totalAmount: number;
   status: string;
@@ -12,7 +13,8 @@ export type OrderWithItems = {
 };
 
 export type CreateOrderData = {
-  buyerId: string;
+  buyerId: string | null;
+  guestEmail?: string;
   totalAmount: number;
   itemIds: string[];
 };
@@ -22,14 +24,16 @@ export interface IOrderRepository {
   findOrderById(id: string): Promise<OrderWithItems | null>;
   findOrderByExternalId(externalOrderId: string): Promise<{ id: string } | null>;
   markOrderFailed(orderId: string): Promise<void>;
+  saveGuestEmail(orderId: string, email: string): Promise<void>;
 }
 
 export class OrderRepository implements IOrderRepository {
   createOrder(data: CreateOrderData): Promise<OrderWithItems> {
     return runQuery(async () => {
-      const row = await prisma.order.create({
+      return prisma.order.create({
         data: {
           buyerId: data.buyerId,
+          guestEmail: data.guestEmail,
           totalAmount: data.totalAmount,
           items: {
             createMany: {
@@ -37,17 +41,18 @@ export class OrderRepository implements IOrderRepository {
             },
           },
         },
-        include: { items: true },
+        include: { items: { select: { id: true, mediaItemId: true } } },
       });
-      return mapOrder(row);
     });
   }
 
   findOrderById(id: string): Promise<OrderWithItems | null> {
-    return runQuery(async () => {
-      const row = await prisma.order.findUnique({ where: { id }, include: { items: true } });
-      return row ? mapOrder(row) : null;
-    });
+    return runQuery(() =>
+      prisma.order.findUnique({
+        where: { id },
+        include: { items: { select: { id: true, mediaItemId: true } } },
+      })
+    );
   }
 
   findOrderByExternalId(externalOrderId: string): Promise<{ id: string } | null> {
@@ -61,27 +66,17 @@ export class OrderRepository implements IOrderRepository {
       await prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.FAILED } });
     });
   }
+
+  saveGuestEmail(orderId: string, email: string): Promise<void> {
+    return runQuery(async () => {
+      // updateMany with guestEmail: null guard — idempotent, single round-trip
+      await prisma.order.updateMany({
+        where: { id: orderId, guestEmail: null },
+        data: { guestEmail: email },
+      });
+    });
+  }
 }
 
 export const orderRepository = new OrderRepository();
-
-type PrismaOrderWithItems = {
-  id: string;
-  buyerId: string;
-  externalOrderId: string | null;
-  totalAmount: number;
-  status: string;
-  items: { id: string; mediaItemId: string }[];
-};
-
-function mapOrder(row: PrismaOrderWithItems): OrderWithItems {
-  return {
-    id: row.id,
-    buyerId: row.buyerId,
-    externalOrderId: row.externalOrderId,
-    totalAmount: row.totalAmount,
-    status: row.status,
-    items: row.items.map(({ id, mediaItemId }) => ({ id, mediaItemId })),
-  };
-}
 

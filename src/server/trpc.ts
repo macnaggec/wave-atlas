@@ -5,38 +5,43 @@ import { ZodError } from 'zod';
 import { auth } from 'server/auth';
 import { isHttpError } from 'shared/errors';
 
-type GetSessionResult = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+type SessionResult = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
 export type TRPCContext = {
-  session: GetSessionResult['session'] | null;
-  user: GetSessionResult['user'] | null;
+  session: SessionResult['session'] | null;
+  user: SessionResult['user'] | null;
+  clientIp: string;
 };
 
 export async function createContext(c: Context): Promise<TRPCContext> {
   const session = await auth.api
     .getSession({ headers: c.req.raw.headers })
     .catch(() => null);
+  const clientIp =
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    c.req.header('cf-connecting-ip') ??
+    'unknown';
   return {
     session: session?.session ?? null,
     user: session?.user ?? null,
+    clientIp,
   };
 }
-
-const STATUS_TO_CODE: Record<number, TRPCError['code']> = {
-  401: 'UNAUTHORIZED',
-  403: 'FORBIDDEN',
-  404: 'NOT_FOUND',
-  409: 'CONFLICT',
-  429: 'TOO_MANY_REQUESTS',
-};
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     const cause = error.cause;
     if (isHttpError(cause)) {
+      const httpToCode: Record<number, TRPCError['code']> = {
+        401: 'UNAUTHORIZED',
+        403: 'FORBIDDEN',
+        404: 'NOT_FOUND',
+        409: 'CONFLICT',
+        429: 'TOO_MANY_REQUESTS',
+      };
       const code: TRPCError['code'] =
-        STATUS_TO_CODE[cause.statusCode] ??
+        httpToCode[cause.statusCode] ??
         (cause.statusCode < 500 ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR');
       return { ...shape, message: cause.message, data: { ...shape.data, code } };
     }

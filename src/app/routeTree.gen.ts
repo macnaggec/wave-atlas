@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PageRouteImport } from './routes/_page'
 import { Route as DrawerRouteImport } from './routes/_drawer'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PageOrderSuccessRouteImport } from './routes/_page.order-success'
 import { Route as PageAccountRouteImport } from './routes/_page.account'
 import { Route as DrawerMeRouteImport } from './routes/_drawer.me'
 import { Route as DrawerCartRouteImport } from './routes/_drawer.cart'
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PageOrderSuccessRoute = PageOrderSuccessRouteImport.update({
+  id: '/order-success',
+  path: '/order-success',
+  getParentRoute: () => PageRoute,
 } as any)
 const PageAccountRoute = PageAccountRouteImport.update({
   id: '/account',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/cart': typeof DrawerCartRoute
   '/me': typeof DrawerMeRouteWithChildren
   '/account': typeof PageAccountRoute
+  '/order-success': typeof PageOrderSuccessRoute
   '/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/me/favorites': typeof DrawerMeFavoritesRoute
   '/me/purchases': typeof DrawerMePurchasesRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cart': typeof DrawerCartRoute
   '/account': typeof PageAccountRoute
+  '/order-success': typeof PageOrderSuccessRoute
   '/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/me/favorites': typeof DrawerMeFavoritesRoute
   '/me/purchases': typeof DrawerMePurchasesRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_drawer/cart': typeof DrawerCartRoute
   '/_drawer/me': typeof DrawerMeRouteWithChildren
   '/_page/account': typeof PageAccountRoute
+  '/_page/order-success': typeof PageOrderSuccessRoute
   '/_drawer/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/_drawer/me/favorites': typeof DrawerMeFavoritesRoute
   '/_drawer/me/purchases': typeof DrawerMePurchasesRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/me'
     | '/account'
+    | '/order-success'
     | '/$spotId/upload'
     | '/me/favorites'
     | '/me/purchases'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/account'
+    | '/order-success'
     | '/$spotId/upload'
     | '/me/favorites'
     | '/me/purchases'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_drawer/cart'
     | '/_drawer/me'
     | '/_page/account'
+    | '/_page/order-success'
     | '/_drawer/$spotId/upload'
     | '/_drawer/me/favorites'
     | '/_drawer/me/purchases'
@@ -205,6 +217,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_page/order-success': {
+      id: '/_page/order-success'
+      path: '/order-success'
+      fullPath: '/order-success'
+      preLoaderRoute: typeof PageOrderSuccessRouteImport
+      parentRoute: typeof PageRoute
     }
     '/_page/account': {
       id: '/_page/account'
@@ -319,10 +338,12 @@ const DrawerRouteWithChildren =
 
 interface PageRouteChildren {
   PageAccountRoute: typeof PageAccountRoute
+  PageOrderSuccessRoute: typeof PageOrderSuccessRoute
 }
 
 const PageRouteChildren: PageRouteChildren = {
   PageAccountRoute: PageAccountRoute,
+  PageOrderSuccessRoute: PageOrderSuccessRoute,
 }
 
 const PageRouteWithChildren = PageRoute._addFileChildren(PageRouteChildren)

@@ -88,7 +88,11 @@
 
 26. ✅ ~~Users can add their own published media to the cart~~
 
-27. 🟠 **P1** `[error-handling]` Audit server service error handling — apply the same abstract error pattern used in `CheckoutService` consistently across all services
+27. � **P2** `[error-handling]` Audit server service error handling — apply the same abstract error pattern used in `CheckoutService` consistently across all services
+    - `MediaService` ✓ — uses `BadRequestError`, `ForbiddenError`, `NotFoundError`; no external calls so no logger pattern needed
+    - `CloudinaryService` ✓ — uses `InternalServerError`
+    - `PurchaseFulfillmentService` ⚠️ — catches `ConflictError` correctly, but `throw err` on unknown errors has no `logger.error` before rethrow
+    - Remaining: add `logger.error(err)` before `throw err` in `PurchaseFulfillmentService.fulfillOrder` catch block
 
 28. ✅ ~~`media.signCloudinary` — no folder ownership check; any authenticated user can obtain a valid upload signature for another user's spot folder~~
     - Input changed from `folder?: string` to `spotId: uuid`; server queries `spot.creatorId`, throws `ForbiddenError` if mismatch
@@ -158,6 +162,7 @@
 42. ✅ ~~Flatten `SpotRepository.ts` — remove `ISpotRepository` interface and `PrismaSpotRepository` class; replace with plain exported async functions~~
 
 43. ✅ ~~Flatten `OrderRepository.ts` — remove `IOrderRepository`, `PrismaOrderRepository`, and `orderRepository` singleton; keep named exports~~
+    - **Note**: `IOrderRepository`, `IMediaRepository`, `IPurchaseRepository` interfaces and singletons intentionally retained — `CheckoutService` uses constructor DI and needs the interfaces for mocking in tests. This is a deliberate departure from the flat-function pattern used in `SpotRepository`. Both patterns coexist.
 
 44. ✅ **P1** `[server]` `PurchaseFulfillmentService.ts` bypasses the repository layer — calls `prisma.mediaItem.findMany` and `prisma.$transaction` directly
     - Discovered during `users.ts` audit (April 2026)
@@ -186,3 +191,19 @@
     - **Recommended**: Pino (replace `console.log(JSON.stringify(...))` in `logger.ts`) + Logtail / Axiom / Datadog as the sink
     - Single change point: `shared/lib/logger.ts` transport layer
     - Prerequisite: hosting provider chosen and deployed
+
+51. 🟡 **P2** `[feature]` Send download link email to guest buyers after successful payment
+    - `guestEmail` is already stored on `Order` and `Purchase` rows — infrastructure is ready
+    - `PurchaseFulfillmentService.fulfillOrder` is the right place to trigger the send (after `commitFulfillment`)
+    - **Recommended provider**: Resend (`npm i resend`) — simple API, 100 emails/day free tier
+    - Email content: list of purchased items with their `downloadToken` links (`/order-success?orderId=X`)
+    - Create a `src/server/services/EmailService.ts` behind an interface so it can be stubbed in tests
+    - From address requires a verified domain in Resend; use `onboarding@resend.dev` for dev/staging
+    - Add `RESEND_API_KEY` and `FROM_EMAIL` to `.env`
+
+52. 🟡 **P2** `[feature]` Migrate guest purchases to user account on signup/login
+    - When a user creates an account (or signs in) with an email that matches existing guest orders, claim those purchases
+    - Hook into Better Auth's post-signup callback in `src/server/auth.ts` to update `buyerId` on matching orders and purchases
+    - After migration, purchased items appear automatically in `myPurchases` (already filters by `buyer_id`)
+    - Also trigger on sign-in, not just sign-up — user may have bought as guest before ever creating an account
+    - No schema changes needed — `buyer_id` and `guest_email` columns already exist on both tables

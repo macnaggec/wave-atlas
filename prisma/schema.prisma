@@ -156,14 +156,15 @@ model Spot {
 
 model Order {
   id              String      @id @default(uuid())
-  buyerId         String      @map("buyer_id")
+  buyerId         String?     @map("buyer_id")
+  guestEmail      String?     @map("guest_email")
   externalOrderId String?     @unique @map("external_order_id")
   totalAmount     Int         @map("total_amount")
   status          OrderStatus @default(PENDING)
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  buyer     User        @relation(fields: [buyerId], references: [id])
+  buyer     User?       @relation(fields: [buyerId], references: [id])
   items     OrderItem[]
   purchases Purchase[]
 
@@ -185,7 +186,9 @@ model Purchase {
   id                 String   @id @default(uuid())
   orderId            String?  @map("order_id")
   mediaItemId        String   @map("media_item_id")
-  buyerId            String   @map("buyer_id")
+  buyerId            String?  @map("buyer_id")
+  guestEmail         String?  @map("guest_email")
+  downloadToken      String?  @unique @map("download_token")
   amountPaid         Int      @map("amount_paid")
   platformFee        Int      @map("platform_fee")
   photographerEarned Int      @map("photographer_earned")
@@ -195,7 +198,7 @@ model Purchase {
 
   order     Order?    @relation(fields: [orderId], references: [id])
   mediaItem MediaItem @relation(fields: [mediaItemId], references: [id])
-  buyer     User      @relation(fields: [buyerId], references: [id])
+  buyer     User?     @relation(fields: [buyerId], references: [id])
 
   @@map("purchases")
 }

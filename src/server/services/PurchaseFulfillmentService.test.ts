@@ -2,17 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PurchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
 import type { OrderWithItems } from 'server/repositories/OrderRepository';
 import type { MediaFulfillmentItem } from 'server/repositories/MediaRepository';
-import type { FulfillPurchaseData, FulfillmentPayload } from 'server/repositories/PurchaseRepository';
+import type { FulfillPurchaseData, FulfillmentPayload } from 'server/repositories/FulfillmentRepository';
 
 // ---------------------------------------------------------------------------
 // Inline mocks — no vi.mock() needed with constructor injection
 // ---------------------------------------------------------------------------
 
-const mockPurchases = {
+const mockFulfillment = {
   commitFulfillment: vi.fn().mockResolvedValue(undefined),
-  findByBuyer: vi.fn(),
-  findByBuyerAndMedia: vi.fn(),
-  findPurchasedItemIds: vi.fn(),
 };
 
 const mockOrders = {
@@ -33,7 +30,7 @@ const mockCloudinary = {
 const service = new PurchaseFulfillmentService(
   mockOrders as any,
   mockMedia as any,
-  mockPurchases as any,
+  mockFulfillment,
   mockCloudinary,
 );
 
@@ -43,7 +40,7 @@ const service = new PurchaseFulfillmentService(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockPurchases.commitFulfillment.mockResolvedValue(undefined);
+  mockFulfillment.commitFulfillment.mockResolvedValue(undefined);
   mockCloudinary.tryGeneratePermanentPreviewUrl.mockReturnValue('https://res.cloudinary.com/preview');
 });
 
@@ -55,6 +52,7 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
   return {
     id: 'order-1',
     buyerId: 'buyer-1',
+    guestEmail: null,
     externalOrderId: null,
     totalAmount: 10,
     status: 'PENDING',
@@ -92,11 +90,11 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   // -------------------------------------------------------------------------
 
   it('exits early without writing if externalOrderId already recorded', async () => {
-    mockOrders.findOrderByExternalId.mockResolvedValue(makeOrder({ externalOrderId: EXTERNAL_ID }));
+    mockOrders.findOrderByExternalId.mockResolvedValue({ id: ORDER_ID });
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    expect(mockPurchases.commitFulfillment).not.toHaveBeenCalled();
+    expect(mockFulfillment.commitFulfillment).not.toHaveBeenCalled();
   });
 
   it('exits early without writing if the order does not exist', async () => {
@@ -105,7 +103,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    expect(mockPurchases.commitFulfillment).not.toHaveBeenCalled();
+    expect(mockFulfillment.commitFulfillment).not.toHaveBeenCalled();
   });
 
   // -------------------------------------------------------------------------
@@ -117,7 +115,9 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    const payload = mockFulfillment.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    expect(payload.orderId).toBe(ORDER_ID);
+    expect(payload.externalOrderId).toBe(EXTERNAL_ID);
     expect(payload.purchases).toHaveLength(1);
     expect(payload.purchases[0]).toMatchObject<Partial<FulfillPurchaseData>>({
       mediaItemId: 'media-1',
@@ -127,6 +127,20 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
       photographerEarned: 800,
       previewUrl: 'https://res.cloudinary.com/preview',
     });
+    expect(payload.purchases[0]?.downloadToken).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('writes guestEmail to purchase and null buyerId for guest orders', async () => {
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(
+      makeOrder({ buyerId: null, guestEmail: 'guest@example.com' }),
+    );
+    mockMedia.findByIdsForFulfillment.mockResolvedValue([makeMediaItem()]);
+
+    await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
+
+    const payload = mockFulfillment.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    expect(payload.purchases[0]).toMatchObject({ buyerId: null, guestEmail: 'guest@example.com' });
   });
 
   // -------------------------------------------------------------------------
@@ -150,7 +164,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    const payload = mockFulfillment.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
     expect(payload.earnings).toHaveLength(1);
     expect(payload.earnings[0]).toMatchObject({ photographerId: 'p-1', amount: 2400 });
   });
@@ -171,7 +185,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
 
     await service.fulfillOrder(ORDER_ID, EXTERNAL_ID);
 
-    const payload = mockPurchases.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
+    const payload = mockFulfillment.commitFulfillment.mock.calls[0]![0] as FulfillmentPayload;
     const ids = payload.earnings.map((e) => e.photographerId).sort();
     expect(ids).toEqual(['p-1', 'p-2']);
   });
@@ -196,7 +210,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   it('swallows ConflictError from commitFulfillment — treats it as idempotent success', async () => {
     const { ConflictError } = await import('shared/errors');
     setupHappyPath();
-    mockPurchases.commitFulfillment.mockRejectedValue(
+    mockFulfillment.commitFulfillment.mockRejectedValue(
       new ConflictError('external_order_id already exists'),
     );
 
@@ -206,7 +220,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
   it('rethrows non-ConflictError from commitFulfillment — does not swallow real failures', async () => {
     setupHappyPath();
     const boom = new Error('DB connection lost');
-    mockPurchases.commitFulfillment.mockRejectedValue(boom);
+    mockFulfillment.commitFulfillment.mockRejectedValue(boom);
 
     await expect(service.fulfillOrder(ORDER_ID, EXTERNAL_ID)).rejects.toThrow('DB connection lost');
   });

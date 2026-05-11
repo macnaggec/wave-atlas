@@ -12,6 +12,8 @@ import { cloudinaryService } from 'server/services/CloudinaryService';
 import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors';
 import { logger } from 'shared/lib/logger';
 
+const APP_URL = process.env.APP_URL!;
+
 export class CheckoutService {
   constructor(
     private orders: IOrderRepository,
@@ -26,7 +28,8 @@ export class CheckoutService {
    * Items must be PUBLISHED and not already purchased by this buyer.
    */
   async createCheckoutSession(
-    buyerId: string,
+    buyerId: string | null,
+    guestEmail: string | undefined,
     itemIds: string[],
   ): Promise<{ checkoutUrl: string; orderId: string }> {
     const mediaItems = await this.fetchAndValidateCartItems(buyerId, itemIds);
@@ -34,12 +37,14 @@ export class CheckoutService {
 
     const order = await this.orders.createOrder({
       buyerId,
+      guestEmail,
       totalAmount: totalCents,
       itemIds
     });
 
     const checkoutUrl = await this.openPaymentSession(
       order.id,
+      buyerId,
       mediaItems,
       totalCents
     );
@@ -56,6 +61,7 @@ export class CheckoutService {
   }[]> {
     const purchases = await this.purchases.findByBuyer(buyerId);
 
+    // strip cloudinaryPublicId before sending to client
     return purchases.map((p) => ({
       id: p.id,
       purchasedAt: p.purchasedAt,
@@ -85,7 +91,46 @@ export class CheckoutService {
     return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
   }
 
-  private async fetchAndValidateCartItems(buyerId: string, itemIds: string[]) {
+  /**
+   * Token-based download access for guest purchases.
+   * The downloadToken is the proof of purchase — no auth required.
+   * Used for email-delivered download links (backlog item 51).
+   */
+  async generateDownloadAccessByToken(
+    downloadToken: string,
+  ): Promise<{ downloadUrl: string; expiresAt: number }> {
+    const purchase = await this.purchases.findByDownloadToken(downloadToken);
+
+    if (!purchase) throw new ForbiddenError('Invalid or expired download token');
+
+    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+  }
+
+  /**
+   * Download access for guest purchases via purchaseId + orderId.
+   * The orderId in the URL is the proof of access — tokens never leave the DB.
+   * Security: orderId in WHERE clause acts as ownership check (purchase must belong to that order).
+   */
+  async getGuestDownloadAccess(
+    purchaseId: string,
+    orderId: string,
+  ): Promise<{ downloadUrl: string; expiresAt: number }> {
+    const purchase = await this.purchases.findByIdAndOrder(purchaseId, orderId);
+
+    if (!purchase) throw new ForbiddenError('Purchase not found');
+
+    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+  }
+
+  async getGuestPurchases(orderId: string) {
+    return this.purchases.findByOrder(orderId);
+  }
+
+  async saveGuestEmail(orderId: string, email: string): Promise<void> {
+    await this.orders.saveGuestEmail(orderId, email);
+  }
+
+  private async fetchAndValidateCartItems(buyerId: string | null, itemIds: string[]) {
     if (itemIds.length === 0) throw new BadRequestError('Cart is empty');
 
     const mediaItems = await this.media.findByIds(itemIds);
@@ -102,18 +147,20 @@ export class CheckoutService {
       );
     }
 
-    const ownedItems = mediaItems.filter((m) => m.photographerId === buyerId);
+    if (buyerId !== null) {
+      const ownedItems = mediaItems.filter((m) => m.photographerId === buyerId);
 
-    if (ownedItems.length > 0) {
-      throw new BadRequestError('You cannot purchase your own media');
-    }
+      if (ownedItems.length > 0) {
+        throw new BadRequestError('You cannot purchase your own media');
+      }
 
-    const purchasedIds = await this.purchases.findPurchasedItemIds(buyerId, itemIds);
+      const purchasedIds = await this.purchases.findPurchasedItemIds(buyerId, itemIds);
 
-    if (purchasedIds.length > 0) {
-      throw new BadRequestError(
-        `Some items already purchased: ${purchasedIds.join(', ')}`,
-      );
+      if (purchasedIds.length > 0) {
+        throw new BadRequestError(
+          `Some items already purchased: ${purchasedIds.join(', ')}`,
+        );
+      }
     }
 
     return mediaItems;
@@ -121,17 +168,20 @@ export class CheckoutService {
 
   private async openPaymentSession(
     orderId: string,
+    buyerId: string | null,
     mediaItems: { id: string }[],
     totalCents: number,
   ): Promise<string> {
-    const appUrl = process.env.APP_URL!;
+    const successUrl = buyerId
+      ? `${APP_URL}/me/purchases?order=${orderId}`
+      : `${APP_URL}/order-success?orderId=${orderId}`;
 
     try {
       const { checkoutUrl } = await this.payment.createCheckoutSession({
         orderId,
         totalCents,
-        successUrl: `${appUrl}/me/purchases?order=${orderId}`,
-        failUrl: `${appUrl}/cart`,
+        successUrl,
+        failUrl: `${APP_URL}/cart`,
       });
 
       return checkoutUrl;

@@ -1,9 +1,10 @@
+import { randomBytes } from 'crypto';
 import type { IOrderRepository } from 'server/repositories/OrderRepository';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
-import type { IPurchaseRepository, FulfillPurchaseData } from 'server/repositories/PurchaseRepository';
+import type { IFulfillmentRepository } from 'server/repositories/FulfillmentRepository';
 import { orderRepository } from 'server/repositories/OrderRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
-import { purchaseRepository } from 'server/repositories/PurchaseRepository';
+import { fulfillmentRepository } from 'server/repositories/FulfillmentRepository';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
 import { ConflictError } from 'shared/errors';
@@ -15,7 +16,7 @@ export class PurchaseFulfillmentService {
   constructor(
     private orders: IOrderRepository,
     private media: IMediaRepository,
-    private purchases: IPurchaseRepository,
+    private fulfillment: IFulfillmentRepository,
     private cloudinary: Pick<ICloudinaryService, 'tryGeneratePermanentPreviewUrl'>,
   ) { }
 
@@ -36,17 +37,20 @@ export class PurchaseFulfillmentService {
     const itemIds = order.items.map((item) => item.mediaItemId);
     const mediaItems = await this.media.findByIdsForFulfillment(itemIds);
 
-    const purchaseData: FulfillPurchaseData[] = mediaItems.map((item) => ({
-      mediaItemId: item.id,
-      buyerId: order.buyerId,
-      amountPaid: item.price,
-      platformFee: item.price * PLATFORM_FEE_RATE,
-      photographerEarned: item.price * PHOTOGRAPHER_RATE,
-      previewUrl: this.cloudinary.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
-    }));
-
+    const purchaseData = [];
     const earningsMap = new Map<string, number>();
+
     for (const item of mediaItems) {
+      purchaseData.push({
+        mediaItemId: item.id,
+        buyerId: order.buyerId,
+        guestEmail: order.guestEmail,
+        downloadToken: randomBytes(32).toString('hex'),
+        amountPaid: item.price,
+        platformFee: item.price * PLATFORM_FEE_RATE,
+        photographerEarned: item.price * PHOTOGRAPHER_RATE,
+        previewUrl: this.cloudinary.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
+      });
       earningsMap.set(
         item.photographerId,
         (earningsMap.get(item.photographerId) ?? 0) + item.price * PHOTOGRAPHER_RATE,
@@ -54,7 +58,7 @@ export class PurchaseFulfillmentService {
     }
 
     try {
-      await this.purchases.commitFulfillment({
+      await this.fulfillment.commitFulfillment({
         orderId,
         externalOrderId,
         purchases: purchaseData.map((p) => ({ ...p, orderId })),
@@ -71,7 +75,7 @@ export class PurchaseFulfillmentService {
 export const purchaseFulfillmentService = new PurchaseFulfillmentService(
   orderRepository,
   mediaRepository,
-  purchaseRepository,
+  fulfillmentRepository,
   cloudinaryService,
 );
 

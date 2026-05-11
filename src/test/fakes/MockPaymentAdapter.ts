@@ -39,7 +39,6 @@ function parseWebhookEvent(rawBody: string): PaymentWebhookEvent {
     externalOrderId: body.externalOrderId ?? `mock-${Date.now()}`,
     customData: {
       orderId: body.orderId,
-      itemIds: body.itemIds ?? [],
     },
   };
 }
