@@ -1,0 +1,12 @@
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.headerEnd {
+  display: flex;
+  justify-content: flex-end;
+}

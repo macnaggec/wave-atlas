@@ -36,8 +36,8 @@ function SpotLayout() {
   const isUpload = activeTab === 'upload';
 
   const handleCartClick = useCallback(() => {
-    void navigate({ to: '/cart' });
-  }, [navigate]);
+    void navigate({ to: '/cart', search: { from: spotId } });
+  }, [navigate, spotId]);
 
   return (
     <>

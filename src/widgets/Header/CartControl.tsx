@@ -14,15 +14,26 @@ import classes from './Header.module.css';
  */
 export const CartControl = memo(function CartControl() {
   const navigate = useNavigate();
-  const isCartRoute = useRouterState({
-    select: (s) => s.location.pathname === '/cart',
+  const { isCartRoute, currentSpotId } = useRouterState({
+    select: (s) => ({
+      isCartRoute: s.location.pathname === '/cart',
+      currentSpotId: s.matches
+        .flatMap((m) => {
+          const id = (m.params as { spotId?: string }).spotId;
+          return id ? [id] : [];
+        })
+        .at(0),
+    }),
   });
   const count = useCartStore((s) => s.items.length);
   const { isAuthenticated } = useUser();
 
   const handleClick = useCallback(() => {
-    void navigate({ to: isCartRoute ? '/' : '/cart' });
-  }, [navigate, isCartRoute]);
+    void navigate({
+      to: isCartRoute ? '/' : '/cart',
+      search: !isCartRoute && currentSpotId ? { from: currentSpotId } : undefined,
+    });
+  }, [navigate, isCartRoute, currentSpotId]);
 
   if (!isAuthenticated || count === 0) return null;
 
