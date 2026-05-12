@@ -34,11 +34,5 @@ export type { PublishButtonProps } from './ui/UploadGallery/PublishButton';
 export { default as DraftCard } from './ui/cards/DraftCard';
 export type { DraftCardProps, ValidationState } from './ui/cards/DraftCard';
 
-export { default as DraftOverlays } from './ui/overlays/DraftOverlays';
-export type { DraftOverlaysProps } from './ui/overlays/DraftOverlays';
-
-export { default as UploadingOverlays } from './ui/overlays/UploadingOverlays';
-export type { UploadingOverlaysProps } from './ui/overlays/UploadingOverlays';
-
 export { DateEditPopover, PriceEditPopover } from './ui/popovers';
 

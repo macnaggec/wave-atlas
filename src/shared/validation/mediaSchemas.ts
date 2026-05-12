@@ -1,19 +1,10 @@
 import { z } from 'zod';
 import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
 
-const cloudinaryUrlSchema = z.url().refine(
-  (url) => {
-    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const base = cloudName ? `https://res.cloudinary.com/${cloudName}/` : null;
-    return !!base && url.startsWith(base);
-  },
-  { message: 'URL must be a Cloudinary URL for this account' },
-);
-
 export const mediaCloudinaryResultSchema = z.object({
   publicId: z.string().min(1),
-  thumbnailUrl: cloudinaryUrlSchema,
-  lightboxUrl: cloudinaryUrlSchema,
+  thumbnailUrl: z.url(),
+  lightboxUrl: z.url(),
   resource_type: z.enum([MEDIA_RESOURCE_TYPE.IMAGE, MEDIA_RESOURCE_TYPE.VIDEO]),
 });
 

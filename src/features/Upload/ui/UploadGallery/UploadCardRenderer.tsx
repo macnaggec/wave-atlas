@@ -1,11 +1,11 @@
 import { memo } from 'react';
-import { Group, ActionIcon, rem } from '@mantine/core';
+import { Group, ActionIcon, rem, Badge, Loader, Text, Button, Stack, Tooltip } from '@mantine/core';
 import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
-import { QueueItem } from '../../model';
+import { QueueItem, UploadStatus } from '../../model';
 import { UploadItemAction } from './types';
 import DraftCard from '../cards/DraftCard';
-import DraftOverlays from '../overlays/DraftOverlays';
-import UploadingOverlays from '../overlays/UploadingOverlays';
+import { MediaItem } from 'entities/Media/types';
+import { formatPrice } from 'shared/lib/currency';
 
 const ACTION_ICONS: Record<
   UploadItemAction,
@@ -29,13 +29,6 @@ interface UploadCardRendererProps {
   hasDateError?: boolean;
 }
 
-/**
- * UploadCardRenderer - Memoized card renderer
- *
- * Prevents unnecessary DOM re-mounts by comparing only essential props.
- * Handles both uploading and completed states.
- * Owns ACTION_ICONS and builds action buttons internally.
- */
 export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   item,
   actions,
@@ -64,16 +57,8 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     : item.file?.name || 'Upload preview';
 
   const overlays = isCompleted && item.result
-    ? <DraftOverlays mediaItem={item.result} />
-    : (
-      <UploadingOverlays
-        status={item.status}
-        progress={item.progress}
-        error={item.error}
-        itemId={item.id}
-        onRetry={onRetry}
-      />
-    );
+    ? renderDraftOverlay(item.result)
+    : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
 
   const actionButtons = actions && actions.length > 0 ? (
     <Group gap="xs">
@@ -129,10 +114,70 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';
 
-const VIDEO_EXTENSIONS = /\.(mp4|mov|webm|avi|mkv)$/i;
+function renderDraftOverlay(mediaItem: MediaItem) {
+  const isDateFromExif = mediaItem.dateSource === 'exif';
+  const formattedDate = mediaItem.capturedAt
+    ? new Date(mediaItem.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+
+  return (
+    <Group gap="xs">
+      <Badge size="sm" color="green" variant="filled">
+        {formatPrice(mediaItem.price)}
+      </Badge>
+      {formattedDate
+        ? <Badge size="sm" color="blue" variant="filled">{formattedDate}</Badge>
+        : <Badge size="sm" color="red" variant="filled">Missing Date</Badge>
+      }
+      {isDateFromExif && <Badge size="xs" color="cyan" variant="light">Auto</Badge>}
+    </Group>
+  );
+}
+
+function renderUploadOverlay(
+  status: UploadStatus,
+  progress: number,
+  error: string | undefined,
+  itemId: string,
+  onRetry: ((id: string) => void) | undefined,
+) {
+  if (error) {
+    return (
+      <Stack gap={4} align="center">
+        <Tooltip label={error} multiline maw={200}>
+          <Text size="xs" c="red" lineClamp={1} ta="center">{error}</Text>
+        </Tooltip>
+        {onRetry && (
+          <Button
+            size="compact-xs"
+            variant="light"
+            color="blue"
+            leftSection={<IconRefresh size={12} />}
+            onClick={(e) => { e.stopPropagation(); onRetry(itemId); }}
+          >
+            Retry
+          </Button>
+        )}
+      </Stack>
+    );
+  }
+
+  let label: string | null = null;
+  if (status === 'signing') label = 'Preparing…';
+  else if (status === 'saving') label = 'Saving…';
+  else if (status === 'uploading' && progress === 100) label = 'Processing…';
+  else if (progress > 0) label = `${progress}%`;
+
+  return (
+    <Group gap="xs">
+      <Loader size="xs" />
+      {label && <Text size="xs" c="dimmed">{label}</Text>}
+    </Group>
+  );
+}
 
 function isVideoFile(file: File | null | undefined): boolean {
   if (!file) return false;
   if (file.type) return file.type.startsWith('video/');
-  return VIDEO_EXTENSIONS.test(file.name);
+  return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
 }

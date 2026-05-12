@@ -57,13 +57,6 @@ export interface DraftCardProps {
  *   overlays={<DraftOverlays mediaItem={item.result} />}
  *   validation={{ hasError: !item.result.capturedAt }}
  * />
- *
- * // With upload progress (blob URL)
- * <DraftCard
- *   imageUrl={item.previewUrl}
- *   resourceType="image"
- *   overlays={<UploadingOverlays progress={item.progress} />}
- * />
  * ```
  */
 const DraftCard: FC<DraftCardProps> = memo(({

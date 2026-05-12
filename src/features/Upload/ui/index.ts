@@ -7,10 +7,6 @@
 // Cards
 export { default as DraftCard } from './cards/DraftCard';
 
-// Overlays
-export { default as DraftOverlays } from './overlays/DraftOverlays';
-export { default as UploadingOverlays } from './overlays/UploadingOverlays';
-
 // Popovers
 export { DateEditPopover, PriceEditPopover } from './popovers';
 
