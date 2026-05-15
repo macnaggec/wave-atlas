@@ -1,7 +1,7 @@
 'use client';
 
 import React, { FC, memo, useRef } from 'react';
-import { Box, Button, Stack, Text } from '@mantine/core';
+import { Box, Button, Stack, Text, Tooltip } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { validateFileBatch } from 'entities/Media/lib/uploadValidation';
@@ -16,13 +16,26 @@ export interface AddSourceCardProps {
   accept?: string;
   /** Whether both actions are disabled (another spot is uploading) */
   disabled?: boolean;
+  /** Tooltip content for upload limits */
+  tooltipContent?: React.ReactNode;
 }
+
+const defaultTooltip = (
+  <Stack gap={4}>
+    <Text size="xs" fw={600}>Upload Limits:</Text>
+    <Text size="xs">• Images: max 10MB</Text>
+    <Text size="xs">• Videos: max 50MB</Text>
+    <Text size="xs">• Max 20 files per batch</Text>
+    <Text size="xs">• Max 200MB total per batch</Text>
+  </Stack>
+);
 
 const AddSourceCard: FC<AddSourceCardProps> = memo(({
   onFilesSelected,
   onDriveImport,
   accept = 'image/*,video/*',
   disabled = false,
+  tooltipContent,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -85,36 +98,47 @@ const AddSourceCard: FC<AddSourceCardProps> = memo(({
         aria-label="File upload input"
         data-testid="file-input"
       />
-      <Box
-        className={classes.card}
-        style={{ opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'default' }}
+      <Tooltip
+        label={tooltipContent || defaultTooltip}
+        position="right"
+        withArrow
+        multiline
+        w={220}
+        openDelay={500}
+        closeDelay={100}
+        disabled={disabled}
       >
-        <Stack align="center" justify="center" gap="xs" className={classes.content}>
-          <Text size="xs" fw={500} c="dimmed">Add media</Text>
-          <Button
-            size="xs"
-            variant="filled"
-            color="blue"
-            leftSection={<IconBrandGoogleDrive size={14} />}
-            onClick={handleDriveClick}
-            disabled={disabled}
-            fullWidth
-          >
-            Google Drive
-          </Button>
-          <Button
-            size="xs"
-            variant="subtle"
-            color="gray"
-            leftSection={<IconFolderOpen size={14} />}
-            onClick={handleLocalClick}
-            disabled={disabled}
-            fullWidth
-          >
-            Local files
-          </Button>
-        </Stack>
-      </Box>
+        <Box
+          className={classes.card}
+          style={{ opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
+        >
+          <Stack align="center" justify="center" gap="xs" className={classes.content}>
+            <Text size="xs" fw={500} c="dimmed">Add media</Text>
+            <Button
+              size="xs"
+              variant="filled"
+              color="blue"
+              leftSection={<IconBrandGoogleDrive size={14} />}
+              onClick={handleDriveClick}
+              disabled={disabled}
+              fullWidth
+            >
+              Google Drive
+            </Button>
+            <Button
+              size="xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconFolderOpen size={14} />}
+              onClick={handleLocalClick}
+              disabled={disabled}
+              fullWidth
+            >
+              Local files
+            </Button>
+          </Stack>
+        </Box>
+      </Tooltip>
     </>
   );
 });
