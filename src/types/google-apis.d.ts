@@ -2,7 +2,7 @@
 // Only covers the surfaces used by useGooglePicker — not a full typing.
 
 interface GapiStatic {
-  load(library: 'picker', callback: () => void): void;
+  load(library: string, callback: () => void): void;
 }
 
 declare namespace google {
@@ -12,7 +12,7 @@ declare namespace google {
       setOAuthToken(token: string): this;
       setDeveloperKey(key: string): this;
       setCallback(callback: (data: PickerResponseObject) => void): this;
-      enableFeature(feature: Feature): this;
+      enableFeature(feature: string): this;
       setTitle(title: string): this;
       build(): Picker;
     }
