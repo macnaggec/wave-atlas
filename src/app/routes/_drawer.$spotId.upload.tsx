@@ -5,6 +5,7 @@ import { UploadManager } from 'features/Upload';
 import { useDraftMedia } from 'features/Upload/model/useDraftMedia';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
+import { useSpotUploadContext } from 'app/contexts/SpotUploadContext';
 
 export const Route = createFileRoute('/_drawer/$spotId/upload')({
   component: UploadTab,
@@ -15,6 +16,7 @@ function UploadTab() {
   const { isAuthenticated, isLoading } = useUser();
   const { draftMedia } = useDraftMedia(isAuthenticated ? spotId : null);
   const { open: openAuthModal } = useAuthModal();
+  const { onPublishSuccess } = useSpotUploadContext();
 
   if (isLoading) return null;
 
@@ -38,6 +40,7 @@ function UploadTab() {
     <UploadManager
       spotId={spotId}
       draftMedia={draftMedia ?? []}
+      onPublishSuccess={onPublishSuccess}
     />
   );
 }

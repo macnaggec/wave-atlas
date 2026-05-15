@@ -41,6 +41,12 @@ export interface UploadGalleryProps {
   /** Callback to retry failed upload */
   onRetry?: (id: string) => void;
 
+  /** Callback to open Google Drive Picker */
+  onDriveImport?: () => void;
+
+  /** Set of mediaIds currently mid-publish (drives per-card publishing overlay) */
+  publishingIds?: Set<string>;
+
   /** Actions to display on individual cards (parent controls based on selection mode) */
   actions?: UploadItemAction[];
 
