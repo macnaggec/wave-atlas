@@ -19,6 +19,12 @@ enum MediaStatus {
   DRAFT
   PUBLISHED
   DELETED
+  DRIVE_PENDING
+}
+
+enum MediaImportSource {
+  DIRECT
+  GOOGLE_DRIVE
 }
 
 enum OrderStatus {
@@ -123,10 +129,12 @@ model MediaItem {
   price              Int
   lightboxUrl        String      @map("lightbox_url")
   thumbnailUrl       String      @map("thumbnail_url")
-  cloudinaryPublicId String      @map("cloudinary_public_id")
-  status             MediaStatus @default(DRAFT)
-  deletedAt          DateTime?   @map("deleted_at")
-  createdAt          DateTime    @default(now()) @map("created_at")
+  cloudinaryPublicId String            @map("cloudinary_public_id")
+  status             MediaStatus       @default(DRAFT)
+  importSource       MediaImportSource @default(DIRECT) @map("import_source")
+  remoteFileId       String?           @map("remote_file_id")
+  deletedAt          DateTime?         @map("deleted_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
 
   photographer User        @relation("PhotographerMedia", fields: [photographerId], references: [id])
   spot         Spot        @relation(fields: [spotId], references: [id])
