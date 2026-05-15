@@ -15,6 +15,7 @@ export { useUploadWarning } from './useUploadWarning';
 export { useDraftMedia, useDraftMediaMutate } from './useDraftMedia';
 export { usePublish } from './usePublish';
 export type { PublishStats } from './usePublish';
+export { useGooglePicker } from './useGooglePicker';
 export { useDraftEditing } from './useDraftEditing';
 export { draftMediaKey } from './draftMediaKey';
 

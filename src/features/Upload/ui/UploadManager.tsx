@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { MediaItem } from 'entities/Media/types';
 import { useUploadManager, useUploadQueue, useUploadBlocking, usePublish, useDraftEditing, useDraftMediaMutate } from '../model';
+import { useGooglePicker } from '../model/useGooglePicker';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { QueueItem } from '../model';
 import UploadGallery from './UploadGallery/UploadGallery';
@@ -57,6 +58,8 @@ export function UploadManager({
   const { queue, hasActiveUploads } = useUploadQueue(spotId, draftMedia);
   const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(spotId);
 
+  const { trigger: openDrivePicker } = useGooglePicker(spotId);
+
   const getItemId = useCallback((item: QueueItem) => item.mediaId ?? item.id, []);
   const completedItems = useMemo(
     () => queue.filter((item): item is QueueItem => item.status === 'completed' && !!item.result),
@@ -72,7 +75,7 @@ export function UploadManager({
     retry,
   } = useUploadManager(spotId, spotName);
 
-  const { publishStats, isPublishing, handlePublish } = usePublish(
+  const { publishStats, isPublishing, publishingIds, handlePublish } = usePublish(
     queue,
     refetchDraftMedia,
     selection.selectedIds,
@@ -108,6 +111,8 @@ export function UploadManager({
         onRemove={remove}
         onCancelUpload={cancelUpload}
         onAddFiles={addFiles}
+        onDriveImport={openDrivePicker}
+        publishingIds={publishingIds}
         onRetry={retry}
         onBulkDateEdit={handleBulkDateEdit}
         onBulkPriceEdit={handleBulkPriceEdit}

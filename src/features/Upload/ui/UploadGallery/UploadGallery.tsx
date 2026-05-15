@@ -6,7 +6,7 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { useUploadStore } from '../../model/uploadStore';
 import { UploadIndicatorCompact } from '../UploadIndicator';
 import { BlockedUploadPopover } from '../BlockedUploadPopover';
-import AddFileCard from '../cards/AddFileCard';
+import AddSourceCard from '../cards/AddSourceCard';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
 import { useMetadataControls } from './useMetadataControls';
@@ -39,6 +39,8 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   onBulkDateEdit,
   onBulkPriceEdit,
   onRetry,
+  onDriveImport,
+  publishingIds,
   actions = [],
   onAction,
   selection,
@@ -126,6 +128,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
         ? []
         : isInProgress ? ['cancel' as UploadItemAction] : actions;
 
+      const mediaId = item.mediaId ?? item.id;
       return (
         <UploadCardRenderer
           item={item}
@@ -133,10 +136,11 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
           actions={itemActions}
           onAction={onAction}
           hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
+          isPublishing={publishingIds?.has(mediaId)}
         />
       );
     },
-    [actions, onAction, onRetry]
+    [actions, onAction, onRetry, publishingIds]
   );
 
   return (
@@ -147,14 +151,16 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
       prepend={onAddFiles && (
         isBlocked ? (
           <BlockedUploadPopover>
-            <AddFileCard
+            <AddSourceCard
               onFilesSelected={handleAddFiles}
+              onDriveImport={onDriveImport}
               disabled
             />
           </BlockedUploadPopover>
         ) : (
-          <AddFileCard
+          <AddSourceCard
             onFilesSelected={handleAddFiles}
+            onDriveImport={onDriveImport}
           />
         )
       )}
