@@ -54,13 +54,23 @@
 15. ✅ ~~`spots.ts` tRPC route called Prisma directly — extended repository/service pattern to spots (`SpotRepository`)~~
 
 16. 🟢 **P3** `[feature]` Support uploading media from Google Drive
-    - **Decision**: do NOT use Cloudinary Upload Widget — it imports Drive files immediately, consuming quota before publish
-    - **Architecture**: Google Picker API (client) + server-side Cloudinary URL upload at publish time
-      1. User authorises Google Picker (OAuth) — no Cloudinary involved at this step
-      2. Picker returns a Drive URL/ID — stored in DB as `media_items.drive_url` with status `DRIVE_PENDING`
-      3. At publish: server calls Cloudinary Upload API with `file: driveUrl` — quota consumed only then
-    - Keep current XHR pipeline for direct uploads (progress tracking, per-file abort, full UI control)
-    - Apply file size/type validation from #36 at the Cloudinary URL-fetch step
+    - **Extensibility**: schema uses `MediaImportSource` enum (`DIRECT` | `GOOGLE_DRIVE`); Dropbox/Yandex added here later
+    - **Two upload models coexist** — XHR direct upload (existing) and Drive import (new parallel lane):
+      - Direct: original stored in Cloudinary permanently — source of truth is Cloudinary
+      - Drive: original is transient in Cloudinary — source of truth is Google Drive; transforms stored permanently
+    - **Storage strategy** (Drive model): upload-delete pattern minimises Cloudinary costs
+      - Originals are never stored long-term; only thumbnail + lightbox transforms (~250KB/item) are permanent
+      - Cloudinary's `keep_derived: true` flag must be used on deletion to retain transforms
+    - **Flow**:
+      1. **Register** — Google Picker (client OAuth, no Cloudinary) returns `fileId` + `thumbnailLink`; stored in DB as `DRIVE_PENDING`; `thumbnailLink` used as card preview in upload gallery
+      2. **Publish** — server fetches original from Drive shareable URL → Cloudinary generates transforms → original deleted from Cloudinary immediately
+      3. **Checkout pre-check** — HEAD request to Drive URL before charging; if unavailable → abort with user message, no charge
+      4. **Purchase** — re-fetch original from Drive → upload to Cloudinary → serve buyer signed download URL → delete original from Cloudinary
+    - **Schema changes**: `MediaImportSource` enum, `importSource` + `remoteFileId` columns on `MediaItem`; `DRIVE_PENDING` added to `MediaStatus`
+    - **New server module**: `MediaImportService.importFromRemote(source, fileId)` — provider-agnostic URL resolver + Cloudinary upload
+    - **New tRPC mutation**: `media.registerDriveImport` — creates `DRIVE_PENDING` record; existing `media.publish` extended to call `importFromRemote` for pending Drive items
+    - **UX**: identical to direct uploads — same queue cards, price/date controls, selection, bulk edit, publish button; only new state is `drive_pending` card with Drive thumbnail preview
+    - Keep current XHR pipeline entirely untouched
 
 17. ✅ ~~Fix silent swallowing of errors across the codebase~~
     - `CheckoutService`: logs original payment gateway error (with `orderId`) via `logger.error` before rethrowing `BadGatewayError`
@@ -207,3 +217,5 @@
     - After migration, purchased items appear automatically in `myPurchases` (already filters by `buyer_id`)
     - Also trigger on sign-in, not just sign-up — user may have bought as guest before ever creating an account
     - No schema changes needed — `buyer_id` and `guest_email` columns already exist on both tables
+
+53. At successfull purchasement there are a bunch of toasts for each item: need only one for all. audit ux if it is correct and need fix.
