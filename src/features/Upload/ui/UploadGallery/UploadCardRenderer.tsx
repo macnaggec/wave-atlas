@@ -6,6 +6,7 @@ import { UploadItemAction } from './types';
 import DraftCard from '../cards/DraftCard';
 import { MediaItem } from 'entities/Media/types';
 import { formatPrice } from 'shared/lib/currency';
+import { MEDIA_STATUS } from 'entities/Media/constants';
 
 const ACTION_ICONS: Record<
   UploadItemAction,
@@ -27,6 +28,8 @@ interface UploadCardRendererProps {
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
   hasDateError?: boolean;
+  /** Whether the item is currently being published */
+  isPublishing?: boolean;
 }
 
 export const UploadCardRenderer = memo<UploadCardRendererProps>(({
@@ -35,6 +38,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   onAction,
   onRetry,
   hasDateError,
+  isPublishing,
 }) => {
   const isCompleted = item.status === 'completed';
 
@@ -56,9 +60,11 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     ? `Media ${item.result.resource.asset_id}`
     : item.file?.name || 'Upload preview';
 
-  const overlays = isCompleted && item.result
-    ? renderDraftOverlay(item.result)
-    : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
+  const overlays = isPublishing
+    ? renderPublishingOverlay()
+    : isCompleted && item.result
+      ? renderDraftOverlay(item.result)
+      : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
 
   const actionButtons = actions && actions.length > 0 ? (
     <Group gap="xs">
@@ -92,9 +98,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
-      actions={actionButtons}
+      actions={!isPublishing ? actionButtons : undefined}
       validation={
-        hasDateError
+        hasDateError && !isPublishing
           ? { hasError: true, message: 'Date required for publishing' }
           : undefined
       }
@@ -108,7 +114,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     prev.item.error === next.item.error &&
     prev.item.result?.capturedAt === next.item.result?.capturedAt &&
     prev.item.result?.price === next.item.result?.price &&
+    prev.item.result?.status === next.item.result?.status &&
     prev.hasDateError === next.hasDateError &&
+    prev.isPublishing === next.isPublishing &&
     prev.actions?.join() === next.actions?.join()
 );
 
@@ -120,16 +128,44 @@ function renderDraftOverlay(mediaItem: MediaItem) {
     ? new Date(mediaItem.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
 
+  const badges = [];
+
+  if (mediaItem.status === MEDIA_STATUS.DRIVE_PENDING) {
+    badges.push(
+      <Badge key="drive" size="sm" color="blue" variant="light">Drive</Badge>
+    );
+  }
+
+  badges.push(
+    <Badge key="price" size="sm" color="green" variant="filled">
+      {formatPrice(mediaItem.price)}
+    </Badge>
+  );
+
+  if (formattedDate) {
+    badges.push(
+      <Badge key="date" size="sm" color="blue" variant="filled">{formattedDate}</Badge>
+    );
+  } else {
+    badges.push(
+      <Badge key="missing-date" size="sm" color="red" variant="filled">Missing Date</Badge>
+    );
+  }
+
+  if (isDateFromExif) {
+    badges.push(
+      <Badge key="auto" size="xs" color="cyan" variant="light">Auto</Badge>
+    );
+  }
+
+  return <Group gap="xs">{badges}</Group>;
+}
+
+function renderPublishingOverlay() {
   return (
     <Group gap="xs">
-      <Badge size="sm" color="green" variant="filled">
-        {formatPrice(mediaItem.price)}
-      </Badge>
-      {formattedDate
-        ? <Badge size="sm" color="blue" variant="filled">{formattedDate}</Badge>
-        : <Badge size="sm" color="red" variant="filled">Missing Date</Badge>
-      }
-      {isDateFromExif && <Badge size="xs" color="cyan" variant="light">Auto</Badge>}
+      <Loader size="xs" />
+      <Text size="xs" c="dimmed">Publishing…</Text>
     </Group>
   );
 }
