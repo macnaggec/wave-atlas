@@ -1,10 +1,13 @@
 import type { IOrderRepository } from 'server/repositories/OrderRepository';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
-import type { IPurchaseRepository } from 'server/repositories/PurchaseRepository';
+import type { IPurchaseRepository, PurchaseWithMedia } from 'server/repositories/PurchaseRepository';
 import { orderRepository } from 'server/repositories/OrderRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { purchaseRepository } from 'server/repositories/PurchaseRepository';
+import { MediaImportSource } from '@prisma/client';
 import { MEDIA_STATUS } from 'entities/Media/constants';
+import type { IMediaImportService } from 'server/services/MediaImportService';
+import { mediaImportService } from 'server/services/MediaImportService';
 import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter';
 import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
@@ -21,6 +24,7 @@ export class CheckoutService {
     private purchases: IPurchaseRepository,
     private payment: PaymentAdapter,
     private cloudinary: ICloudinaryService,
+    private importer: IMediaImportService,
   ) { }
 
   /**
@@ -76,7 +80,7 @@ export class CheckoutService {
 
   /**
    * Verifies the buyer owns the purchase, then generates a short-lived signed
-   * Cloudinary download URL for the original media file.
+   * download URL for the original media file.
    *
    * Throws ForbiddenError if no Purchase row exists for (buyerId, mediaItemId).
    */
@@ -85,10 +89,8 @@ export class CheckoutService {
     mediaItemId: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByBuyerAndMedia(buyerId, mediaItemId);
-
     if (!purchase) throw new ForbiddenError('You have not purchased this item');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase);
   }
 
   /**
@@ -100,10 +102,8 @@ export class CheckoutService {
     downloadToken: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByDownloadToken(downloadToken);
-
     if (!purchase) throw new ForbiddenError('Invalid or expired download token');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase);
   }
 
   /**
@@ -116,10 +116,8 @@ export class CheckoutService {
     orderId: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByIdAndOrder(purchaseId, orderId);
-
     if (!purchase) throw new ForbiddenError('Purchase not found');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase);
   }
 
   async getGuestPurchases(orderId: string) {
@@ -139,31 +137,87 @@ export class CheckoutService {
       throw new BadRequestError('One or more items not found');
     }
 
-    const unpublished = mediaItems.filter((m) => m.status !== MEDIA_STATUS.PUBLISHED);
+    this.assertItemsPublished(mediaItems);
+    await this.assertDriveItemsAvailable(mediaItems);
+    await this.assertBuyerEligible(buyerId, mediaItems, itemIds);
 
+    return mediaItems;
+  }
+
+  private assertItemsPublished(
+    mediaItems: { id: string; status: string }[],
+  ): void {
+    const unpublished = mediaItems.filter((m) => m.status !== MEDIA_STATUS.PUBLISHED);
     if (unpublished.length > 0) {
       throw new BadRequestError(
         `Some items are no longer available: ${unpublished.map((m) => m.id).join(', ')}`,
       );
     }
+  }
 
-    if (buyerId !== null) {
-      const ownedItems = mediaItems.filter((m) => m.photographerId === buyerId);
+  private async assertDriveItemsAvailable(
+    mediaItems: { id: string; importSource: string; remoteFileId: string | null }[],
+  ): Promise<void> {
+    // Any non-DIRECT source is remote — new providers are covered automatically.
+    const remoteItems = mediaItems.filter(
+      (m) => m.importSource !== MediaImportSource.DIRECT
+    );
 
-      if (ownedItems.length > 0) {
-        throw new BadRequestError('You cannot purchase your own media');
-      }
+    if (remoteItems.length === 0) return;
 
-      const purchasedIds = await this.purchases.findPurchasedItemIds(buyerId, itemIds);
+    const checks = await Promise.all(
+      remoteItems.map((m) =>
+        this.importer
+          .verifyRemoteAvailability(
+            m.importSource as MediaImportSource, m.remoteFileId!
+          )
+          .then((ok) => ({ id: m.id, ok }))
+      ),
+    );
 
-      if (purchasedIds.length > 0) {
-        throw new BadRequestError(
-          `Some items already purchased: ${purchasedIds.join(', ')}`,
-        );
-      }
+    const unavailable = checks.filter((c) => !c.ok);
+
+    if (unavailable.length > 0) {
+      throw new BadRequestError(
+        `Some items are no longer available: ${unavailable.map((c) => c.id).join(', ')}`,
+      );
+    }
+  }
+
+  private async assertBuyerEligible(
+    buyerId: string | null,
+    mediaItems: { id: string; photographerId: string }[],
+    itemIds: string[],
+  ): Promise<void> {
+    if (buyerId === null) return;
+
+    const ownedItems = mediaItems.filter((m) => m.photographerId === buyerId);
+    if (ownedItems.length > 0) {
+      throw new BadRequestError('You cannot purchase your own media');
     }
 
-    return mediaItems;
+    const purchasedIds = await this.purchases.findPurchasedItemIds(buyerId, itemIds);
+    if (purchasedIds.length > 0) {
+      throw new BadRequestError(
+        `Some items already purchased: ${purchasedIds.join(', ')}`,
+      );
+    }
+  }
+
+  /** Routes download to the correct provider based on the purchase's import source. */
+  private resolveDownload(
+    purchase: PurchaseWithMedia,
+  ): Promise<{ downloadUrl: string; expiresAt: number }> {
+    // DIRECT items are always in Cloudinary. All remote sources go through the importer.
+    if (purchase.mediaItem.importSource === MediaImportSource.DIRECT) {
+      return Promise.resolve(
+        this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId),
+      );
+    }
+    return this.importer.importForDownload(
+      purchase.mediaItem.importSource as MediaImportSource,
+      purchase.mediaItem.remoteFileId!,
+    );
   }
 
   private async openPaymentSession(
@@ -186,7 +240,10 @@ export class CheckoutService {
 
       return checkoutUrl;
     } catch (err) {
-      logger.error('[CheckoutService] Payment gateway error', { err, orderId });
+      logger.error('[CheckoutService] Payment gateway error', {
+        err, orderId
+      });
+
       await this.orders.markOrderFailed(orderId);
 
       throw new BadGatewayError('Failed to create checkout session');
@@ -200,4 +257,5 @@ export const checkoutService = new CheckoutService(
   purchaseRepository,
   paymentAdapter,
   cloudinaryService,
+  mediaImportService,
 );
