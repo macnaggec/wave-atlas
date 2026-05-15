@@ -33,3 +33,11 @@ export const mediaBatchUpdateSchema = mediaPriceableBase.refine(
 );
 
 export const mediaPublishSchema = mediaPriceableBase;
+
+export const registerDriveImportSchema = z.object({
+  spotId: z.uuid(),
+  remoteFileId: z.string().regex(/^[a-zA-Z0-9_-]{10,100}$/, 'Invalid Drive file ID'),
+  mimeType: z.string().regex(/^(image|video)\//, 'Unsupported media type'),
+  driveThumbnailUrl: z.string().url(),
+  accessToken: z.string().min(1),
+});

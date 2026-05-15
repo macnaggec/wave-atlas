@@ -7,11 +7,14 @@ import {
   mediaUpdateSchema,
   mediaBatchUpdateSchema,
   mediaPublishSchema,
+  registerDriveImportSchema,
 } from 'shared/validation/mediaSchemas';
 import { z } from 'zod';
 
 // 10 upload signature requests per user per minute
 const signCloudinaryLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
+// 20 drive imports per user per minute
+const driveImportLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 
 // tRPC inputs carry price in dollars (human-readable). Convert once here so the
 // service layer operates entirely in cents.
@@ -65,5 +68,15 @@ export const mediaRouter = router({
         price: input.price !== undefined ? toCents(input.price) : undefined,
         capturedAt: input.capturedAt,
       })
+    ),
+
+  registerDriveImport: protectedProcedure
+    .use(({ ctx, next }) => {
+      driveImportLimiter(ctx.user.id);
+      return next();
+    })
+    .input(registerDriveImportSchema)
+    .mutation(({ input, ctx }) =>
+      mediaService.registerDriveImport(ctx.user.id, input)
     ),
 });

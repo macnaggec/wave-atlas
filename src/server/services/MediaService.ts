@@ -5,6 +5,7 @@ import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
 import type { MediaStatus } from 'entities/Media/constants';
 import type { MediaItem } from 'entities/Media/types';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
+import { cloudinaryService } from './CloudinaryService';
 
 const CLOUDINARY_TYPE_MAP: Record<string, MediaType> = {
   video: MediaType.VIDEO,
@@ -38,6 +39,14 @@ export type PublishInput = {
   capturedAt?: Date;
 };
 
+export type RegisterDriveImportInput = {
+  spotId: string;
+  remoteFileId: string;
+  mimeType: string;
+  driveThumbnailUrl: string;
+  accessToken: string;
+};
+
 export class MediaService {
   constructor(private media: IMediaRepository) { }
 
@@ -54,6 +63,40 @@ export class MediaService {
       price: input.price ?? MIN_MEDIA_PRICE_CENTS,
       status: MEDIA_STATUS.DRAFT,
     });
+  }
+
+  async registerDriveImport(userId: string, input: RegisterDriveImportInput): Promise<MediaItem> {
+    const driveUrl = `https://www.googleapis.com/drive/v3/files/${input.remoteFileId}?alt=media`;
+    const resourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
+
+    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = await cloudinaryService.uploadFromUrl(
+      driveUrl,
+      { Authorization: `Bearer ${input.accessToken}` },
+      `wave-atlas/users/${userId}`,
+      resourceType,
+    );
+
+    const mediaType = resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO;
+
+    try {
+      return await this.media.createMedia({
+        spotId: input.spotId,
+        photographerId: userId,
+        type: mediaType,
+        cloudinaryPublicId: publicId,
+        thumbnailUrl,
+        lightboxUrl,
+        capturedAt: new Date(),
+        price: MIN_MEDIA_PRICE_CENTS,
+        status: MEDIA_STATUS.DRAFT,
+      });
+    } catch (err) {
+      // Best-effort cleanup: remove the Cloudinary asset to avoid a storage leak
+      cloudinaryService.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
+        (cleanupErr) => console.error('[MediaService] Failed to clean up orphaned Cloudinary asset', publicId, cleanupErr),
+      );
+      throw err;
+    }
   }
 
   async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem> {

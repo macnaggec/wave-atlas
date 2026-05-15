@@ -61,6 +61,7 @@ export function useGooglePicker(spotId: string) {
                   remoteFileId: doc.id,
                   mimeType: doc.mimeType,
                   driveThumbnailUrl,
+                  accessToken,
                 });
                 append(mediaItem);
               } catch {

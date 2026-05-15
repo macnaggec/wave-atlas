@@ -27,8 +27,17 @@ export interface SignedMediaAccessResult {
   expiresAt: number; // Unix timestamp for downloadUrl expiry
 }
 
+export interface RemoteUploadResult {
+  publicId: string;
+  resource_type: string;
+  thumbnailUrl: string;
+  lightboxUrl: string;
+}
+
 export interface ICloudinaryService {
   generateUploadSignature(folder?: string): CloudinarySignatureData;
+  uploadFromUrl(sourceUrl: string, authHeaders: Record<string, string>, folder: string, resourceType?: 'image' | 'video'): Promise<RemoteUploadResult>;
+  deleteAsset(publicId: string, resourceType?: 'image' | 'video'): Promise<void>;
   generateSignedDownload(cloudinaryPublicId: string): { downloadUrl: string; expiresAt: number };
   generatePermanentPreviewUrl(cloudinaryPublicId: string): string;
   tryGeneratePermanentPreviewUrl(cloudinaryPublicId: string): string | null;
@@ -98,6 +107,52 @@ export class CloudinaryService implements ICloudinaryService {
       type: 'authenticated' as const,
       eager,
     };
+  }
+
+  /**
+   * Uploads a remote file to Cloudinary by fetching it server-side with the provided auth headers.
+   * Applies the same eager transforms as client-side uploads (thumbnail + watermarked lightbox).
+   *
+   * Note: authHeaders may contain short-lived OAuth tokens — ensure log aggregators
+   * are configured to scrub Authorization headers in production.
+   */
+  async uploadFromUrl(
+    sourceUrl: string,
+    authHeaders: Record<string, string>,
+    folder: string,
+    resourceType: 'image' | 'video' = 'image',
+  ): Promise<RemoteUploadResult> {
+    if (!process.env.CLOUDINARY_API_SECRET) {
+      throw new InternalServerError('Cloudinary misconfigured: missing CLOUDINARY_API_SECRET');
+    }
+
+    const eager = [
+      MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+    ].join(',');
+
+    const result = await cloudinary.uploader.upload(sourceUrl, {
+      folder,
+      type: 'authenticated',
+      resource_type: resourceType,
+      eager,
+      headers: authHeaders,
+    });
+
+    return {
+      publicId: result.public_id,
+      resource_type: result.resource_type,
+      thumbnailUrl: result.eager?.[0]?.secure_url ?? result.secure_url,
+      lightboxUrl: result.eager?.[1]?.secure_url ?? result.secure_url,
+    };
+  }
+
+  /**
+   * Deletes an authenticated Cloudinary asset by public ID.
+   * Used for cleanup when a DB write fails after a successful upload.
+   */
+  async deleteAsset(publicId: string, resourceType: 'image' | 'video' = 'image'): Promise<void> {
+    await cloudinary.uploader.destroy(publicId, { type: 'authenticated', resource_type: resourceType });
   }
 
   /**
