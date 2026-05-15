@@ -85,3 +85,8 @@ declare namespace google {
 }
 
 declare const gapi: GapiStatic;
+
+interface Window {
+  gapi?: GapiStatic;
+  google?: typeof google;
+}
