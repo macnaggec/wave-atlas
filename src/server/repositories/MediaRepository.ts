@@ -1,4 +1,4 @@
-import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
+import { MediaImportSource, MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
 import { MEDIA_RESOURCE_TYPE, MEDIA_STATUS } from 'entities/Media/constants';
 import type { MediaItem, PublishedMedia } from 'entities/Media/types';
 import { prisma } from 'server/db';
@@ -16,6 +16,8 @@ export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
     cloudinaryPublicId: row.cloudinaryPublicId,
     status: row.status,
     createdAt: row.createdAt,
+    remoteFileId: row.remoteFileId,
+    importSource: row.importSource,
     resource: {
       resource_type: row.type === MediaType.VIDEO
         ? MEDIA_RESOURCE_TYPE.VIDEO
@@ -51,9 +53,17 @@ export type CreateMediaData = {
   capturedAt: Date;
   price: number;
   status: MediaStatus;
+  importSource?: MediaImportSource;
+  remoteFileId?: string;
 };
 
-export type UpdateMediaData = { price?: number; status?: MediaStatus; capturedAt?: Date };
+export type UpdateMediaData = {
+  price?: number;
+  status?: MediaStatus;
+  capturedAt?: Date;
+  thumbnailUrl?: string;
+  lightboxUrl?: string;
+};
 
 export type MediaFulfillmentItem = {
   id: string;
@@ -68,7 +78,7 @@ export interface IMediaRepository {
   updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem>;
   softDelete(id: string): Promise<MediaItem>;
   hardDelete(id: string): Promise<void>;
-  findByIds(ids: string[]): Promise<{ id: string; status: string; price: number; photographerId: string }[]>;
+  findByIds(ids: string[]): Promise<{ id: string; status: string; price: number; photographerId: string; importSource: string; remoteFileId: string | null }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
   countDraftsBySpot(photographerId: string): Promise<{ spotId: string; spotName: string; count: number }[]>;
@@ -112,11 +122,11 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findByIds(ids: string[]): Promise<{ id: string; status: string; price: number; photographerId: string }[]> {
+  findByIds(ids: string[]): Promise<{ id: string; status: string; price: number; photographerId: string; importSource: string; remoteFileId: string | null }[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { id: { in: ids } },
-        select: { id: true, status: true, price: true, photographerId: true },
+        select: { id: true, status: true, price: true, photographerId: true, importSource: true, remoteFileId: true },
       });
       return rows.map((row) => ({ ...row, price: row.price }));
     });

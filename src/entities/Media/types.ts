@@ -18,6 +18,9 @@ export interface MediaItem {
   cloudinaryPublicId: string;
   status: PhotoStatus;
   createdAt: Date;
+  /** Non-null for DRIVE_PENDING and Drive-sourced PUBLISHED items. */
+  remoteFileId?: string | null;
+  importSource?: string;
   resource: {
     resource_type: MediaResourceType;
     url: string;

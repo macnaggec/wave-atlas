@@ -10,6 +10,8 @@ export type PurchaseWithMedia = {
     id: string;
     cloudinaryPublicId: string;
     thumbnailUrl: string;
+    importSource: string;
+    remoteFileId: string | null;
   };
 };
 
@@ -28,7 +30,7 @@ const PURCHASE_WITH_MEDIA_SELECT = {
   amountPaid: true,
   previewUrl: true,
   mediaItem: {
-    select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true },
+    select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true, importSource: true, remoteFileId: true },
   },
 } as const;
 

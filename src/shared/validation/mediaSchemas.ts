@@ -33,3 +33,11 @@ export const mediaBatchUpdateSchema = mediaPriceableBase.refine(
 );
 
 export const mediaPublishSchema = mediaPriceableBase;
+
+/** Input for registering a Google Drive file as a DRIVE_PENDING media item. */
+export const registerDriveImportSchema = z.object({
+  spotId: z.uuid(),
+  remoteFileId: z.string().min(1),
+  mimeType: z.string().min(1),
+  driveThumbnailUrl: z.url(),
+});

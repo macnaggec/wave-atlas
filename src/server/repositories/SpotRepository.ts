@@ -200,7 +200,7 @@ export class SpotRepository implements ISpotRepository {
   findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
-        where: { spotId, photographerId, status: MEDIA_STATUS.DRAFT, deletedAt: null },
+        where: { spotId, photographerId, status: { in: [MEDIA_STATUS.DRAFT, MEDIA_STATUS.DRIVE_PENDING] }, deletedAt: null },
         orderBy: { createdAt: 'desc' },
       });
       return rows.map(mapToMediaItem);
