@@ -2,6 +2,7 @@ export const MEDIA_STATUS = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
   DELETED: 'DELETED',
+  DRIVE_PENDING: 'DRIVE_PENDING',
 } as const;
 
 // Legacy alias - will be removed after migration
@@ -39,6 +40,16 @@ export const MEDIA_CLOUDINARY_TRANSFORMS = {
    */
   LIGHTBOX: 't_wave_atlas_lightbox',
 } as const;
+
+/**
+ * Eager transforms used on every upload (direct and remote import).
+ * Comma-separated = two separate Cloudinary outputs: eager[0] = thumbnail, eager[1] = lightbox.
+ * Watermark is applied at URL-generation time for public viewers, not stored eagerly.
+ */
+export const MEDIA_UPLOAD_EAGER_TRANSFORMS = [
+  MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+  MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX,
+].join(',');
 
 export const MEDIA_UPLOAD_LIMITS = {
   // File size limits (bytes)
