@@ -8,7 +8,7 @@
 
 import cloudinary from 'server/lib/cloudinary';
 import { InternalServerError } from 'shared/errors';
-import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
+import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS, MEDIA_UPLOAD_EAGER_TRANSFORMS } from 'entities/Media/constants';
 
 export interface CloudinarySignatureData {
   signature: string;
@@ -67,20 +67,12 @@ export class CloudinaryService implements ICloudinaryService {
 
     const timestamp = Math.round(new Date().getTime() / 1000);
 
-    // Eager transforms generate public-accessible variants at upload time:
-    //   - thumbnail:         gallery card (small, no watermark, public)
-    //   - lightbox_watermark: watermarked preview (medium, public)
-    const eager = [
-      MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-    ].join('|');
-
     // All params that affect the upload MUST be signed to prevent tampering.
     const paramsToSign = {
       timestamp,
       folder,
       type: 'authenticated' as const,
-      eager,
+      eager: MEDIA_UPLOAD_EAGER_TRANSFORMS,
     };
 
     // Generate cryptographic signature
@@ -96,7 +88,7 @@ export class CloudinaryService implements ICloudinaryService {
       apiKey,
       folder,
       type: 'authenticated' as const,
-      eager,
+      eager: MEDIA_UPLOAD_EAGER_TRANSFORMS,
     };
   }
 
