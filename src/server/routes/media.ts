@@ -7,6 +7,7 @@ import {
   mediaUpdateSchema,
   mediaBatchUpdateSchema,
   mediaPublishSchema,
+  registerDriveImportSchema,
 } from 'shared/validation/mediaSchemas';
 import { z } from 'zod';
 
@@ -65,5 +66,11 @@ export const mediaRouter = router({
         price: input.price !== undefined ? toCents(input.price) : undefined,
         capturedAt: input.capturedAt,
       })
+    ),
+
+  registerDriveImport: protectedProcedure
+    .input(registerDriveImportSchema)
+    .mutation(({ input, ctx }) =>
+      mediaService.registerDriveImport(ctx.user.id, input)
     ),
 });

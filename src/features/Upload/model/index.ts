@@ -19,5 +19,8 @@ export { useGooglePicker } from './useGooglePicker';
 export { useDraftEditing } from './useDraftEditing';
 export { draftMediaKey } from './draftMediaKey';
 
+export { useDriveImport } from './useDriveImport';
+export type { DriveFile } from './useDriveImport';
+
 // Types
 export type { UploadItem, QueueItem, UploadStatus, CloudinaryResult, ExifMetadata } from './types';
