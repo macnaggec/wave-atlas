@@ -7,8 +7,6 @@ import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
-const CLOUDINARY_USER_FOLDER = 'wave-atlas/users' as const;
-
 export type CreateMediaInput = {
   spotId: string;
   cloudinaryResult: {
@@ -45,51 +43,33 @@ export class MediaService {
   ) { }
 
   generateUploadSignature(userId: string) {
-    return this.cloudinary.generateUploadSignature(`${CLOUDINARY_USER_FOLDER}/${userId}`);
+    return this.cloudinary.generateUploadSignature(`wave-atlas/users/${userId}`);
   }
 
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
-    const { publicId, resource_type } = input.cloudinaryResult;
-    try {
-      return await this.media.createMedia({
-        spotId: input.spotId,
-        photographerId: userId,
-        resource_type: resource_type as 'image' | 'video',
-        cloudinaryPublicId: publicId,
-        thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
-        lightboxUrl: input.cloudinaryResult.lightboxUrl,
-        capturedAt: input.capturedAt ?? new Date(),
-        price: input.price ?? MIN_MEDIA_PRICE_CENTS,
-        status: MEDIA_STATUS.DRAFT,
-      });
-    } catch (err) {
-      this.cloudinary.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
-        (cleanupErr) => console.error('[MediaService] Failed to clean up orphaned Cloudinary asset', publicId, cleanupErr),
-      );
-      throw err;
-    }
+    return this.media.createMedia({
+      spotId: input.spotId,
+      photographerId: userId,
+      resource_type: input.cloudinaryResult.resource_type as 'image' | 'video',
+      cloudinaryPublicId: input.cloudinaryResult.publicId,
+      thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
+      lightboxUrl: input.cloudinaryResult.lightboxUrl,
+      capturedAt: input.capturedAt ?? new Date(),
+      price: input.price ?? MIN_MEDIA_PRICE_CENTS,
+      status: MEDIA_STATUS.DRAFT,
+    });
   }
 
   async registerDriveImport(userId: string, input: RegisterDriveImportInput): Promise<MediaItem> {
     const driveUrl = `https://www.googleapis.com/drive/v3/files/${input.remoteFileId}?alt=media`;
     const resourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
 
-    console.log('[MediaService] Drive import start', { userId, spotId: input.spotId, remoteFileId: input.remoteFileId, mimeType: input.mimeType });
-
-    let uploadResult: Awaited<ReturnType<typeof this.cloudinary.uploadFromUrl>>;
-    try {
-      uploadResult = await this.cloudinary.uploadFromUrl(
-        driveUrl,
-        { Authorization: `Bearer ${input.accessToken}` },
-        `${CLOUDINARY_USER_FOLDER}/${userId}`,
-        resourceType,
-      );
-    } catch (err) {
-      console.error('[MediaService] Drive import: Cloudinary upload failed', { userId, spotId: input.spotId, remoteFileId: input.remoteFileId }, err);
-      throw err;
-    }
-
-    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = uploadResult;
+    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = await this.cloudinary.uploadFromUrl(
+      driveUrl,
+      { Authorization: `Bearer ${input.accessToken}` },
+      `wave-atlas/users/${userId}`,
+      resourceType,
+    );
 
     try {
       return await this.media.createMedia({

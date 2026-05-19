@@ -1,10 +1,18 @@
 import { z } from 'zod';
-import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
+
+const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+const cloudinaryBase = cloudName ? `https://res.cloudinary.com/${cloudName}/` : null;
+
+export const mediaCloudinaryUrlSchema = z.url().refine(
+  (url) => !!cloudinaryBase && url.startsWith(cloudinaryBase),
+  { message: 'URL must be a Cloudinary URL for this account' },
+);
 
 export const mediaCloudinaryResultSchema = z.object({
   publicId: z.string().min(1),
-  thumbnailUrl: z.url(),
-  lightboxUrl: z.url(),
+  thumbnailUrl: mediaCloudinaryUrlSchema,
+  lightboxUrl: mediaCloudinaryUrlSchema,
   resource_type: z.enum([MEDIA_RESOURCE_TYPE.IMAGE, MEDIA_RESOURCE_TYPE.VIDEO]),
 });
 
@@ -17,30 +25,22 @@ export const mediaCreateSchema = z.object({
 
 export const mediaUpdateSchema = z.object({
   id: z.uuid(),
-  price: z.number().min(MIN_MEDIA_PRICE_CENTS / 100, { message: `Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}` }).optional(),
+  price: z.number().min(0).optional(),
   status: z.enum([MEDIA_STATUS.DRAFT, MEDIA_STATUS.PUBLISHED, MEDIA_STATUS.DELETED]).optional(),
 });
 
-export const mediaDeleteSchema = z.object({
-  id: z.uuid(),
-});
+export const mediaBatchUpdateSchema = z
+  .object({
+    mediaIds: z.array(z.uuid()).min(1),
+    price: z.number().min(0).optional(),
+    capturedAt: z.coerce.date().optional(),
+  })
+  .refine((d) => d.price !== undefined || d.capturedAt !== undefined, {
+    error: 'Must provide at least price or capturedAt',
+  });
 
-const mediaPriceableBase = z.object({
+export const mediaPublishSchema = z.object({
   mediaIds: z.array(z.uuid()).min(1),
-  price: z.number().min(MIN_MEDIA_PRICE_CENTS / 100, { message: `Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}` }).optional(),
+  price: z.number().min(0).optional(),
   capturedAt: z.coerce.date().optional(),
-});
-
-export const mediaBatchUpdateSchema = mediaPriceableBase.refine(
-  (d) => d.price !== undefined || d.capturedAt !== undefined,
-  { message: 'Must provide at least price or capturedAt' },
-);
-
-export const mediaPublishSchema = mediaPriceableBase;
-
-export const registerDriveImportSchema = z.object({
-  spotId: z.uuid(),
-  remoteFileId: z.string().regex(/^[a-zA-Z0-9_-]{10,100}$/, 'Invalid Drive file ID'),
-  mimeType: z.string().regex(/^(image|video)\//, 'Unsupported media type'),
-  accessToken: z.string().min(1).max(2048),
 });

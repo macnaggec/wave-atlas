@@ -48,11 +48,6 @@ export interface ICloudinaryService {
  * Validates configuration and creates signed upload parameters
  */
 export class CloudinaryService implements ICloudinaryService {
-  private readonly EAGER_TRANSFORMS = [
-    MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-    MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-  ].join(',');
-
   /**
    * Generates signed upload parameters for client-side Cloudinary uploads
    *
@@ -81,12 +76,20 @@ export class CloudinaryService implements ICloudinaryService {
 
     const timestamp = Math.round(new Date().getTime() / 1000);
 
+    // Eager transforms generate public-accessible variants at upload time:
+    //   - thumbnail:         gallery card (small, no watermark, public)
+    //   - lightbox_watermark: watermarked preview (medium, public)
+    const eager = [
+      MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+    ].join(',');
+
     // All params that affect the upload MUST be signed to prevent tampering.
     const paramsToSign = {
       timestamp,
       folder,
       type: 'authenticated' as const,
-      eager: this.EAGER_TRANSFORMS,
+      eager,
     };
 
     // Generate cryptographic signature
@@ -102,7 +105,7 @@ export class CloudinaryService implements ICloudinaryService {
       apiKey,
       folder,
       type: 'authenticated' as const,
-      eager: this.EAGER_TRANSFORMS,
+      eager,
     };
   }
 
@@ -123,27 +126,24 @@ export class CloudinaryService implements ICloudinaryService {
       throw new InternalServerError('Cloudinary misconfigured: missing CLOUDINARY_API_SECRET');
     }
 
+    const eager = [
+      MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+    ].join(',');
+
     const result = await cloudinary.uploader.upload(sourceUrl, {
       folder,
       type: 'authenticated',
       resource_type: resourceType,
-      eager: this.EAGER_TRANSFORMS,
+      eager,
       headers: authHeaders,
     });
-
-    const thumbnailUrl = result.eager?.[0]?.secure_url;
-    const lightboxUrl = result.eager?.[1]?.secure_url;
-
-    if (!thumbnailUrl || !lightboxUrl) {
-      await cloudinary.uploader.destroy(result.public_id, { type: 'authenticated', resource_type: resourceType });
-      throw new InternalServerError('Cloudinary upload succeeded but eager transforms were not returned');
-    }
 
     return {
       publicId: result.public_id,
       resource_type: result.resource_type,
-      thumbnailUrl,
-      lightboxUrl,
+      thumbnailUrl: result.eager?.[0]?.secure_url,
+      lightboxUrl: result.eager?.[1]?.secure_url,
     };
   }
 

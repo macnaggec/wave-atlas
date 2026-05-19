@@ -1,20 +1,31 @@
 import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
-import { MEDIA_RESOURCE_TYPE, MEDIA_STATUS } from 'entities/Media/constants';
-import type { MediaResourceType } from 'entities/Media/constants';
+import { MEDIA_RESOURCE_TYPE, MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
 import type { MediaItem, PublishedMedia } from 'entities/Media/types';
 import type { MediaStatus as DomainMediaStatus } from 'entities/Media/constants';
 import { prisma } from 'server/db';
+import cloudinary from 'server/lib/cloudinary';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
+function toSignedUrl(cloudinaryPublicId: string, transform: string): string {
+  return cloudinary.url(cloudinaryPublicId, {
+    sign_url: true,
+    type: 'authenticated',
+    secure: true,
+    raw_transformation: transform,
+  });
+}
+
 export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
+  const thumbnailUrl = toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL);
+  const lightboxUrl = toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK);
   return {
     id: row.id,
     photographerId: row.photographerId,
     spotId: row.spotId,
     capturedAt: row.capturedAt,
     price: row.price,
-    lightboxUrl: row.lightboxUrl,
-    thumbnailUrl: row.thumbnailUrl,
+    lightboxUrl,
+    thumbnailUrl,
     cloudinaryPublicId: row.cloudinaryPublicId,
     status: row.status,
     createdAt: row.createdAt,
@@ -22,7 +33,7 @@ export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
       resource_type: row.type === MediaType.VIDEO
         ? MEDIA_RESOURCE_TYPE.VIDEO
         : MEDIA_RESOURCE_TYPE.IMAGE,
-      url: row.lightboxUrl,
+      url: lightboxUrl,
       asset_id: row.id,
     },
   };
@@ -34,7 +45,7 @@ function mapToPublishedMedia(
   return {
     id: row.id,
     type: row.type,
-    lightboxUrl: row.lightboxUrl,
+    lightboxUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
     price: row.price,
     capturedAt: row.capturedAt,
     spotId: row.spotId,
@@ -46,7 +57,7 @@ function mapToPublishedMedia(
 export type CreateMediaData = {
   spotId: string;
   photographerId: string;
-  resource_type: MediaResourceType;
+  resource_type: 'image' | 'video';
   cloudinaryPublicId: string;
   thumbnailUrl: string;
   lightboxUrl: string;
@@ -83,7 +94,7 @@ export class MediaRepository implements IMediaRepository {
         data: {
           spotId: data.spotId,
           photographerId: data.photographerId,
-          type: data.resource_type === MEDIA_RESOURCE_TYPE.VIDEO ? MediaType.VIDEO : MediaType.PHOTO,
+          type: data.resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
           cloudinaryPublicId: data.cloudinaryPublicId,
           thumbnailUrl: data.thumbnailUrl,
           lightboxUrl: data.lightboxUrl,
