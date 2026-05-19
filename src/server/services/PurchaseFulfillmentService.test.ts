@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PurchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
 import type { OrderWithItems } from 'server/repositories/OrderRepository';
 import type { MediaFulfillmentItem } from 'server/repositories/MediaRepository';
-import type { FulfillPurchaseData, FulfillmentPayload } from 'server/repositories/FulfillmentRepository';
+import type { PurchaseInsertData, FulfillmentPayload } from 'server/repositories/FulfillmentRepository';
 
 // ---------------------------------------------------------------------------
 // Inline mocks — no vi.mock() needed with constructor injection
@@ -119,7 +119,7 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
     expect(payload.orderId).toBe(ORDER_ID);
     expect(payload.externalOrderId).toBe(EXTERNAL_ID);
     expect(payload.purchases).toHaveLength(1);
-    expect(payload.purchases[0]).toMatchObject<Partial<FulfillPurchaseData>>({
+    expect(payload.purchases[0]).toMatchObject<Partial<PurchaseInsertData>>({
       mediaItemId: 'media-1',
       buyerId: 'buyer-1',
       amountPaid: 1000,

@@ -1,5 +1,5 @@
 import { prisma } from 'server/db';
-import { runQuery } from './BaseRepository';
+import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
 export interface IUserRepository {
   anonymizeAndDelete(userId: string): Promise<void>;

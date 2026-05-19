@@ -6,10 +6,6 @@ import {
   InternalServerError,
 } from './index';
 
-/**
- * Maps Prisma errors to semantic HTTP errors
- * Prisma error codes: https://www.prisma.io/docs/reference/api-reference/error-reference
- */
 export function mapPrismaError(error: unknown): Error {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
     return error as Error;
@@ -81,5 +77,13 @@ export function mapPrismaError(error: unknown): Error {
         'Database operation failed',
         { code, meta }
       );
+  }
+}
+
+export async function runQuery<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    throw mapPrismaError(err);
   }
 }

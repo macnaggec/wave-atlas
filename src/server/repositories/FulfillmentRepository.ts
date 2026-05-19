@@ -4,9 +4,9 @@ import {
   TransactionType,
 } from '@prisma/client';
 import { prisma } from 'server/db';
-import { runQuery } from './BaseRepository';
+import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
-export type FulfillPurchaseData = {
+type FulfillPurchaseData = {
   mediaItemId: string;
   buyerId: string | null;
   guestEmail?: string | null;
@@ -47,23 +47,21 @@ export class FulfillmentRepository implements IFulfillmentRepository {
         await tx.purchase.createMany({ data: payload.purchases });
 
         await Promise.all(
-          payload.earnings.map(({ photographerId, amount }) =>
-            Promise.all([
-              tx.user.update({
-                where: { id: photographerId },
-                data: { balance: { increment: amount } },
-              }),
-              tx.transaction.create({
-                data: {
-                  userId: photographerId,
-                  amount,
-                  type: TransactionType.SALE,
-                  externalOrderId: payload.externalOrderId,
-                  status: TransactionStatus.COMPLETED,
-                },
-              }),
-            ])
-          )
+          payload.earnings.flatMap(({ photographerId, amount }) => [
+            tx.user.update({
+              where: { id: photographerId },
+              data: { balance: { increment: amount } },
+            }),
+            tx.transaction.create({
+              data: {
+                userId: photographerId,
+                amount,
+                type: TransactionType.SALE,
+                externalOrderId: payload.externalOrderId,
+                status: TransactionStatus.COMPLETED,
+              },
+            }),
+          ])
         );
       })
     );

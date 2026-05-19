@@ -1,6 +1,6 @@
 import { OrderStatus } from '@prisma/client';
 import { prisma } from 'server/db';
-import { runQuery } from './BaseRepository';
+import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
 export type OrderWithItems = {
   id: string;
@@ -8,7 +8,7 @@ export type OrderWithItems = {
   guestEmail: string | null;
   externalOrderId: string | null;
   totalAmount: number;
-  status: string;
+  status: OrderStatus;
   items: { id: string; mediaItemId: string }[];
 };
 
@@ -27,6 +27,10 @@ export interface IOrderRepository {
   saveGuestEmail(orderId: string, email: string): Promise<void>;
 }
 
+const ORDER_ITEMS_INCLUDE = {
+  items: { select: { id: true, mediaItemId: true } },
+} as const;
+
 export class OrderRepository implements IOrderRepository {
   createOrder(data: CreateOrderData): Promise<OrderWithItems> {
     return runQuery(async () => {
@@ -41,7 +45,7 @@ export class OrderRepository implements IOrderRepository {
             },
           },
         },
-        include: { items: { select: { id: true, mediaItemId: true } } },
+        include: ORDER_ITEMS_INCLUDE,
       });
     });
   }
@@ -50,7 +54,7 @@ export class OrderRepository implements IOrderRepository {
     return runQuery(() =>
       prisma.order.findUnique({
         where: { id },
-        include: { items: { select: { id: true, mediaItemId: true } } },
+        include: ORDER_ITEMS_INCLUDE,
       })
     );
   }

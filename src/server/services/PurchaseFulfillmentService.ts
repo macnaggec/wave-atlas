@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import type { IOrderRepository } from 'server/repositories/OrderRepository';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
-import type { IFulfillmentRepository } from 'server/repositories/FulfillmentRepository';
+import type { IFulfillmentRepository, PurchaseInsertData } from 'server/repositories/FulfillmentRepository';
 import { orderRepository } from 'server/repositories/OrderRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { fulfillmentRepository } from 'server/repositories/FulfillmentRepository';
@@ -37,23 +37,24 @@ export class PurchaseFulfillmentService {
     const itemIds = order.items.map((item) => item.mediaItemId);
     const mediaItems = await this.media.findByIdsForFulfillment(itemIds);
 
-    const purchaseData = [];
+    const purchaseData: PurchaseInsertData[] = [];
     const earningsMap = new Map<string, number>();
 
     for (const item of mediaItems) {
       purchaseData.push({
+        orderId,
         mediaItemId: item.id,
         buyerId: order.buyerId,
         guestEmail: order.guestEmail,
         downloadToken: randomBytes(32).toString('hex'),
         amountPaid: item.price,
-        platformFee: item.price * PLATFORM_FEE_RATE,
-        photographerEarned: item.price * PHOTOGRAPHER_RATE,
+        platformFee: Math.round(item.price * PLATFORM_FEE_RATE),
+        photographerEarned: Math.round(item.price * PHOTOGRAPHER_RATE),
         previewUrl: this.cloudinary.tryGeneratePermanentPreviewUrl(item.cloudinaryPublicId),
       });
       earningsMap.set(
         item.photographerId,
-        (earningsMap.get(item.photographerId) ?? 0) + item.price * PHOTOGRAPHER_RATE,
+        (earningsMap.get(item.photographerId) ?? 0) + Math.round(item.price * PHOTOGRAPHER_RATE),
       );
     }
 
@@ -61,7 +62,7 @@ export class PurchaseFulfillmentService {
       await this.fulfillment.commitFulfillment({
         orderId,
         externalOrderId,
-        purchases: purchaseData.map((p) => ({ ...p, orderId })),
+        purchases: purchaseData,
         earnings: Array.from(earningsMap, ([photographerId, amount]) => ({ photographerId, amount })),
       });
     } catch (err) {

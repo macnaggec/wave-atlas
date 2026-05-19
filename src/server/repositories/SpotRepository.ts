@@ -8,7 +8,7 @@ import type { SpotStatus } from 'entities/Spot/constants';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
 import { mapToMediaItem } from './MediaRepository';
-import { runQuery } from './BaseRepository';
+import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
 function mapToSpot(spot: PrismaSpot): Spot {
   return {

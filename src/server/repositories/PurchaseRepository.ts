@@ -1,5 +1,5 @@
 import { prisma } from 'server/db';
-import { runQuery } from './BaseRepository';
+import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
 export type PurchaseWithMedia = {
   id: string;
@@ -32,12 +32,14 @@ const PURCHASE_WITH_MEDIA_SELECT = {
   },
 } as const;
 
+const PURCHASES_PAGE_LIMIT = 50;
+
 export class PurchaseRepository implements IPurchaseRepository {
   findByBuyer(buyerId: string): Promise<PurchaseWithMedia[]> {
     return runQuery(() =>
       prisma.purchase.findMany({
         where: { buyerId },
-        take: 50,
+        take: PURCHASES_PAGE_LIMIT,
         select: PURCHASE_WITH_MEDIA_SELECT,
         orderBy: { purchasedAt: 'desc' },
       })
