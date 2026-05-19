@@ -41,8 +41,7 @@
 10. 🟡 **P2** `[bug]` Preview card photos stack vertically instead of showing a carousel
     - Decide on source media: last uploaded photo vs. curated admin picks
 
-11. � **P3** `[security]` *(post-deploy)* Restrict Mapbox public token to production/staging domains in the Mapbox dashboard to prevent quota abuse
-    - Address as soon as production domain is obtained
+11. 🔴 **P0** `[security]` Restrict Mapbox public token to production/staging domains in the Mapbox dashboard to prevent quota abuse
     - Dashboard: https://account.mapbox.com/access-tokens/
 
 12. ✅ ~~Audit `useTRPC()` data-fetching patterns and verify all error paths use `shared/errors` utilities (`getErrorMessage`, `ClientErrors`, etc.) consistently~~
@@ -62,10 +61,7 @@
     - Keep current XHR pipeline for direct uploads (progress tracking, per-file abort, full UI control)
     - Apply file size/type validation from #36 at the Cloudinary URL-fetch step
 
-17. ✅ ~~Fix silent swallowing of errors across the codebase~~
-    - `CheckoutService`: logs original payment gateway error (with `orderId`) via `logger.error` before rethrowing `BadGatewayError`
-    - `usePurchaseDownload`: added `catch` → `notify.error` so signed-URL failures surface to the user
-    - `useAddSpotFlow`: added `catch` → `notify.error` so spot creation / nearby-check failures surface to the user
+17. 🔴 **P0** `[error-handling]` Fix silent swallowing of errors across the codebase
 
 18. 🟠 **P1** `[feature]` Design and implement payment system UX
 
@@ -73,13 +69,12 @@
 
 20. 🟡 **P2** `[perf]` Add virtualised lists for all galleries (see also #34)
 
-21. ✅ ~~Free photos show watermarks in the lightbox preview~~
-    - Resolved by removing the free tier: all published media requires a minimum price of $3. Watermarks on public lightboxes are now correct by design.
+21. 🟠 **P1** `[bug]` Free photos show watermarks in the lightbox preview — they should not
 
 22. 🟡 **P2** `[ux]` Design UX for displaying original file resolution and metadata
 
-23. � **P2** `[bug]` Two related issues:
-    - ~~Edit price control must enforce a minimum of $3~~ ✅ Resolved: `MIN_MEDIA_PRICE_CENTS = 300` enforced at schema level (`mediaBatchUpdateSchema`, `mediaPublishSchema`), service level (`MediaService.publish`), and UI (`PriceEditPopover min={3}`)
+23. 🟠 **P1** `[bug]` Two related issues:
+    - Edit price control must enforce a minimum of $3
     - Close the preview card when any drawer opens (not only when dismissed from the card itself — see also #4)
 
 24. 🟡 **P2** `[feature]` Add "Buy Now" that bypasses the cart
@@ -88,11 +83,7 @@
 
 26. ✅ ~~Users can add their own published media to the cart~~
 
-27. � **P2** `[error-handling]` Audit server service error handling — apply the same abstract error pattern used in `CheckoutService` consistently across all services
-    - `MediaService` ✓ — uses `BadRequestError`, `ForbiddenError`, `NotFoundError`; no external calls so no logger pattern needed
-    - `CloudinaryService` ✓ — uses `InternalServerError`
-    - `PurchaseFulfillmentService` ⚠️ — catches `ConflictError` correctly, but `throw err` on unknown errors has no `logger.error` before rethrow
-    - Remaining: add `logger.error(err)` before `throw err` in `PurchaseFulfillmentService.fulfillOrder` catch block
+27. 🟠 **P1** `[error-handling]` Audit server service error handling — apply the same abstract error pattern used in `CheckoutService` consistently across all services
 
 28. ✅ ~~`media.signCloudinary` — no folder ownership check; any authenticated user can obtain a valid upload signature for another user's spot folder~~
     - Input changed from `folder?: string` to `spotId: uuid`; server queries `spot.creatorId`, throws `ForbiddenError` if mismatch
@@ -108,8 +99,11 @@
     - Fix: add a third eager transform `t_wave_atlas_lightbox_owner` (800px, no watermark, authenticated delivery); store in a new `ownerLightboxUrl` DB column
     - Requires: new Cloudinary named transform, Prisma migration, updated `MediaRepository.create`, updated `UploadPipeline.saveToDatabase`
 
-31. ✅ ~~`media.updateBatch` issues 2 DB reads per item — collapse to 1~~
-    - Resolved as part of #47: `MediaAuthorizationService` class removed; `assertOwns` in `MediaService` does 1 read that also returns the item for status check; `updateBatch` no longer calls `findById` twice per item
+31. 🟡 **P2** `[perf]` `media.updateBatch` issues 2 DB reads per item — collapse to 1
+    - `ensureCanModify()` → `findById` (read #1); then route → `findById` again for status check (read #2)
+    - 20-item batch = 40 DB round-trips instead of 20
+    - Fix: extend `ensureCanModify()` to also return status, or add `ensureCanModifyDraft(userId, mediaId)` checking ownership + `DRAFT` status in one query
+    - Files: `MediaAuthorizationService.ts`, `src/server/routes/media.ts` → `updateBatch`
 
 32. 🟡 **P2** `[refactor]` Rename `photographerId` → `ownerId` / `authorId` / `creatorId` across the codebase
 
@@ -162,7 +156,6 @@
 42. ✅ ~~Flatten `SpotRepository.ts` — remove `ISpotRepository` interface and `PrismaSpotRepository` class; replace with plain exported async functions~~
 
 43. ✅ ~~Flatten `OrderRepository.ts` — remove `IOrderRepository`, `PrismaOrderRepository`, and `orderRepository` singleton; keep named exports~~
-    - **Note**: `IOrderRepository`, `IMediaRepository`, `IPurchaseRepository` interfaces and singletons intentionally retained — `CheckoutService` uses constructor DI and needs the interfaces for mocking in tests. This is a deliberate departure from the flat-function pattern used in `SpotRepository`. Both patterns coexist.
 
 44. ✅ **P1** `[server]` `PurchaseFulfillmentService.ts` bypasses the repository layer — calls `prisma.mediaItem.findMany` and `prisma.$transaction` directly
     - Discovered during `users.ts` audit (April 2026)
@@ -173,8 +166,11 @@
 
 46. ✅ ~~`CheckoutService.ts` leaks `Prisma.Decimal` above the repository boundary~~
 
-47. ✅ ~~`MediaAuthorizationService.ts` uses a class + interface pattern inconsistent with the rest of the services layer~~
-    - `MediaAuthorizationService.ts` removed entirely; ownership check folded into `MediaService.assertOwns` (private method); `vi.mock` used in tests
+47. ✅ **P2** `[refactor]` `MediaAuthorizationService.ts` uses a class + interface pattern inconsistent with the rest of the services layer
+    - All other services (`CheckoutService`, `PurchaseFulfillmentService`, `CloudinaryService`) export plain functions or a singleton object
+    - `IMediaAuthorizationService` interface and `MediaAuthorizationService` class exist solely for constructor DI, used only in tests via mock injection
+    - Fix: replace class with plain exported functions; use `vi.mock` in tests instead of constructor injection
+    - Files: `MediaAuthorizationService.ts`, any test files importing it
 
 48. 🟡 **P2** `[bug]` thumnails in galleries using image with watermark. only public lightboxes should be with watermark.
 
@@ -185,26 +181,3 @@
     - Each call site passes `'RepositoryName.methodName'` — no class or `this.constructor.name` needed
     - Prerequisite: #33 (structured logger) must land first
     - Enables: consistent error logging and future tracing across all repos in one place
-
-50. 🟢 **P3** `[infra]` *(post-deploy)* Wire server logger to a production log aggregator
-    - Current logger writes structured JSON to stdout — useful only if the host captures it
-    - **Recommended**: Pino (replace `console.log(JSON.stringify(...))` in `logger.ts`) + Logtail / Axiom / Datadog as the sink
-    - Single change point: `shared/lib/logger.ts` transport layer
-    - Prerequisite: hosting provider chosen and deployed
-
-51. 🟡 **P2** `[feature]` Send download link email to guest buyers after successful payment
-    - `guestEmail` is already stored on `Order` and `Purchase` rows — infrastructure is ready
-    - `PurchaseFulfillmentService.fulfillOrder` is the right place to trigger the send (after `commitFulfillment`)
-    - **Recommended provider**: Resend (`npm i resend`) — simple API, 100 emails/day free tier
-    - Email content: list of purchased items with their `downloadToken` links (`/order-success?orderId=X`)
-    - Create a `src/server/services/EmailService.ts` behind an interface so it can be stubbed in tests
-    - From address requires a verified domain in Resend; use `onboarding@resend.dev` for dev/staging
-    - Add `RESEND_API_KEY` and `FROM_EMAIL` to `.env`
-
-52. 🟡 **P2** `[feature]` Migrate guest purchases to user account on signup/login
-    - When a user creates an account (or signs in) with an email that matches existing guest orders, claim those purchases
-    - Hook into Better Auth's post-signup callback in `src/server/auth.ts` to update `buyerId` on matching orders and purchases
-    - After migration, purchased items appear automatically in `myPurchases` (already filters by `buyer_id`)
-    - Also trigger on sign-in, not just sign-up — user may have bought as guest before ever creating an account
-    - No schema changes needed — `buyer_id` and `guest_email` columns already exist on both tables
-53. Already purchased item is now blocked from checkout, need to make them unavailable even to be added to a cart.
