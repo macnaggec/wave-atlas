@@ -1,15 +1,14 @@
 import { router, protectedProcedure } from 'server/trpc';
 import { mediaService } from 'server/services/MediaService';
-import { cloudinaryService } from 'server/services/CloudinaryService';
 import { createRateLimiter } from 'server/lib/rateLimiter';
 import {
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaDeleteSchema,
   mediaBatchUpdateSchema,
   mediaPublishSchema,
   registerDriveImportSchema,
 } from 'shared/validation/mediaSchemas';
-import { z } from 'zod';
 
 // 10 upload signature requests per user per minute
 const signCloudinaryLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
@@ -26,9 +25,7 @@ export const mediaRouter = router({
       signCloudinaryLimiter(ctx.user.id);
       return next();
     })
-    .mutation(({ ctx }) =>
-      cloudinaryService.generateUploadSignature(`wave-atlas/users/${ctx.user.id}`)
-    ),
+    .mutation(({ ctx }) => mediaService.generateUploadSignature(ctx.user.id)),
 
   create: protectedProcedure
     .input(mediaCreateSchema)
@@ -49,7 +46,7 @@ export const mediaRouter = router({
     ),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.uuid() }))
+    .input(mediaDeleteSchema)
     .mutation(({ input, ctx }) => mediaService.deleteMedia(ctx.user.id, input.id)),
 
   updateBatch: protectedProcedure

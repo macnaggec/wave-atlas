@@ -1,16 +1,13 @@
-import { MediaType } from '@prisma/client';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
 import type { MediaStatus } from 'entities/Media/constants';
 import type { MediaItem } from 'entities/Media/types';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
+import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
-const CLOUDINARY_TYPE_MAP: Record<string, MediaType> = {
-  video: MediaType.VIDEO,
-  image: MediaType.PHOTO,
-};
+const CLOUDINARY_USER_FOLDER = 'wave-atlas/users' as const;
 
 export type CreateMediaInput = {
   spotId: string;
@@ -34,55 +31,71 @@ export type UpdateBatchInput = {
   capturedAt?: Date;
 };
 
-export type PublishInput = {
-  price?: number;
-  capturedAt?: Date;
-};
-
 export type RegisterDriveImportInput = {
   spotId: string;
   remoteFileId: string;
   mimeType: string;
-  driveThumbnailUrl: string;
   accessToken: string;
 };
 
 export class MediaService {
-  constructor(private media: IMediaRepository) { }
+  constructor(
+    private media: IMediaRepository,
+    private cloudinary: Pick<ICloudinaryService, 'uploadFromUrl' | 'deleteAsset' | 'generateUploadSignature'>,
+  ) { }
+
+  generateUploadSignature(userId: string) {
+    return this.cloudinary.generateUploadSignature(`${CLOUDINARY_USER_FOLDER}/${userId}`);
+  }
 
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
-    const resourceType = CLOUDINARY_TYPE_MAP[input.cloudinaryResult.resource_type.toLowerCase()] ?? MediaType.PHOTO;
-    return this.media.createMedia({
-      spotId: input.spotId,
-      photographerId: userId,
-      type: resourceType,
-      cloudinaryPublicId: input.cloudinaryResult.publicId,
-      thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
-      lightboxUrl: input.cloudinaryResult.lightboxUrl,
-      capturedAt: input.capturedAt ?? new Date(),
-      price: input.price ?? MIN_MEDIA_PRICE_CENTS,
-      status: MEDIA_STATUS.DRAFT,
-    });
+    const { publicId, resource_type } = input.cloudinaryResult;
+    try {
+      return await this.media.createMedia({
+        spotId: input.spotId,
+        photographerId: userId,
+        resource_type: resource_type as 'image' | 'video',
+        cloudinaryPublicId: publicId,
+        thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
+        lightboxUrl: input.cloudinaryResult.lightboxUrl,
+        capturedAt: input.capturedAt ?? new Date(),
+        price: input.price ?? MIN_MEDIA_PRICE_CENTS,
+        status: MEDIA_STATUS.DRAFT,
+      });
+    } catch (err) {
+      this.cloudinary.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
+        (cleanupErr) => console.error('[MediaService] Failed to clean up orphaned Cloudinary asset', publicId, cleanupErr),
+      );
+      throw err;
+    }
   }
 
   async registerDriveImport(userId: string, input: RegisterDriveImportInput): Promise<MediaItem> {
     const driveUrl = `https://www.googleapis.com/drive/v3/files/${input.remoteFileId}?alt=media`;
     const resourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
 
-    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = await cloudinaryService.uploadFromUrl(
-      driveUrl,
-      { Authorization: `Bearer ${input.accessToken}` },
-      `wave-atlas/users/${userId}`,
-      resourceType,
-    );
+    console.log('[MediaService] Drive import start', { userId, spotId: input.spotId, remoteFileId: input.remoteFileId, mimeType: input.mimeType });
 
-    const mediaType = resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO;
+    let uploadResult: Awaited<ReturnType<typeof this.cloudinary.uploadFromUrl>>;
+    try {
+      uploadResult = await this.cloudinary.uploadFromUrl(
+        driveUrl,
+        { Authorization: `Bearer ${input.accessToken}` },
+        `${CLOUDINARY_USER_FOLDER}/${userId}`,
+        resourceType,
+      );
+    } catch (err) {
+      console.error('[MediaService] Drive import: Cloudinary upload failed', { userId, spotId: input.spotId, remoteFileId: input.remoteFileId }, err);
+      throw err;
+    }
+
+    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = uploadResult;
 
     try {
       return await this.media.createMedia({
         spotId: input.spotId,
         photographerId: userId,
-        type: mediaType,
+        resource_type: resource_type as 'image' | 'video',
         cloudinaryPublicId: publicId,
         thumbnailUrl,
         lightboxUrl,
@@ -91,8 +104,7 @@ export class MediaService {
         status: MEDIA_STATUS.DRAFT,
       });
     } catch (err) {
-      // Best-effort cleanup: remove the Cloudinary asset to avoid a storage leak
-      cloudinaryService.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
+      this.cloudinary.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
         (cleanupErr) => console.error('[MediaService] Failed to clean up orphaned Cloudinary asset', publicId, cleanupErr),
       );
       throw err;
@@ -128,7 +140,7 @@ export class MediaService {
   async publish(
     userId: string,
     mediaIds: string[],
-    data: PublishInput
+    data: UpdateBatchInput,
   ): Promise<MediaItem[]> {
     const items = await Promise.all(mediaIds.map((id) => this.assertOwns(userId, id)));
 
@@ -136,17 +148,13 @@ export class MediaService {
       if (item.status !== MEDIA_STATUS.DRAFT) {
         throw new BadRequestError(`Media ${item.id} is not a draft`);
       }
-      const finalPrice = data.price ?? item.price; // both in cents
+      const finalPrice = data.price ?? item.price;
       if (finalPrice < MIN_MEDIA_PRICE_CENTS) {
         throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
       }
     }
 
-    const updateData: {
-      status: typeof MEDIA_STATUS.PUBLISHED;
-      price?: number;
-      capturedAt?: Date
-    } = {
+    const updateData: { status: typeof MEDIA_STATUS.PUBLISHED; price?: number; capturedAt?: Date } = {
       status: MEDIA_STATUS.PUBLISHED,
     };
     if (data.price !== undefined) updateData.price = data.price;
@@ -165,4 +173,4 @@ export class MediaService {
   }
 }
 
-export const mediaService = new MediaService(mediaRepository);
+export const mediaService = new MediaService(mediaRepository, cloudinaryService);
