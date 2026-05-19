@@ -6,7 +6,7 @@ import type { MediaResourceType } from 'entities/Media/constants';
  * pending → signing → uploading → saving → completed
  *                                        ↘ error
  */
-export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error' | 'importing';
+export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error';
 
 /**
  * Zustand shape — owns upload-pipeline state only.

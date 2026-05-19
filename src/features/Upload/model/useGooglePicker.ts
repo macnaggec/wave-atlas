@@ -4,7 +4,6 @@ import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
 import { useDraftMediaMutate } from './useDraftMedia';
-import { QueueItem } from './types';
 
 const DRIVE_READONLY_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
@@ -14,16 +13,21 @@ const PICKER_MIME_TYPES = [
   'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg',
 ].join(',');
 
+type DriveImportItem = {
+  id: string;
+  name?: string;
+  mimeType?: string;
+  thumbnailUrl?: string;
+};
+
 type DriveDoc = google.picker.PickerDocument;
 
-function createImportingItem(doc: DriveDoc, spotId: string): QueueItem {
+function createImportingItem(doc: DriveDoc): DriveImportItem {
   return {
     id: `drive-import-${doc.id}`,
-    spotId,
-    file: null,
-    previewUrl: doc.thumbnails?.[0]?.url ?? doc.url ?? '',
-    status: 'importing',
-    progress: 0,
+    name: doc.name,
+    mimeType: doc.mimeType,
+    thumbnailUrl: doc.thumbnails?.[0]?.url ?? doc.url,
   };
 }
 
@@ -55,18 +59,14 @@ async function loadGooglePicker(): Promise<void> {
     throw new Error('Google Picker is not loaded yet. Please try again.');
   }
 
-  const load = new Promise<void>((resolve) => { gapi.load('picker', resolve); });
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Google Picker took too long to load. Please try again.')), 10_000),
-  );
-
-  return Promise.race([load, timeout]);
+  return new Promise((resolve) => {
+    gapi.load('picker', resolve);
+  });
 }
 
 function buildPicker(
   accessToken: string,
-  onPick: (docs: DriveDoc[]) => Promise<void>,
-  onClose: () => void,
+  onPick: (docs: DriveDoc[]) => Promise<void>
 ) {
   return new google.picker.PickerBuilder()
     .addView(
@@ -79,14 +79,8 @@ function buildPicker(
     .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
     .setTitle('Select photos or videos from Google Drive')
     .setCallback(async (data: google.picker.PickerResponseObject) => {
-      if (data.action === google.picker.Action.CANCEL) {
-        onClose();
-        return;
-      }
-      if (data.action === google.picker.Action.PICKED) {
-        onClose();
-        await onPick(data.docs ?? []);
-      }
+      if (data.action !== google.picker.Action.PICKED) return;
+      await onPick(data.docs ?? []);
     })
     .build();
 }
@@ -95,9 +89,8 @@ export function useGooglePicker(spotId: string) {
   const trpc = useTRPC();
   const { append } = useDraftMediaMutate(spotId);
 
-  const [isPickerInitializing, setIsPickerInitializing] = useState(false);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [importingItems, setImportingItems] = useState<QueueItem[]>([]);
+  const [isPickerLoading, setIsPickerLoading] = useState(false);
+  const [importingItems, setImportingItems] = useState<DriveImportItem[]>([]);
 
   const { mutateAsync: registerDriveImport } = useMutation(
     trpc.media.registerDriveImport.mutationOptions(),
@@ -105,7 +98,7 @@ export function useGooglePicker(spotId: string) {
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {
-      const skeletons = docs.map((doc) => createImportingItem(doc, spotId));
+      const skeletons = docs.map(createImportingItem);
       setImportingItems((current) => [...current, ...skeletons]);
 
       await Promise.all(docs.map(async (doc) => {
@@ -130,17 +123,12 @@ export function useGooglePicker(spotId: string) {
   );
 
   const trigger = useCallback(async () => {
-    setIsPickerInitializing(true);
+    setIsPickerLoading(true);
 
     try {
       const accessToken = await requestDriveAccessToken();
       await loadGooglePicker();
-      const picker = buildPicker(
-        accessToken,
-        (docs) => importDriveDocs(docs, accessToken),
-        () => setIsPickerOpen(false),
-      );
-      setIsPickerOpen(true);
+      const picker = buildPicker(accessToken, (docs) => importDriveDocs(docs, accessToken));
       picker.setVisible(true);
     } catch (error) {
       notify.error(
@@ -148,9 +136,9 @@ export function useGooglePicker(spotId: string) {
         'Drive Error',
       );
     } finally {
-      setIsPickerInitializing(false);
+      setIsPickerLoading(false);
     }
   }, [importDriveDocs]);
 
-  return { trigger, isPickerLoading: isPickerInitializing || isPickerOpen, importingItems };
+  return { trigger, isPickerLoading, importingItems };
 }

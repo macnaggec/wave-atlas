@@ -6,7 +6,7 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { useUploadStore } from '../../model/uploadStore';
 import { UploadIndicatorCompact } from '../UploadIndicator';
 import { BlockedUploadPopover } from '../BlockedUploadPopover';
-import AddSourceCard from '../cards/AddSourceCard';
+import AddFileCard from '../cards/AddFileCard';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
 import { useMetadataControls } from './useMetadataControls';
@@ -39,9 +39,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   onBulkDateEdit,
   onBulkPriceEdit,
   onRetry,
-  onDriveImport,
-  driveLoading,
-  publishingIds,
   actions = [],
   onAction,
   selection,
@@ -54,10 +51,9 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     []
   );
 
-  // Items eligible for metadata editing (date/price) and publishing.
-  // Narrower than selectableItems — error items are selectable for bulk-delete
-  // but have no metadata to edit, so they are excluded here intentionally.
-  const metadataEditableItems = useMemo(
+  // Only completed items can be selected (uploaded to cloud and ready for metadata editing/publishing)
+  // Upload-in-progress items cannot be selected - they show Cancel button instead
+  const completedItems = useMemo(
     () => items.filter((item): item is QueueItem => item.status === 'completed' && !!item.result),
     [items]
   );
@@ -67,7 +63,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   // ========================================================================
 
   const metadataState = useMetadataControls({
-    completedItems: metadataEditableItems,
+    completedItems,
     hasActiveUploads,
     selection,
     onBulkDateEdit,
@@ -120,29 +116,8 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   );
 
   // ========================================================================
-  // TOOLBAR RENDERING
+  // RENDER
   // ========================================================================
-
-  const renderToolbarAction = useCallback(() => {
-    if (hasActiveUploads) {
-      return (
-        <Button variant="subtle" color="red" onClick={handleCancelUploads}>
-          Cancel Uploads
-        </Button>
-      );
-    }
-
-    const hasSelectableItems = items.some(
-      i => i.status === 'completed'
-        || i.status === 'error'
-    );
-
-    if (hasSelectableItems) {
-      return <SelectionToolbar selection={selection} renderActions={renderActions} />;
-    }
-
-    return null;
-  }, [hasActiveUploads, items, selection, handleCancelUploads, renderActions]);
 
   const renderCard = useCallback(
     (item: QueueItem, context: { isSelectionMode: boolean }) => {
@@ -151,7 +126,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
         ? []
         : isInProgress ? ['cancel' as UploadItemAction] : actions;
 
-      const mediaId = item.mediaId ?? item.id;
       return (
         <UploadCardRenderer
           item={item}
@@ -159,11 +133,10 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
           actions={itemActions}
           onAction={onAction}
           hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
-          isPublishing={publishingIds?.has(mediaId)}
         />
       );
     },
-    [actions, onAction, onRetry, publishingIds]
+    [actions, onAction, onRetry]
   );
 
   return (
@@ -174,18 +147,14 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
       prepend={onAddFiles && (
         isBlocked ? (
           <BlockedUploadPopover>
-            <AddSourceCard
+            <AddFileCard
               onFilesSelected={handleAddFiles}
-              onDriveImport={onDriveImport}
-              driveLoading={driveLoading}
               disabled
             />
           </BlockedUploadPopover>
         ) : (
-          <AddSourceCard
+          <AddFileCard
             onFilesSelected={handleAddFiles}
-            onDriveImport={onDriveImport}
-            driveLoading={driveLoading}
           />
         )
       )}
@@ -195,8 +164,8 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             {/* Upload indicator when blocked */}
             {isBlocked && <UploadIndicatorCompact />}
 
-            {/* Date/Price controls - visible once items are ready to edit */}
-            {metadataState.totalCount > 0 && <MetadataControls
+            {/* Date/Price controls - always visible */}
+            <MetadataControls
               showDateEdit={!!onBulkDateEdit}
               showPriceEdit={!!onBulkPriceEdit}
               selectedDate={metadataState.selectedDate}
@@ -208,10 +177,19 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
               tooltip={metadataState.tooltip}
               onDateApply={metadataState.handleDateApply}
               onPriceApply={metadataState.handlePriceApply}
-            />}
+            />
           </Group>
 
-          {renderToolbarAction()}
+          {/* Cancel button during uploads, Select button when complete */}
+          {/* Upload-specific: When files are actively uploading, show Cancel instead of Select */}
+          {/* This prevents selection mode during uploads since only completed items can be selected */}
+          {hasActiveUploads ? (
+            <Button variant="subtle" color="red" onClick={handleCancelUploads}>
+              Cancel Uploads
+            </Button>
+          ) : completedItems.length > 0 ? (
+            <SelectionToolbar selection={selection} renderActions={renderActions} />
+          ) : null}
         </Group>
       }
       renderCard={renderCard}

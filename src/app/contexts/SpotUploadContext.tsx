@@ -10,8 +10,8 @@ export interface SpotUploadContextValue {
 }
 
 export const SpotUploadContext = createContext<SpotUploadContextValue>({
-  onPublishSuccess: () => {},
-  onQueueChange: () => {},
+  onPublishSuccess: () => { },
+  onQueueChange: () => { },
 });
 
 export function useSpotUploadContext() {

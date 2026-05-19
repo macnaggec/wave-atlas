@@ -1,13 +1,12 @@
 import { memo } from 'react';
-import { Group, ActionIcon, rem, Badge, Loader, Text, Button, Stack, Tooltip, Skeleton } from '@mantine/core';
-import classes from './UploadCardRenderer.module.css';
+import { Badge, Button, Group, ActionIcon, Loader, rem, Stack, Text, Tooltip } from '@mantine/core';
 import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
+import { MediaItem } from 'entities/Media/types';
+import { MEDIA_STATUS } from 'entities/Media/constants';
+import { formatPrice } from 'shared/lib/currency';
 import { QueueItem, UploadStatus } from '../../model';
 import { UploadItemAction } from './types';
 import DraftCard from '../cards/DraftCard';
-import { MediaItem } from 'entities/Media/types';
-import { formatPrice } from 'shared/lib/currency';
-import { MEDIA_STATUS } from 'entities/Media/constants';
 
 const ACTION_ICONS: Record<
   UploadItemAction,
@@ -29,22 +28,22 @@ interface UploadCardRendererProps {
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
   hasDateError?: boolean;
-  /** Whether the item is currently being published */
-  isPublishing?: boolean;
 }
 
+/**
+ * UploadCardRenderer - Memoized card renderer
+ *
+ * Prevents unnecessary DOM re-mounts by comparing only essential props.
+ * Handles both uploading and completed states.
+ * Owns ACTION_ICONS and builds action buttons internally.
+ */
 export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   item,
   actions,
   onAction,
   onRetry,
   hasDateError,
-  isPublishing,
 }) => {
-  if (item.status === 'importing') {
-    return <Skeleton radius="md" className={classes.importingCard} />;
-  }
-
   const isCompleted = item.status === 'completed';
 
   // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.
@@ -65,11 +64,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     ? `Media ${item.result.resource.asset_id}`
     : item.file?.name || 'Upload preview';
 
-  const overlays = isPublishing
-    ? renderPublishingOverlay()
-    : isCompleted && item.result
-      ? renderDraftOverlay(item.result)
-      : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
+  const overlays = isCompleted && item.result
+    ? renderDraftOverlay(item.result)
+    : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
 
   const actionButtons = actions && actions.length > 0 ? (
     <Group gap="xs">
@@ -103,9 +100,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
-      actions={!isPublishing ? actionButtons : undefined}
+      actions={actionButtons}
       validation={
-        hasDateError && !isPublishing
+        hasDateError
           ? { hasError: true, message: 'Date required for publishing' }
           : undefined
       }
@@ -119,13 +116,19 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     prev.item.error === next.item.error &&
     prev.item.result?.capturedAt === next.item.result?.capturedAt &&
     prev.item.result?.price === next.item.result?.price &&
-    prev.item.result?.status === next.item.result?.status &&
     prev.hasDateError === next.hasDateError &&
-    prev.isPublishing === next.isPublishing &&
     prev.actions?.join() === next.actions?.join()
 );
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';
+
+const VIDEO_EXTENSIONS = /\.(mp4|mov|webm|avi|mkv)$/i;
+
+function isVideoFile(file: File | null | undefined): boolean {
+  if (!file) return false;
+  if (file.type) return file.type.startsWith('video/');
+  return VIDEO_EXTENSIONS.test(file.name);
+}
 
 function renderDraftOverlay(mediaItem: MediaItem) {
   const isDateFromExif = mediaItem.dateSource === 'exif';
@@ -136,43 +139,24 @@ function renderDraftOverlay(mediaItem: MediaItem) {
   const badges = [];
 
   if (mediaItem.status === MEDIA_STATUS.DRIVE_PENDING) {
-    badges.push(
-      <Badge key="drive" size="sm" color="blue" variant="light">Drive</Badge>
-    );
+    badges.push(<Badge key="drive" size="sm" color="blue" variant="light">Drive</Badge>);
   }
 
   badges.push(
-    <Badge key="price" size="sm" color="green" variant="filled">
-      {formatPrice(mediaItem.price)}
-    </Badge>
+    <Badge key="price" size="sm" color="green" variant="filled">{formatPrice(mediaItem.price)}</Badge>
   );
 
   if (formattedDate) {
-    badges.push(
-      <Badge key="date" size="sm" color="blue" variant="filled">{formattedDate}</Badge>
-    );
+    badges.push(<Badge key="date" size="sm" color="blue" variant="filled">{formattedDate}</Badge>);
   } else {
-    badges.push(
-      <Badge key="missing-date" size="sm" color="red" variant="filled">Missing Date</Badge>
-    );
+    badges.push(<Badge key="missing-date" size="sm" color="red" variant="filled">Missing Date</Badge>);
   }
 
   if (isDateFromExif) {
-    badges.push(
-      <Badge key="auto" size="xs" color="cyan" variant="light">Auto</Badge>
-    );
+    badges.push(<Badge key="auto" size="xs" color="cyan" variant="light">Auto</Badge>);
   }
 
   return <Group gap="xs">{badges}</Group>;
-}
-
-function renderPublishingOverlay() {
-  return (
-    <Group gap="xs">
-      <Loader size="xs" />
-      <Text size="xs" c="dimmed">Publishing…</Text>
-    </Group>
-  );
 }
 
 function renderUploadOverlay(
@@ -215,10 +199,4 @@ function renderUploadOverlay(
       {label && <Text size="xs" c="dimmed">{label}</Text>}
     </Group>
   );
-}
-
-function isVideoFile(file: File | null | undefined): boolean {
-  if (!file) return false;
-  if (file.type) return file.type.startsWith('video/');
-  return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
 }
