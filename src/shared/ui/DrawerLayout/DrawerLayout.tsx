@@ -24,7 +24,7 @@ export function DrawerBody({ children }: { children: ReactNode }) {
 /** Drawer.Header with CloseButton included — accepts title as children. */
 export function DrawerHeader({ children }: { children: ReactNode }) {
   return (
-    <Drawer.Header>
+    <Drawer.Header className={styles.header}>
       {children}
       <Drawer.CloseButton />
     </Drawer.Header>
