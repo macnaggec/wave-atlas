@@ -104,8 +104,11 @@ function parseSuccessResponse(
   });
 
   if (!parsed.success) {
-    const msg = parsed.error.issues[0]?.message ?? 'Invalid Cloudinary response';
-    reject(new UploadError('INVALID_RESPONSE', msg));
+    logger.warn('[cloudinaryTransport] Unexpected Cloudinary response shape', {
+      issues: parsed.error.issues,
+      raw,
+    });
+    reject(new UploadError('INVALID_RESPONSE', 'Upload failed — please try again'));
 
     return;
   }
