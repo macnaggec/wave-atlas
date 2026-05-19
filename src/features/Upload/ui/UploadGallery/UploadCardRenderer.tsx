@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Group, ActionIcon, rem, Badge, Loader, Text, Button, Stack, Tooltip } from '@mantine/core';
+import { Group, ActionIcon, rem, Badge, Loader, Text, Button, Stack, Tooltip, Skeleton } from '@mantine/core';
+import classes from './UploadCardRenderer.module.css';
 import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
 import { QueueItem, UploadStatus } from '../../model';
 import { UploadItemAction } from './types';
@@ -40,6 +41,10 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   hasDateError,
   isPublishing,
 }) => {
+  if (item.status === 'importing') {
+    return <Skeleton radius="md" className={classes.importingCard} />;
+  }
+
   const isCompleted = item.status === 'completed';
 
   // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.

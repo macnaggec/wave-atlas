@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { MediaItem } from 'entities/Media/types';
 import { useUploadManager, useUploadQueue, useUploadBlocking, usePublish, useDraftEditing, useDraftMediaMutate } from '../model';
 import { useGooglePicker } from '../model/useGooglePicker';
@@ -30,6 +30,12 @@ export interface UploadManagerProps {
    * Callback after successful publish
    */
   onPublishSuccess?: (mediaIds: string[]) => void;
+
+  /**
+   * Called whenever the total item count (queue + importing) changes.
+   * Used by parent layout to show/hide a pending-uploads indicator.
+   */
+  onQueueChange?: (count: number) => void;
 }
 
 /**
@@ -54,18 +60,24 @@ export function UploadManager({
   spotName,
   draftMedia,
   onPublishSuccess,
+  onQueueChange,
 }: UploadManagerProps) {
   const { queue, hasActiveUploads } = useUploadQueue(spotId, draftMedia);
   const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(spotId);
 
-  const { trigger: openDrivePicker } = useGooglePicker(spotId);
+  const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId);
+
+  useEffect(() => {
+    onQueueChange?.(queue.length + importingItems.length);
+  }, [queue.length, importingItems.length, onQueueChange]);
 
   const getItemId = useCallback((item: QueueItem) => item.mediaId ?? item.id, []);
-  const completedItems = useMemo(
-    () => queue.filter((item): item is QueueItem => item.status === 'completed' && !!item.result),
+  // Error items are also selectable so users can bulk-delete them
+  const selectableItems = useMemo(
+    () => queue.filter((item) => item.status === 'completed' || item.status === 'error'),
     [queue]
   );
-  const selection = useGallerySelection({ items: completedItems, getId: getItemId });
+  const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
 
   const {
     addFiles,
@@ -105,13 +117,14 @@ export function UploadManager({
   return (
     <>
       <UploadGallery
-        items={queue}
+        items={[...importingItems, ...queue]}
         hasActiveUploads={hasActiveUploads}
         isBlocked={isBlocked}
         onRemove={remove}
         onCancelUpload={cancelUpload}
         onAddFiles={addFiles}
         onDriveImport={openDrivePicker}
+        driveLoading={isPickerLoading}
         publishingIds={publishingIds}
         onRetry={retry}
         onBulkDateEdit={handleBulkDateEdit}

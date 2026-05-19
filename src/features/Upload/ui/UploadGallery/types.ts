@@ -44,6 +44,9 @@ export interface UploadGalleryProps {
   /** Callback to open Google Drive Picker */
   onDriveImport?: () => void;
 
+  /** Whether Google Drive picker is initialising (shows button spinner) */
+  driveLoading?: boolean;
+
   /** Set of mediaIds currently mid-publish (drives per-card publishing overlay) */
   publishingIds?: Set<string>;
 

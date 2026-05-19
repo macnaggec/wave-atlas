@@ -43,19 +43,11 @@ export function useMetadataControls({
     return targetItems.some(item => item.result?.dateSource === 'exif');
   }, [hasSelection, selectedItems, completedItems]);
 
-  // Disable toolbar if no completed items OR if uploads are still in progress
-  const isDisabled = completedItems.length === 0 || hasActiveUploads;
+  // Disable toolbar while uploads are still in progress
+  const isDisabled = hasActiveUploads;
 
   // Tooltip message for disabled controls
-  const tooltip = useMemo(() => {
-    if (completedItems.length === 0) {
-      return 'Upload files first to edit metadata';
-    }
-    if (hasActiveUploads) {
-      return 'Wait for all uploads to complete';
-    }
-    return undefined;
-  }, [completedItems.length, hasActiveUploads]);
+  const tooltip = hasActiveUploads ? 'Wait for all uploads to complete' : undefined;
 
   // Date apply handler - captures selection state at invocation time
   const handleDateApply = useCallback(

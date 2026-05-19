@@ -21,6 +21,10 @@ export const mediaUpdateSchema = z.object({
   status: z.enum([MEDIA_STATUS.DRAFT, MEDIA_STATUS.PUBLISHED, MEDIA_STATUS.DELETED]).optional(),
 });
 
+export const mediaDeleteSchema = z.object({
+  id: z.uuid(),
+});
+
 const mediaPriceableBase = z.object({
   mediaIds: z.array(z.uuid()).min(1),
   price: z.number().min(MIN_MEDIA_PRICE_CENTS / 100, { message: `Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}` }).optional(),
@@ -29,7 +33,7 @@ const mediaPriceableBase = z.object({
 
 export const mediaBatchUpdateSchema = mediaPriceableBase.refine(
   (d) => d.price !== undefined || d.capturedAt !== undefined,
-  { error: 'Must provide at least price or capturedAt' },
+  { message: 'Must provide at least price or capturedAt' },
 );
 
 export const mediaPublishSchema = mediaPriceableBase;
@@ -38,6 +42,5 @@ export const registerDriveImportSchema = z.object({
   spotId: z.uuid(),
   remoteFileId: z.string().regex(/^[a-zA-Z0-9_-]{10,100}$/, 'Invalid Drive file ID'),
   mimeType: z.string().regex(/^(image|video)\//, 'Unsupported media type'),
-  driveThumbnailUrl: z.string().url(),
-  accessToken: z.string().min(1),
+  accessToken: z.string().min(1).max(2048),
 });

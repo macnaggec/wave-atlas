@@ -16,6 +16,8 @@ export interface AddSourceCardProps {
   accept?: string;
   /** Whether both actions are disabled (another spot is uploading) */
   disabled?: boolean;
+  /** Whether Google Drive picker is initialising (shows button spinner) */
+  driveLoading?: boolean;
   /** Tooltip content for upload limits */
   tooltipContent?: React.ReactNode;
 }
@@ -35,6 +37,7 @@ const AddSourceCard: FC<AddSourceCardProps> = memo(({
   onDriveImport,
   accept = 'image/*,video/*',
   disabled = false,
+  driveLoading = false,
   tooltipContent,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +124,7 @@ const AddSourceCard: FC<AddSourceCardProps> = memo(({
               leftSection={<IconBrandGoogleDrive size={14} />}
               onClick={handleDriveClick}
               disabled={disabled}
+              loading={driveLoading}
               fullWidth
             >
               Google Drive

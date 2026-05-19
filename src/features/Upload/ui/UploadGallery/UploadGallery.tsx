@@ -40,6 +40,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   onBulkPriceEdit,
   onRetry,
   onDriveImport,
+  driveLoading,
   publishingIds,
   actions = [],
   onAction,
@@ -53,9 +54,10 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     []
   );
 
-  // Only completed items can be selected (uploaded to cloud and ready for metadata editing/publishing)
-  // Upload-in-progress items cannot be selected - they show Cancel button instead
-  const completedItems = useMemo(
+  // Items eligible for metadata editing (date/price) and publishing.
+  // Narrower than selectableItems — error items are selectable for bulk-delete
+  // but have no metadata to edit, so they are excluded here intentionally.
+  const metadataEditableItems = useMemo(
     () => items.filter((item): item is QueueItem => item.status === 'completed' && !!item.result),
     [items]
   );
@@ -65,7 +67,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   // ========================================================================
 
   const metadataState = useMetadataControls({
-    completedItems,
+    completedItems: metadataEditableItems,
     hasActiveUploads,
     selection,
     onBulkDateEdit,
@@ -118,8 +120,29 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   );
 
   // ========================================================================
-  // RENDER
+  // TOOLBAR RENDERING
   // ========================================================================
+
+  const renderToolbarAction = useCallback(() => {
+    if (hasActiveUploads) {
+      return (
+        <Button variant="subtle" color="red" onClick={handleCancelUploads}>
+          Cancel Uploads
+        </Button>
+      );
+    }
+
+    const hasSelectableItems = items.some(
+      i => i.status === 'completed'
+        || i.status === 'error'
+    );
+
+    if (hasSelectableItems) {
+      return <SelectionToolbar selection={selection} renderActions={renderActions} />;
+    }
+
+    return null;
+  }, [hasActiveUploads, items, selection, handleCancelUploads, renderActions]);
 
   const renderCard = useCallback(
     (item: QueueItem, context: { isSelectionMode: boolean }) => {
@@ -154,6 +177,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             <AddSourceCard
               onFilesSelected={handleAddFiles}
               onDriveImport={onDriveImport}
+              driveLoading={driveLoading}
               disabled
             />
           </BlockedUploadPopover>
@@ -161,6 +185,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
           <AddSourceCard
             onFilesSelected={handleAddFiles}
             onDriveImport={onDriveImport}
+            driveLoading={driveLoading}
           />
         )
       )}
@@ -170,8 +195,8 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             {/* Upload indicator when blocked */}
             {isBlocked && <UploadIndicatorCompact />}
 
-            {/* Date/Price controls - always visible */}
-            <MetadataControls
+            {/* Date/Price controls - visible once items are ready to edit */}
+            {metadataState.totalCount > 0 && <MetadataControls
               showDateEdit={!!onBulkDateEdit}
               showPriceEdit={!!onBulkPriceEdit}
               selectedDate={metadataState.selectedDate}
@@ -183,19 +208,10 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
               tooltip={metadataState.tooltip}
               onDateApply={metadataState.handleDateApply}
               onPriceApply={metadataState.handlePriceApply}
-            />
+            />}
           </Group>
 
-          {/* Cancel button during uploads, Select button when complete */}
-          {/* Upload-specific: When files are actively uploading, show Cancel instead of Select */}
-          {/* This prevents selection mode during uploads since only completed items can be selected */}
-          {hasActiveUploads ? (
-            <Button variant="subtle" color="red" onClick={handleCancelUploads}>
-              Cancel Uploads
-            </Button>
-          ) : completedItems.length > 0 ? (
-            <SelectionToolbar selection={selection} renderActions={renderActions} />
-          ) : null}
+          {renderToolbarAction()}
         </Group>
       }
       renderCard={renderCard}
