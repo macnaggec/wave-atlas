@@ -25,8 +25,7 @@ const DownloadButton = memo(function DownloadButton({
   onDownload,
 }: DownloadButtonProps) {
   const handleClick = useCallback(
-    (e: MouseEvent<HTMLButtonElement>) => {
-      e.stopPropagation();
+    (_e: MouseEvent<HTMLButtonElement>) => {
       onDownload(mediaItemId);
     },
     [mediaItemId, onDownload],

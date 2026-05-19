@@ -1,17 +1,14 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { Context } from 'hono';
 import superjson from 'superjson';
-import { ZodError } from 'zod';
 import { auth } from 'server/auth';
 import { isHttpError } from 'shared/errors';
-import { getClientIp } from 'server/lib/getClientIp';
 
-type SessionResult = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+type GetSessionResult = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
 export type TRPCContext = {
-  session: SessionResult['session'] | null;
-  user: SessionResult['user'] | null;
-  clientIp: string;
+  session: GetSessionResult['session'] | null;
+  user: GetSessionResult['user'] | null;
 };
 
 export async function createContext(c: Context): Promise<TRPCContext> {
@@ -21,11 +18,10 @@ export async function createContext(c: Context): Promise<TRPCContext> {
   return {
     session: session?.session ?? null,
     user: session?.user ?? null,
-    clientIp: getClientIp(c),
   };
 }
 
-const httpToCode: Record<number, TRPCError['code']> = {
+const STATUS_TO_CODE: Record<number, TRPCError['code']> = {
   401: 'UNAUTHORIZED',
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
@@ -39,14 +35,9 @@ const t = initTRPC.context<TRPCContext>().create({
     const cause = error.cause;
     if (isHttpError(cause)) {
       const code: TRPCError['code'] =
-        httpToCode[cause.statusCode] ??
+        STATUS_TO_CODE[cause.statusCode] ??
         (cause.statusCode < 500 ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR');
       return { ...shape, message: cause.message, data: { ...shape.data, code } };
-    }
-    // Zod input validation errors — extract first human-readable issue message
-    if (cause instanceof ZodError) {
-      const message = cause.issues[0]?.message ?? 'Invalid input';
-      return { ...shape, message };
     }
     return shape;
   },
