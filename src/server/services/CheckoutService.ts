@@ -9,10 +9,8 @@ import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter';
 import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
-import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors';
+import { BadRequestError, BadGatewayError, ForbiddenError, InternalServerError } from 'shared/errors';
 import { logger } from 'shared/lib/logger';
-
-const APP_URL = process.env.APP_URL!;
 
 export class CheckoutService {
   constructor(
@@ -74,52 +72,30 @@ export class CheckoutService {
     }));
   }
 
-  /**
-   * Verifies the buyer owns the purchase, then generates a short-lived signed
-   * Cloudinary download URL for the original media file.
-   *
-   * Throws ForbiddenError if no Purchase row exists for (buyerId, mediaItemId).
-   */
   async generateDownloadAccess(
     buyerId: string,
     mediaItemId: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByBuyerAndMedia(buyerId, mediaItemId);
-
     if (!purchase) throw new ForbiddenError('You have not purchased this item');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase.mediaItem.cloudinaryPublicId);
   }
 
-  /**
-   * Token-based download access for guest purchases.
-   * The downloadToken is the proof of purchase — no auth required.
-   * Used for email-delivered download links (backlog item 51).
-   */
   async generateDownloadAccessByToken(
     downloadToken: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByDownloadToken(downloadToken);
-
     if (!purchase) throw new ForbiddenError('Invalid or expired download token');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase.mediaItem.cloudinaryPublicId);
   }
 
-  /**
-   * Download access for guest purchases via purchaseId + orderId.
-   * The orderId in the URL is the proof of access — tokens never leave the DB.
-   * Security: orderId in WHERE clause acts as ownership check (purchase must belong to that order).
-   */
   async getGuestDownloadAccess(
     purchaseId: string,
     orderId: string,
   ): Promise<{ downloadUrl: string; expiresAt: number }> {
     const purchase = await this.purchases.findByIdAndOrder(purchaseId, orderId);
-
     if (!purchase) throw new ForbiddenError('Purchase not found');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    return this.resolveDownload(purchase.mediaItem.cloudinaryPublicId);
   }
 
   async getGuestPurchases(orderId: string) {
@@ -128,6 +104,10 @@ export class CheckoutService {
 
   async saveGuestEmail(orderId: string, email: string): Promise<void> {
     await this.orders.saveGuestEmail(orderId, email);
+  }
+
+  private resolveDownload(cloudinaryPublicId: string): { downloadUrl: string; expiresAt: number } {
+    return this.cloudinary.generateSignedDownload(cloudinaryPublicId);
   }
 
   private async fetchAndValidateCartItems(buyerId: string | null, itemIds: string[]) {
@@ -172,16 +152,19 @@ export class CheckoutService {
     mediaItems: { id: string }[],
     totalCents: number,
   ): Promise<string> {
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) throw new InternalServerError('Missing required env: APP_URL');
+
     const successUrl = buyerId
-      ? `${APP_URL}/me/purchases?order=${orderId}`
-      : `${APP_URL}/order-success?orderId=${orderId}`;
+      ? `${appUrl}/me/purchases?order=${orderId}`
+      : `${appUrl}/order-success?orderId=${orderId}`;
 
     try {
       const { checkoutUrl } = await this.payment.createCheckoutSession({
         orderId,
         totalCents,
         successUrl,
-        failUrl: `${APP_URL}/cart`,
+        failUrl: `${appUrl}/cart`,
       });
 
       return checkoutUrl;

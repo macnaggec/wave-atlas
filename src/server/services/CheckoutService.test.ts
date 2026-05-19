@@ -50,6 +50,7 @@ const service = new CheckoutService(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.APP_URL = 'http://localhost:3001';
 });
 
 // ---------------------------------------------------------------------------

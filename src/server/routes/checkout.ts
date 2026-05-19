@@ -1,7 +1,13 @@
-import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from 'server/trpc';
 import { checkoutService } from 'server/services/CheckoutService';
-import { cartItemIdsSchema, mediaItemIdSchema, downloadTokenSchema } from 'shared/validation/checkoutSchemas';
+import {
+  createCheckoutSchema,
+  getSignedMediaAccessSchema,
+  getSignedMediaAccessByTokenSchema,
+  getGuestPurchasesSchema,
+  getGuestDownloadAccessSchema,
+  saveGuestEmailSchema,
+} from 'shared/validation/checkoutSchemas';
 import { createRateLimiter } from 'server/lib/rateLimiter';
 
 // 5 checkout session creations per IP/user per minute — prevents CryptoCloud API abuse
@@ -11,13 +17,9 @@ const tokenDownloadLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 
 export const checkoutRouter = router({
   create: publicProcedure
-    .input(z.object({
-      itemIds: cartItemIdsSchema,
-      guestEmail: z.string().email().optional(),
-    }))
+    .input(createCheckoutSchema)
     .use(({ ctx, next }) => {
-      const key = ctx.user?.id ?? 'guest';
-      createCheckoutLimiter(key);
+      createCheckoutLimiter(ctx.user?.id ?? ctx.clientIp);
       return next();
     })
     .mutation(async ({ input, ctx }) => {
@@ -33,13 +35,13 @@ export const checkoutRouter = router({
   }),
 
   getSignedMediaAccess: protectedProcedure
-    .input(z.object({ mediaItemId: mediaItemIdSchema }))
+    .input(getSignedMediaAccessSchema)
     .query(async ({ input, ctx }) => {
       return checkoutService.generateDownloadAccess(ctx.user.id, input.mediaItemId);
     }),
 
   getSignedMediaAccessByToken: publicProcedure
-    .input(z.object({ downloadToken: downloadTokenSchema }))
+    .input(getSignedMediaAccessByTokenSchema)
     .use(({ ctx, next }) => {
       tokenDownloadLimiter(ctx.clientIp);
       return next();
@@ -49,7 +51,7 @@ export const checkoutRouter = router({
     }),
 
   getGuestPurchases: publicProcedure
-    .input(z.object({ orderId: z.string().uuid() }))
+    .input(getGuestPurchasesSchema)
     .use(({ ctx, next }) => {
       tokenDownloadLimiter(ctx.clientIp);
       return next();
@@ -59,7 +61,7 @@ export const checkoutRouter = router({
     }),
 
   getGuestDownloadAccess: publicProcedure
-    .input(z.object({ purchaseId: z.string().uuid(), orderId: z.string().uuid() }))
+    .input(getGuestDownloadAccessSchema)
     .use(({ ctx, next }) => {
       tokenDownloadLimiter(ctx.clientIp);
       return next();
@@ -69,7 +71,7 @@ export const checkoutRouter = router({
     }),
 
   saveGuestEmail: publicProcedure
-    .input(z.object({ orderId: z.string().uuid(), email: z.string().email() }))
+    .input(saveGuestEmailSchema)
     .mutation(async ({ input }) => {
       await checkoutService.saveGuestEmail(input.orderId, input.email);
     }),
