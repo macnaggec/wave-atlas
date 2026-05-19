@@ -16,7 +16,7 @@ function UploadTab() {
   const { isAuthenticated, isLoading } = useUser();
   const { draftMedia } = useDraftMedia(isAuthenticated ? spotId : null);
   const { open: openAuthModal } = useAuthModal();
-  const { onPublishSuccess } = useSpotUploadContext();
+  const { onPublishSuccess, onQueueChange } = useSpotUploadContext();
 
   if (isLoading) return null;
 
@@ -41,6 +41,7 @@ function UploadTab() {
       spotId={spotId}
       draftMedia={draftMedia ?? []}
       onPublishSuccess={onPublishSuccess}
+      onQueueChange={onQueueChange}
     />
   );
 }

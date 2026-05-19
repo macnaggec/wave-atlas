@@ -1,8 +1,7 @@
-import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { Indicator, Skeleton, Tabs, Text } from '@mantine/core';
 import { useCallback, useState } from 'react';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
-import { useCartStore } from 'features/Cart/model/cartStore';
 import { CartButton } from 'features/Cart/ui/CartButton';
 import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
 import { useTabNavigation } from 'shared/hooks';
@@ -19,10 +18,9 @@ const TAB_ROUTES = {
 
 function SpotLayout() {
   const { spotId } = Route.useParams();
-  const navigate = useNavigate();
   const { data: preview } = useSpotPreview(spotId);
-  const cartCount = useCartStore((s) => s.items.length);
   const [hasNewGallery, setHasNewGallery] = useState(false);
+  const [hasPendingUploads, setHasPendingUploads] = useState(false);
 
   const {
     activeTab,
@@ -38,14 +36,17 @@ function SpotLayout() {
     setHasNewGallery(true);
   }, []);
 
+  const handleQueueChange = useCallback((count: number) => {
+    setHasPendingUploads(count > 0);
+  }, []);
+
   const isUpload = activeTab === 'upload';
 
-  const handleCartClick = useCallback(() => {
-    void navigate({ to: '/cart', search: { from: spotId } });
-  }, [navigate, spotId]);
-
   return (
-    <SpotUploadContext.Provider value={{ onPublishSuccess: handlePublishSuccess }}>
+    <SpotUploadContext.Provider value={{
+      onPublishSuccess: handlePublishSuccess,
+      onQueueChange: handleQueueChange
+    }}>
       <DrawerHeader>
         {preview ? (
           <Text fw={600} size="lg">{preview.name}</Text>
@@ -67,7 +68,16 @@ function SpotLayout() {
               Gallery
             </Indicator>
           </Tabs.Tab>
-          <Tabs.Tab value="upload">Upload</Tabs.Tab>
+          <Tabs.Tab value="upload">
+            <Indicator
+              disabled={!hasPendingUploads || activeTab === 'upload'}
+              color="red"
+              size={8}
+              offset={-4}
+            >
+              Upload
+            </Indicator>
+          </Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
@@ -75,12 +85,7 @@ function SpotLayout() {
         <Outlet />
       </DrawerBody>
 
-      {!isUpload && (
-        <CartButton
-          count={cartCount}
-          onClick={handleCartClick}
-        />
-      )}
+      {!isUpload && <CartButton spotId={spotId} />}
     </SpotUploadContext.Provider>
   );
 }

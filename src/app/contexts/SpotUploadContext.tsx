@@ -6,10 +6,12 @@ import { createContext, useContext } from 'react';
  */
 export interface SpotUploadContextValue {
   onPublishSuccess: (mediaIds: string[]) => void;
+  onQueueChange: (count: number) => void;
 }
 
 export const SpotUploadContext = createContext<SpotUploadContextValue>({
   onPublishSuccess: () => {},
+  onQueueChange: () => {},
 });
 
 export function useSpotUploadContext() {

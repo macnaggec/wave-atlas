@@ -137,15 +137,16 @@ export function useGallerySelection<T>({
     setSelectedIds(new Set());
   }, []);
 
-  // Derive selected items array (memoized to prevent re-creation)
-  const selectedItems = useMemo(() => {
-    return items.filter((item) => selectedIds.has(getId(item)));
-  }, [items, selectedIds, getId]);
-
   // Derive readonly array of selected IDs
   const selectedIdsArray = useMemo(() => {
     return Array.from(selectedIds);
   }, [selectedIds]);
+
+  // Derive selected items in click order (selectedIdsArray preserves Set insertion order)
+  const selectedItems = useMemo(() => {
+    const itemMap = new Map(items.map((item) => [getId(item), item]));
+    return selectedIdsArray.map((id) => itemMap.get(id)).filter((item): item is T => item !== undefined);
+  }, [items, selectedIdsArray, getId]);
 
   useEffect(() => {
     onChange?.(selectedIdsArray);
