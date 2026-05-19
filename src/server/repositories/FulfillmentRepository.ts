@@ -6,7 +6,7 @@ import {
 import { prisma } from 'server/db';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
-type FulfillPurchaseData = {
+export type FulfillPurchaseData = {
   mediaItemId: string;
   buyerId: string | null;
   guestEmail?: string | null;
