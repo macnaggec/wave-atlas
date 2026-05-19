@@ -17,6 +17,7 @@ export function createRateLimiter(options: {
     }
 
     hits.push(now);
-    store.set(key, hits);
+    if (hits.length > 0) store.set(key, hits);
+    else store.delete(key);
   };
 }
