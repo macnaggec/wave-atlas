@@ -23,8 +23,8 @@ export const MEDIA_UPLOAD_CONFIG = {
  * Transformations → Named Transformations → Add
  *
  *  wave_atlas_thumbnail          → c_fill,w_400,h_300,q_auto,f_auto
- *  wave_atlas_lightbox_watermark   → c_limit,w_800,q_auto,f_auto/l_watermark_xzn2p9,o_30,fl_tiled,fl_layer_apply
- *  wave_atlas_lightbox             → c_limit,w_800,q_auto,f_auto
+ *  wave_atlas_lightbox_watermark → c_limit,w_800,q_auto,f_auto/l_watermark_xzn2p9,o_30,fl_tiled,fl_layer_apply
+ *  wave_atlas_lightbox           → c_limit,w_800,q_auto,f_auto
  *
  * Named transformations are always permitted through Strict Transformations.
  */
@@ -43,12 +43,11 @@ export const MEDIA_CLOUDINARY_TRANSFORMS = {
 
 /**
  * Eager transforms used on every upload (direct and remote import).
- * Comma-separated = two separate Cloudinary outputs: eager[0] = thumbnail, eager[1] = lightbox.
- * Watermark is applied at URL-generation time for public viewers, not stored eagerly.
+ * Comma-separated = two separate Cloudinary outputs: eager[0] = thumbnail, eager[1] = watermarked lightbox.
  */
 export const MEDIA_UPLOAD_EAGER_TRANSFORMS = [
   MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-  MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX,
+  MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
 ].join(',');
 
 export const MEDIA_UPLOAD_LIMITS = {

@@ -22,9 +22,14 @@ const TRANSFORMS = [
     transformation: 'c_fill,w_400,h_300,q_auto,f_auto',
   },
   {
-    name: 'wave_atlas_lightbox',
-    // Two chained groups: resize first, then apply tiled watermark overlay
+    name: 'wave_atlas_lightbox_watermark',
+    // Eager transform for public previews: with tiled watermark overlay
     transformation: 'c_limit,w_800,q_auto,f_auto/l_watermark_xzn2p9,o_30,fl_tiled,fl_layer_apply',
+  },
+  {
+    name: 'wave_atlas_lightbox',
+    // Full-quality lightbox without watermark (for purchased or own uploads)
+    transformation: 'c_limit,w_800,q_auto,f_auto',
   },
 ];
 
