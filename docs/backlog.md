@@ -207,3 +207,4 @@
     - After migration, purchased items appear automatically in `myPurchases` (already filters by `buyer_id`)
     - Also trigger on sign-in, not just sign-up — user may have bought as guest before ever creating an account
     - No schema changes needed — `buyer_id` and `guest_email` columns already exist on both tables
+53. Already purchased item is now blocked from checkout, need to make them unavailable even to be added to a cart.
