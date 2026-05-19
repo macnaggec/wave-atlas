@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BadGatewayError } from 'shared/errors';
 import { logger } from 'shared/lib/logger';
+import { requireEnv } from 'server/lib/env';
 import type {
   PaymentAdapter,
   CreateCheckoutParams,
@@ -40,13 +41,6 @@ interface CCWebhookPayload {
 // throw immediately if any var is missing — still fail-fast, just not at
 // import time.
 // ---------------------------------------------------------------------------
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-
-  return value;
-}
 
 function creds() {
   return {
