@@ -84,6 +84,7 @@ export async function runQuery<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
+    console.error('[db] query failed', err);
     throw mapPrismaError(err);
   }
 }
