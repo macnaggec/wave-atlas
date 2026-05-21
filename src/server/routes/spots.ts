@@ -56,11 +56,20 @@ export const spotsRouter = router({
       const spot = await spotRepository.findSpotDetails(id);
       if (!spot) return null;
 
-      return {
-        ...spot,
-        media: spot.mediaItems,
-      };
+      return spot;
     }),
+
+  mediaFeed: publicProcedure
+    .input(
+      z.object({
+        spotId: z.string(),
+        cursor: z.string().uuid().optional(),
+        limit: z.number().min(1).max(100).default(30),
+      }),
+    )
+    .query(({ input }) =>
+      spotRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit)
+    ),
 
   card: publicProcedure.input(z.string()).query(({ input: id }) => spotRepository.findSpotCard(id)),
 

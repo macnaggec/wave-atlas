@@ -7,7 +7,7 @@ import { SPOT_STATUS } from 'entities/Spot/constants';
 import type { SpotStatus } from 'entities/Spot/constants';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
-import { mapToMediaItem } from './MediaRepository';
+import { mapToMediaItem } from './mappers';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 
 function mapToSpot(spot: PrismaSpot): Spot {
@@ -59,6 +59,11 @@ export type SpotCard = {
   media: { id: string; url: string; type: MediaType }[];
 };
 
+export type SpotMediaPage = {
+  items: SpotMediaItem[];
+  nextCursor: string | null;
+};
+
 export interface ISpotRepository {
   findSpotList(filter: SpotSearchFilter): Promise<Spot[]>;
   findSpotsNearby(lat: number, lng: number, radiusM: number): Promise<Spot[]>;
@@ -68,6 +73,7 @@ export interface ISpotRepository {
   findSpotDetails(id: string): Promise<SpotDetails | null>;
   findSpotCard(id: string): Promise<SpotCard | null>;
   findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
+  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number): Promise<SpotMediaPage>;
 }
 
 export class SpotRepository implements ISpotRepository {
@@ -204,6 +210,28 @@ export class SpotRepository implements ISpotRepository {
         orderBy: { createdAt: 'desc' },
       });
       return rows.map(mapToMediaItem);
+    });
+  }
+
+  findPublishedBySpot(
+    spotId: string,
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<SpotMediaPage> {
+    return runQuery(async () => {
+      const rows = await prisma.mediaItem.findMany({
+        where: { spotId, status: 'PUBLISHED', deletedAt: null },
+        orderBy: { capturedAt: 'desc' },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: { photographer: { select: { id: true, name: true } } },
+      });
+
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? rows[limit].id : null;
+
+      return { items: items.map(mapToSpotMediaItem), nextCursor };
     });
   }
 }
