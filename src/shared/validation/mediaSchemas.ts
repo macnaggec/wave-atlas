@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
 
-const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+const cloudName =
+  typeof process !== 'undefined'
+    ? process.env.VITE_CLOUDINARY_CLOUD_NAME
+    : (import.meta as { env?: Record<string, string> }).env?.VITE_CLOUDINARY_CLOUD_NAME;
 const cloudinaryBase = cloudName ? `https://res.cloudinary.com/${cloudName}/` : null;
 
 export const mediaCloudinaryUrlSchema = z.url().refine(
@@ -43,4 +46,11 @@ export const mediaPublishSchema = z.object({
   mediaIds: z.array(z.uuid()).min(1),
   price: z.number().min(0).optional(),
   capturedAt: z.coerce.date().optional(),
+});
+
+export const registerDriveImportSchema = z.object({
+  spotId: z.uuid(),
+  remoteFileId: z.string().min(1),
+  mimeType: z.string().min(1),
+  accessToken: z.string().min(1),
 });

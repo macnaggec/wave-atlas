@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Badge, Button, Group, ActionIcon, Loader, rem, Stack, Text, Tooltip } from '@mantine/core';
+import { Badge, Button, Group, ActionIcon, Loader, rem, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
+import classes from './UploadCardRenderer.module.css';
 import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
 import { MediaItem } from 'entities/Media/types';
 import { MEDIA_STATUS } from 'entities/Media/constants';
@@ -28,6 +29,8 @@ interface UploadCardRendererProps {
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
   hasDateError?: boolean;
+  /** Whether the item is currently being published */
+  isPublishing?: boolean;
 }
 
 /**
@@ -43,7 +46,12 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   onAction,
   onRetry,
   hasDateError,
+  isPublishing,
 }) => {
+  if (item.status === 'importing') {
+    return <Skeleton radius="md" className={classes.importingCard} />;
+  }
+
   const isCompleted = item.status === 'completed';
 
   // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.
@@ -64,9 +72,11 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     ? `Media ${item.result.resource.asset_id}`
     : item.file?.name || 'Upload preview';
 
-  const overlays = isCompleted && item.result
-    ? renderDraftOverlay(item.result)
-    : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
+  const overlays = isPublishing
+    ? renderPublishingOverlay()
+    : isCompleted && item.result
+      ? renderDraftOverlay(item.result)
+      : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
 
   const actionButtons = actions && actions.length > 0 ? (
     <Group gap="xs">
@@ -100,9 +110,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
-      actions={actionButtons}
+      actions={!isPublishing ? actionButtons : undefined}
       validation={
-        hasDateError
+        hasDateError && !isPublishing
           ? { hasError: true, message: 'Date required for publishing' }
           : undefined
       }
@@ -116,7 +126,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     prev.item.error === next.item.error &&
     prev.item.result?.capturedAt === next.item.result?.capturedAt &&
     prev.item.result?.price === next.item.result?.price &&
+    prev.item.result?.status === next.item.result?.status &&
     prev.hasDateError === next.hasDateError &&
+    prev.isPublishing === next.isPublishing &&
     prev.actions?.join() === next.actions?.join()
 );
 
@@ -128,6 +140,15 @@ function isVideoFile(file: File | null | undefined): boolean {
   if (!file) return false;
   if (file.type) return file.type.startsWith('video/');
   return VIDEO_EXTENSIONS.test(file.name);
+}
+
+function renderPublishingOverlay() {
+  return (
+    <Group gap="xs">
+      <Loader size="xs" />
+      <Text size="xs" c="dimmed">Publishing…</Text>
+    </Group>
+  );
 }
 
 function renderDraftOverlay(mediaItem: MediaItem) {

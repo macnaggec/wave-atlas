@@ -6,7 +6,7 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { useUploadStore } from '../../model/uploadStore';
 import { UploadIndicatorCompact } from '../UploadIndicator';
 import { BlockedUploadPopover } from '../BlockedUploadPopover';
-import AddFileCard from '../cards/AddFileCard';
+import AddSourceCard from '../cards/AddSourceCard';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
 import { useMetadataControls } from './useMetadataControls';
@@ -20,7 +20,7 @@ import { UploadGalleryProps, UploadItemAction } from './types';
  * - UploadCardRenderer for item display
  * - MetadataControls for date/price editing
  * - SelectionToolbar for bulk actions
- * - AddFileCard for new uploads
+ * - AddSourceCard for new uploads (local files + Google Drive)
  *
  * Features:
  * - Unified view (no separation between uploading and completed)
@@ -36,6 +36,9 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   onRemove,
   onCancelUpload,
   onAddFiles,
+  onDriveImport,
+  driveLoading,
+  publishingIds,
   onBulkDateEdit,
   onBulkPriceEdit,
   onRetry,
@@ -126,6 +129,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
         ? []
         : isInProgress ? ['cancel' as UploadItemAction] : actions;
 
+      const mediaId = item.mediaId ?? item.id;
       return (
         <UploadCardRenderer
           item={item}
@@ -133,10 +137,11 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
           actions={itemActions}
           onAction={onAction}
           hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
+          isPublishing={publishingIds?.has(mediaId)}
         />
       );
     },
-    [actions, onAction, onRetry]
+    [actions, onAction, onRetry, publishingIds]
   );
 
   return (
@@ -147,14 +152,18 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
       prepend={onAddFiles && (
         isBlocked ? (
           <BlockedUploadPopover>
-            <AddFileCard
+            <AddSourceCard
               onFilesSelected={handleAddFiles}
+              onDriveImport={onDriveImport}
+              driveLoading={driveLoading}
               disabled
             />
           </BlockedUploadPopover>
         ) : (
-          <AddFileCard
+          <AddSourceCard
             onFilesSelected={handleAddFiles}
+            onDriveImport={onDriveImport}
+            driveLoading={driveLoading}
           />
         )
       )}
@@ -164,8 +173,8 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             {/* Upload indicator when blocked */}
             {isBlocked && <UploadIndicatorCompact />}
 
-            {/* Date/Price controls - always visible */}
-            <MetadataControls
+            {/* Date/Price controls - visible once items are ready to edit */}
+            {metadataState.totalCount > 0 && <MetadataControls
               showDateEdit={!!onBulkDateEdit}
               showPriceEdit={!!onBulkPriceEdit}
               selectedDate={metadataState.selectedDate}
@@ -177,7 +186,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
               tooltip={metadataState.tooltip}
               onDateApply={metadataState.handleDateApply}
               onPriceApply={metadataState.handlePriceApply}
-            />
+            />}
           </Group>
 
           {/* Cancel button during uploads, Select button when complete */}
