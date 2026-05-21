@@ -1,10 +1,12 @@
 import React, { FC, memo, useCallback, useMemo, useState } from 'react';
-import { Text, Menu, Group } from '@mantine/core';
+import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
 import { IconShoppingBag, IconShare } from '@tabler/icons-react';
-import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
-import { DateFilterPopover } from 'shared/ui/DatePickerPopover';
-import { MediaItem } from 'entities/Media/types';
-import { useGallerySelection, useDateFilter } from 'shared/hooks/gallery';
+import { SelectionToolbar } from 'shared/ui/BaseGallery';
+import { MediaItem, SpotMediaItem } from 'entities/Media/types';
+import { useGallerySelection } from 'shared/hooks/gallery';
+import { useSpotMediaFeed } from 'entities/Spot/model/useSpotMediaFeed';
+import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
+import { VirtualGallery } from 'shared/ui/VirtualGallery/VirtualGallery';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox from './ui/MediaLightbox';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
@@ -15,11 +17,8 @@ const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
 };
 
 export interface PublicGalleryProps {
-  /** Published media items for this spot */
-  items: MediaItem[];
-
-  /** Spot name — used to build the cart item label (e.g. "Uluwatu · Apr 1, 2026") */
-  spotName: string;
+  /** Spot ID — used to fetch paginated media */
+  spotId: string;
 
   /** Set of media IDs currently in the cart — drives active state on cards */
   cartItemIds?: Set<string>;
@@ -33,58 +32,35 @@ export interface PublicGalleryProps {
   /** Callback when user shares items */
   onShare?: (items: MediaItem[]) => void;
 
-  /**   * Message to display when gallery is empty
+  /**
+   * Message to display when gallery is empty
    * @default "No media available."
    */
   emptyMessage?: string;
 }
 
-/**
- * PublicGallery - Feature for viewing and interacting with published media
- *
- * Business-specific composition of BaseGallery widget with:
- * - PublicCard for media display
- * - Selection support
- * - Cart and share actions (business logic)
- * - Bulk operations via SelectionToolbar
- *
- * This feature handles the business logic for public media interactions:
- * - Spot media viewing (SpotDrawer)
- * - Portfolio displays
- * - Search results
- *
- * For upload/draft management, use UploadGallery feature instead.
- */
 const PublicGallery: FC<PublicGalleryProps> = memo(({
-  items,
-  spotName,
+  spotId,
   cartItemIds = new Set<string>(),
   onCartToggle,
   onCartBulkAdd,
   onShare,
   emptyMessage = 'No media available.',
 }) => {
-  const { getCardActions, getCartBulkState, isOwnId, userId } = usePublicGalleryActions({
+  const { flatItems, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSpotMediaFeed(spotId);
+
+  const { getCardActions, getCartBulkState, userId } = usePublicGalleryActions({
     cartItemIds,
     hasShare: !!onShare,
   });
 
   // ========================================================================
-  // DATE FILTER
-  // ========================================================================
-
-  const getDate = useCallback((m: MediaItem) => m.capturedAt, []);
-  const { activeDate, filteredItems, highlightedDates, setDate } = useDateFilter({
-    items,
-    getDate,
-  });
-
-  // ========================================================================
-  // SELECTION MANAGEMENT
+  // SELECTION
   // ========================================================================
 
   const selection = useGallerySelection({
-    items: filteredItems,
+    items: flatItems,
     getId: (item) => item.id,
   });
 
@@ -95,104 +71,131 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const ownedItemIds = useMemo(
-    () => new Set(filteredItems
-      .filter(i => i.photographerId === userId)
-      .map(i => i.id)
-    ),
-    [filteredItems, userId],
+    () => new Set(flatItems.filter((i) => i.photographerId === userId).map((i) => i.id)),
+    [flatItems, userId],
   );
 
-  const handleCardClick = useCallback((itemId: string) => {
-    const index = filteredItems.findIndex(i => i.id === itemId);
-    if (index !== -1) setLightboxIndex(index);
-  }, [filteredItems]);
+  // ========================================================================
+  // VIRTUAL ROWS + FAST-SCROLL HIGHLIGHTS
+  // ========================================================================
+
+  const [expandedDate, setExpandedDate] = useState<Date | null>(null);
+
+  const rows = useMemo(
+    () => buildGalleryRows(flatItems, 3, expandedDate),
+    [flatItems, expandedDate],
+  );
+
+  const highlights = useMemo(
+    () =>
+      rows
+        .map((row, i) => (row.type === 'divider' ? { date: row.date, rowIndex: i } : null))
+        .filter((h): h is { date: Date; rowIndex: number } => h !== null),
+    [rows],
+  );
 
   // ========================================================================
   // ACTION HANDLERS
   // ========================================================================
 
-  const handleCardAction = useCallback((action: PublicCardAction, itemId: string) => {
-    const item = filteredItems.find(i => i.id === itemId);
-    if (!item) return;
-    if (action === 'cart') onCartToggle?.(item);
-    if (action === 'share') onShare?.([item]);
-  }, [filteredItems, onCartToggle, onShare]);
+  const handleCardClick = useCallback(
+    (itemId: string) => {
+      const index = flatItems.findIndex((i) => i.id === itemId);
+      if (index !== -1) setLightboxIndex(index);
+    },
+    [flatItems],
+  );
 
-  const renderMenuActions = useCallback((selectedItems: MediaItem[]) => {
-    const { actions, noActionsLabel } = getCartBulkState(selectedItems);
+  const handleCardAction = useCallback(
+    (action: PublicCardAction, itemId: string) => {
+      const item = flatItems.find((i) => i.id === itemId);
+      if (!item) return;
+      if (action === 'cart') onCartToggle?.(item);
+      if (action === 'share') onShare?.([item]);
+    },
+    [flatItems, onCartToggle, onShare],
+  );
 
-    return (
-      <>
-        {actions.map(({ key, label, payload }) => {
-          const Icon = ACTION_ICONS[key];
-          return (
-            <Menu.Item key={key} leftSection={<Icon size={14} />}
-              onClick={() => {
-                if (key === 'cart') onCartBulkAdd?.(payload);
-                if (key === 'share') onShare?.(payload);
-                selection.disableSelectionMode();
-              }}>
-              {label}
-            </Menu.Item>
-          );
-        })}
-        {actions.length === 0 && (
-          <Menu.Item disabled>{noActionsLabel}</Menu.Item>
-        )}
-      </>
-    );
-  }, [getCartBulkState, onCartBulkAdd, onShare, selection]);
+  const renderMenuActions = useCallback(
+    (selectedItems: SpotMediaItem[]) => {
+      const { actions, noActionsLabel } = getCartBulkState(selectedItems);
+      return (
+        <>
+          {actions.map(({ key, label, payload }) => {
+            const Icon = ACTION_ICONS[key];
+            return (
+              <Menu.Item
+                key={key}
+                leftSection={<Icon size={14} />}
+                onClick={() => {
+                  if (key === 'cart') onCartBulkAdd?.(payload);
+                  if (key === 'share') onShare?.(payload);
+                  selection.disableSelectionMode();
+                }}
+              >
+                {label}
+              </Menu.Item>
+            );
+          })}
+          {actions.length === 0 && <Menu.Item disabled>{noActionsLabel}</Menu.Item>}
+        </>
+      );
+    },
+    [getCartBulkState, onCartBulkAdd, onShare, selection],
+  );
 
   // ========================================================================
   // RENDER
   // ========================================================================
 
-  if (items.length === 0) {
+  if (isLoading) {
+    return (
+      <SimpleGrid cols={3} spacing={10} mt="md">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} height={120} radius="sm" />
+        ))}
+      </SimpleGrid>
+    );
+  }
+
+  if (flatItems.length === 0) {
     return <Text c="dimmed" fs="italic">{emptyMessage}</Text>;
   }
 
   return (
     <>
-      <BaseGallery
-        items={filteredItems}
-        selection={selection}
-        renderCard={(item, context) => {
-          const {
-            actions,
-            activeActions,
-            isOwn,
-          } = getCardActions(item, context.isSelectionMode);
-
-          return (
-            <PublicCard
-              mediaItem={item}
-              actions={actions}
-              activeActions={activeActions}
-              onAction={handleCardAction}
-              onCardClick={context.isSelectionMode ? undefined : handleCardClick}
-              showOwnerBadge={isOwn}
-            />
-          );
-        }}
-        emptyState={<Text c="dimmed" fs="italic">No photos on this date.</Text>}
-        toolbar={
-          <Group justify="space-between" w="100%">
-            <DateFilterPopover
-              value={activeDate}
-              onChange={setDate}
-              highlightedDates={highlightedDates}
-              maxDate={new Date()}
-            />
-            <SelectionToolbar
-              selection={selection}
-              renderActions={renderMenuActions}
-            />
-          </Group>
-        }
-      />
+      <div style={{ flex: 1, minHeight: 0, height: '100%' }}>
+        <VirtualGallery
+          rows={rows}
+          selection={selection}
+          toolbar={
+            <Group justify="flex-end">
+              <SelectionToolbar selection={selection} renderActions={renderMenuActions} />
+            </Group>
+          }
+          renderCard={(item, context) => {
+            const { actions, activeActions, isOwn } = getCardActions(item, context.isSelectionMode);
+            return (
+              <PublicCard
+                mediaItem={item as SpotMediaItem}
+                actions={actions}
+                activeActions={activeActions}
+                onAction={handleCardAction}
+                onCardClick={context.isSelectionMode ? undefined : handleCardClick}
+                showOwnerBadge={isOwn}
+              />
+            );
+          }}
+          highlights={highlights}
+          expandedDate={expandedDate}
+          onDateExpand={setExpandedDate}
+          onEndReached={hasNextPage ? fetchNextPage : undefined}
+          isFetchingMore={isFetchingNextPage}
+        />
+      </div>
 
       <MediaLightbox
-        items={filteredItems}
+        items={flatItems}
         initialIndex={lightboxIndex ?? 0}
         opened={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
