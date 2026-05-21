@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Text, TextInput } from '@mantine/core';
+import { Text } from '@mantine/core';
 import { useCallback } from 'react';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { useCartCheckout } from 'features/Cart/model/useCartCheckout';
-import { useUser } from 'shared/hooks/useUser';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 import CartCard from 'features/Cart/ui/CartCard';
@@ -31,14 +30,7 @@ function CartDrawerRoute() {
   const items = useCartStore((s) => s.items);
   const remove = useCartStore((s) => s.remove);
   const { data: spotPreview } = useSpotPreview(from ?? '');
-  const { isAuthenticated } = useUser();
-  const {
-    guestEmail,
-    setGuestEmail,
-    handleCheckout,
-    isPending,
-    totalCents,
-  } = useCartCheckout();
+  const { handleCheckout, isPending, totalCents } = useCartCheckout();
 
   const handleBack = useCallback(() => {
     if (from) void navigate({ to: '/$spotId', params: { spotId: from } });
@@ -70,26 +62,11 @@ function CartDrawerRoute() {
       </DrawerBody>
 
       {items.length > 0 && (
-        <>
-          {!isAuthenticated && (
-            <TextInput
-              px="md"
-              pb="xs"
-              pt="sm"
-              label="Email (optional)"
-              description="We'll send your download link here"
-              placeholder="you@example.com"
-              type="email"
-              value={guestEmail}
-              onChange={(e) => setGuestEmail(e.currentTarget.value)}
-            />
-          )}
-          <CheckoutButton
-            totalCents={totalCents}
-            isPending={isPending}
-            onCheckout={handleCheckout}
-          />
-        </>
+        <CheckoutButton
+          totalCents={totalCents}
+          isPending={isPending}
+          onCheckout={handleCheckout}
+        />
       )}
     </>
   );

@@ -1,29 +1,24 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 import { useCartStore } from 'features/Cart/model/cartStore';
-import { useUser } from 'shared/hooks/useUser';
 import { notify } from 'shared/lib/notifications';
 
 export interface CartCheckout {
-  guestEmail: string;
-  setGuestEmail: (value: string) => void;
   handleCheckout: () => void;
   isPending: boolean;
   totalCents: number;
 }
 
 /**
- * Encapsulates checkout mutation, guest email state, and submission logic.
- * Used by the cart drawer route.
+ * Encapsulates checkout mutation and submission logic.
+ * Checkout is authenticated-only — guest flow was removed.
  */
 export function useCartCheckout(): CartCheckout {
   const trpc = useTRPC();
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
   const totalCents = useCartStore((s) => s.totalCents);
-  const { isAuthenticated } = useUser();
-  const [guestEmail, setGuestEmail] = useState('');
 
   const checkout = useMutation({
     ...trpc.checkout.create.mutationOptions(),
@@ -39,15 +34,10 @@ export function useCartCheckout(): CartCheckout {
   });
 
   const handleCheckout = useCallback(() => {
-    checkout.mutate({
-      itemIds: items.map((i) => i.id),
-      guestEmail: !isAuthenticated && guestEmail.trim() ? guestEmail.trim() : undefined,
-    });
-  }, [checkout.mutate, items, isAuthenticated, guestEmail]);
+    checkout.mutate({ itemIds: items.map((i) => i.id) });
+  }, [checkout.mutate, items]);
 
   return {
-    guestEmail,
-    setGuestEmail,
     handleCheckout,
     isPending: checkout.isPending,
     totalCents: totalCents(),
