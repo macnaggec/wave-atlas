@@ -1,43 +1,12 @@
 import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
-import { MEDIA_RESOURCE_TYPE, MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
+import { MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
 import type { MediaItem, PublishedMedia } from 'entities/Media/types';
 import type { MediaStatus as DomainMediaStatus } from 'entities/Media/constants';
 import { prisma } from 'server/db';
-import cloudinary from 'server/lib/cloudinary';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
+import { mapToMediaItem, toSignedUrl } from './mappers';
 
-function toSignedUrl(cloudinaryPublicId: string, transform: string): string {
-  return cloudinary.url(cloudinaryPublicId, {
-    sign_url: true,
-    type: 'authenticated',
-    secure: true,
-    raw_transformation: transform,
-  });
-}
-
-export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
-  const thumbnailUrl = toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL);
-  const lightboxUrl = toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK);
-  return {
-    id: row.id,
-    photographerId: row.photographerId,
-    spotId: row.spotId,
-    capturedAt: row.capturedAt,
-    price: row.price,
-    lightboxUrl,
-    thumbnailUrl,
-    cloudinaryPublicId: row.cloudinaryPublicId,
-    status: row.status,
-    createdAt: row.createdAt,
-    resource: {
-      resource_type: row.type === MediaType.VIDEO
-        ? MEDIA_RESOURCE_TYPE.VIDEO
-        : MEDIA_RESOURCE_TYPE.IMAGE,
-      url: lightboxUrl,
-      asset_id: row.id,
-    },
-  };
-}
+export { mapToMediaItem };
 
 function mapToPublishedMedia(
   row: PrismaMediaItem & { spot: { id: string; name: string } | null },

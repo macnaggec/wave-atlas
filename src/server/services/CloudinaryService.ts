@@ -139,11 +139,29 @@ export class CloudinaryService implements ICloudinaryService {
       headers: authHeaders,
     });
 
+    const publicId = result.public_id;
+
+    // Compute signed URLs directly from publicId — the comma-joined eager string is a
+    // single transform pipeline (one output), so result.eager[1] is always undefined.
+    // mapToMediaItem() regenerates these same URLs on every read anyway.
+    const thumbnailUrl = cloudinary.url(publicId, {
+      sign_url: true,
+      type: 'authenticated',
+      secure: true,
+      raw_transformation: MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+    });
+    const lightboxUrl = cloudinary.url(publicId, {
+      sign_url: true,
+      type: 'authenticated',
+      secure: true,
+      raw_transformation: MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+    });
+
     return {
-      publicId: result.public_id,
+      publicId,
       resource_type: result.resource_type,
-      thumbnailUrl: result.eager?.[0]?.secure_url,
-      lightboxUrl: result.eager?.[1]?.secure_url,
+      thumbnailUrl,
+      lightboxUrl,
     };
   }
 
