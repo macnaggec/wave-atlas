@@ -181,3 +181,26 @@
     - Each call site passes `'RepositoryName.methodName'` — no class or `this.constructor.name` needed
     - Prerequisite: #33 (structured logger) must land first
     - Enables: consistent error logging and future tracing across all repos in one place
+50. lightbox chevrons appears only on click, not visible on open
+
+51. on checkout sometimes I see error notification that some items were already purchased. need to contemplate about mechanism to exclude from public gallery such items and expand to content storing strategy. If user buy item it's probably becomes useless for the site because who whants to buy another surfer's media?
+
+52. I see competitor's surfcloud seeyousurf sites - they have session entity with author publicly expose instead of common mixed gallery. What content grouping fits most for such media marketplace?
+
+53. 🟠 **P1** `[perf]` Batch media writes use N individual Prisma calls instead of one `updateMany`
+    - `updateBatch`, `updatePublishedBatch`, `unpublishBatch`, and `publish` in `MediaService` each call `Promise.all(ids.map(id => updateMedia(id, data)))` — N round-trips
+    - Fix: add `updateManyMedia(ids, data)` to `IMediaRepository` / `MediaRepository`, backed by `prisma.mediaItem.updateMany({ where: { id: { in: ids } }, data })`
+    - Per-item price fallback in `publish` (when price is undefined, falls back to existing item price) needs to stay as individual calls until that logic is removed
+    - Prerequisite: none
+
+54. 🟡 **P2** `[perf]` `myUploads` full list refetched after every single price/date edit
+    - `updatePublishedBatch` and `unpublishBatch` mutations call `queryClient.invalidateQueries(myUploads)` — reloads entire list
+    - Fix: use `queryClient.setQueryData` with the returned `MediaItem[]` to patch the cache surgically
+    - Prerequisite: #53 is independent; this can land separately
+
+55. 🟡 **P2** `[perf]` Bulk delete fires N individual tRPC mutations instead of one batch call
+    - `handleBulkDelete` in `_drawer.me.index.tsx` calls `deleteMedia` per item via `Promise.allSettled`
+    - Fix: add `deleteBatch` endpoint in `media.ts` router + `deleteBatch` service method; split by status (drafts hard-deleted, published soft-deleted)
+    - Prerequisite: none
+
+56. checkout whithout authentication shows error, even it was implemented.
