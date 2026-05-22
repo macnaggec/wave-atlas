@@ -76,13 +76,14 @@ export class CloudinaryService implements ICloudinaryService {
 
     const timestamp = Math.round(new Date().getTime() / 1000);
 
-    // Eager transforms generate public-accessible variants at upload time:
-    //   - thumbnail:         gallery card (small, no watermark, public)
-    //   - lightbox_watermark: watermarked preview (medium, public)
+    // Eager transforms pre-compute two independent derived images at upload time:
+    //   - thumbnail:          gallery card (small, no watermark)
+    //   - lightbox_watermark: watermarked preview (medium)
+    // '|' produces two separate outputs; ',' would chain them into one pipeline.
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
       MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-    ].join(',');
+    ].join('|');
 
     // All params that affect the upload MUST be signed to prevent tampering.
     const paramsToSign = {
@@ -129,7 +130,7 @@ export class CloudinaryService implements ICloudinaryService {
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
       MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-    ].join(',');
+    ].join('|');
 
     const result = await cloudinary.uploader.upload(sourceUrl, {
       folder,
@@ -141,9 +142,8 @@ export class CloudinaryService implements ICloudinaryService {
 
     const publicId = result.public_id;
 
-    // Compute signed URLs directly from publicId — the comma-joined eager string is a
-    // single transform pipeline (one output), so result.eager[1] is always undefined.
-    // mapToMediaItem() regenerates these same URLs on every read anyway.
+    // Regenerate signed URLs from publicId — mapToMediaItem() does the same on every read,
+    // so these stored values are never actually served but satisfy the DB schema.
     const thumbnailUrl = cloudinary.url(publicId, {
       sign_url: true,
       type: 'authenticated',

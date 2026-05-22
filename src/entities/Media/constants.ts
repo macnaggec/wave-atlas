@@ -5,8 +5,6 @@ export const MEDIA_STATUS = {
   DRIVE_PENDING: 'DRIVE_PENDING',
 } as const;
 
-// Legacy alias - will be removed after migration
-export const PHOTO_STATUS = MEDIA_STATUS;
 
 export const MEDIA_RESOURCE_TYPE = {
   IMAGE: 'image',
@@ -43,12 +41,13 @@ export const MEDIA_CLOUDINARY_TRANSFORMS = {
 
 /**
  * Eager transforms used on every upload (direct and remote import).
- * Comma-separated = two separate Cloudinary outputs: eager[0] = thumbnail, eager[1] = watermarked lightbox.
+ * '|'-separated = two independent Cloudinary outputs: eager[0] = thumbnail, eager[1] = watermarked lightbox.
+ * (',' would chain them into a single pipeline — one output — and eager[1] would be undefined.)
  */
 export const MEDIA_UPLOAD_EAGER_TRANSFORMS = [
   MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
   MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-].join(',');
+].join('|');
 
 export const MEDIA_UPLOAD_LIMITS = {
   // File size limits (bytes)
@@ -58,14 +57,10 @@ export const MEDIA_UPLOAD_LIMITS = {
   // Batch limits
   MAX_FILES_PER_BATCH: 20, // UI performance + preview generation
   MAX_BATCH_SIZE: 200 * 1024 * 1024, // 200MB total per batch
-
-  // Rate limiting (future implementation)
-  MAX_UPLOADS_PER_DAY: 100, // Prevents abuse
 } as const;
 
 /** Minimum media price in cents. All published media must cost at least $3.00. */
 export const MIN_MEDIA_PRICE_CENTS = 300;
 
 export type MediaStatus = typeof MEDIA_STATUS[keyof typeof MEDIA_STATUS];
-export type PhotoStatus = MediaStatus; // Legacy alias
 export type MediaResourceType = typeof MEDIA_RESOURCE_TYPE[keyof typeof MEDIA_RESOURCE_TYPE];

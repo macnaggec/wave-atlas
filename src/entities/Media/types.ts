@@ -3,7 +3,7 @@
  * Based on Prisma Photo model
  */
 
-import { MediaResourceType, PhotoStatus } from './constants';
+import { MediaResourceType, MediaStatus } from './constants';
 
 export interface MediaItem {
   id: string;
@@ -16,7 +16,7 @@ export interface MediaItem {
   lightboxUrl: string;
   thumbnailUrl: string;
   cloudinaryPublicId: string;
-  status: PhotoStatus;
+  status: MediaStatus;
   createdAt: Date;
   resource: {
     resource_type: MediaResourceType;
@@ -37,6 +37,7 @@ export type PublishedMedia = {
   id: string;
   type: MediaType;
   lightboxUrl: string;
+  thumbnailUrl: string;
   price: number;
   capturedAt: Date;
   spotId: string;
