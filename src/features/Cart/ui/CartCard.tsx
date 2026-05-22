@@ -3,12 +3,14 @@ import { ActionIcon, Text, Stack } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { CartItem } from 'features/Cart/model/types';
 import { formatPrice } from 'shared/lib/currency';
+import { formatShortDate } from 'shared/lib/dateUtils';
 import { BaseCard } from 'shared/ui/BaseGallery';
 import classes from './CartCard.module.css';
 
 export interface CartCardProps {
   item: CartItem;
   onRemove: (id: string) => void;
+  onClick?: () => void;
 }
 
 /**
@@ -17,26 +19,25 @@ export interface CartCardProps {
  * Mirrors PublicCard visually: same BaseCard shell, same action slot.
  * Single action: remove from cart (trash icon).
  */
-const CartCard: FC<CartCardProps> = memo(({ item, onRemove }) => {
+const CartCard: FC<CartCardProps> = memo(({ item, onRemove, onClick }) => {
   const handleRemove = useCallback(
     () => onRemove(item.id),
     [onRemove, item.id],
   );
-
-  const [spotName, date] = item.label.split(' · ');
 
   return (
     <BaseCard
       imageUrl={item.thumbnailUrl}
       resourceType="image"
       alt={item.label}
+      onClick={onClick}
       overlays={
         <Stack gap={2}>
           <Text size="xs" fw={700} c="white" className={classes.priceLabel}>
-            {spotName}
+            {item.spotName}
           </Text>
           <Text size="xs" c="white" className={classes.priceLabel}>
-            {date}
+            {formatShortDate(item.capturedAt)}
           </Text>
           <Text size="xs" fw={600} c="white" className={classes.priceLabel}>
             {formatPrice(item.priceCents)}

@@ -1,7 +1,27 @@
 import { useCallback } from 'react';
 import { MediaItem } from 'entities/Media/types';
 import { useCartStore } from 'features/Cart/model/cartStore';
-import { toCartItem } from 'features/Cart/model/toCartItem';
+import { CartItem } from 'features/Cart/model/types';
+import { formatShortDate } from 'shared/lib/dateUtils';
+
+/**
+ * Pure mapper: converts a MediaItem + spot name into a domain-agnostic CartItem.
+ * Used by useCartItem (single item) and directly by galleries (bulk add).
+ */
+export function toCartItem(item: MediaItem, spotName: string): CartItem {
+  const capturedAt = item.capturedAt instanceof Date
+    ? item.capturedAt.toISOString()
+    : String(item.capturedAt);
+  return {
+    id: item.id,
+    label: `${spotName} · ${formatShortDate(capturedAt)}`,
+    spotName,
+    capturedAt,
+    thumbnailUrl: item.thumbnailUrl,
+    lightboxUrl: item.lightboxUrl,
+    priceCents: item.price,
+  };
+}
 
 /**
  * Maps a MediaItem to a domain-agnostic CartItem and binds cart actions.

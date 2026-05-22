@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Text } from '@mantine/core';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { useCartCheckout } from 'features/Cart/model/useCartCheckout';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import { BaseGallery } from 'shared/ui/BaseGallery';
+
 import CartCard from 'features/Cart/ui/CartCard';
+import CartLightbox from 'features/Cart/ui/CartLightbox';
 import { CartDrawerHeader } from 'features/Cart/ui/CartDrawerHeader';
 import { CheckoutButton } from 'features/Cart/ui/CheckoutButton';
 import type { CartItem } from 'features/Cart/model/types';
@@ -18,12 +20,6 @@ export const Route = createFileRoute('/_drawer/cart')({
   component: CartDrawerRoute,
 });
 
-/**
- * CartDrawerRoute — drawer content for the cart route (/cart).
- *
- * Driven by navigation — opening/closing is handled by the root drawer
- * via route matching, the same as spot and profile drawers.
- */
 function CartDrawerRoute() {
   const { from } = Route.useSearch();
   const navigate = useNavigate();
@@ -32,12 +28,20 @@ function CartDrawerRoute() {
   const { data: spotPreview } = useSpotPreview(from ?? '');
   const { handleCheckout, isPending, totalCents } = useCartCheckout();
 
+  const [lightboxItem, setLightboxItem] = useState<CartItem | null>(null);
+
   const handleBack = useCallback(() => {
     if (from) void navigate({ to: '/$spotId', params: { spotId: from } });
   }, [navigate, from]);
 
   const renderCartCard = useCallback(
-    (item: CartItem) => <CartCard item={item} onRemove={remove} />,
+    (item: CartItem) => (
+      <CartCard
+        item={item}
+        onRemove={remove}
+        onClick={() => setLightboxItem(item)}
+      />
+    ),
     [remove],
   );
 
@@ -68,7 +72,12 @@ function CartDrawerRoute() {
           onCheckout={handleCheckout}
         />
       )}
+
+      <CartLightbox
+        item={lightboxItem}
+        onClose={() => setLightboxItem(null)}
+        onRemove={remove}
+      />
     </>
   );
 }
-
