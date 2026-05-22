@@ -65,8 +65,8 @@ export function usePublish(
     setIsPublishing(true);
     setPublishingIds(new Set(ids));
     try {
-      const published = await publishMedia({ mediaIds: ids });
-      notify.success(`Successfully published ${published.length} item(s)`, 'Published');
+      await publishMedia({ mediaIds: ids });
+      notify.success(`Successfully published ${ids.length} item(s)`, 'Published');
       void mutateDraftMedia();
       onSuccess?.(ids);
     } catch {

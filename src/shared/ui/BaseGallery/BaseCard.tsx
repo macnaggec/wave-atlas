@@ -102,7 +102,7 @@ const BaseCard: FC<BaseCardProps> = memo(({
 
       {/* Actions slot (bottom-right: cart, favorites, delete buttons) */}
       {actions && (
-        <Box className={classes.actions}>
+        <Box className={classes.actions} onClick={(e) => e.stopPropagation()}>
           {actions}
         </Box>
       )}

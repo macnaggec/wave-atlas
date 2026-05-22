@@ -1,5 +1,3 @@
-'use client';
-
 import React, { FC, ReactNode, memo } from 'react';
 import { Box } from '@mantine/core';
 import { MediaItem } from 'entities/Media/types';

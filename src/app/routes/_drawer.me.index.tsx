@@ -1,91 +1,31 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
-import { Center, SimpleGrid, Skeleton, Text, Menu, Button, Badge, Group, rem } from '@mantine/core';
-import { IconChevronDown, IconPhoto, IconTrash } from '@tabler/icons-react';
-import { memo, useCallback } from 'react';
+import { createFileRoute } from '@tanstack/react-router';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Center, Select, SimpleGrid, Skeleton, Text, Menu, Group, rem } from '@mantine/core';
+import { IconFilter, IconTrash, IconEyeOff } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTRPC } from 'app/lib/trpc';
 import { useDeleteMedia } from 'entities/Media/model/useDeleteMedia';
-import { BaseGallery, BaseCard, SelectionToolbar } from 'shared/ui/BaseGallery';
+import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { useGallerySelection } from 'shared/hooks/gallery';
+import { DateEditPopover, PriceEditPopover } from 'features/Upload/ui/popovers';
+import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+import { notify } from 'shared/lib/notifications';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
+import { DraftsDropdown } from 'features/Upload/ui/DraftsDropdown';
+import { PublishedCard } from 'features/Upload/ui/cards/PublishedCard';
+import { OwnerLightbox } from 'features/Upload/ui/OwnerLightbox';
 
 export const Route = createFileRoute('/_drawer/me/')({
   component: UploadsTab,
 });
 
 // ============================================================================
-// DRAFTS DROPDOWN
-// ============================================================================
-
-interface DraftSpot {
-  spotId: string;
-  spotName: string;
-  count: number;
-}
-
-interface DraftsDropdownProps {
-  spots: DraftSpot[];
-}
-
-/**
- * DraftsDropdown — toolbar button listing spots with unpublished drafts.
- * Each item navigates to the spot's upload tab.
- */
-const DraftsDropdown = memo(({ spots }: DraftsDropdownProps) => {
-  const navigate = useNavigate();
-
-  const handleNavigate = useCallback(
-    (spotId: string) => {
-      void navigate({ to: '/$spotId/upload', params: { spotId } });
-    },
-    [navigate],
-  );
-
-  const totalDrafts = spots.reduce((sum, s) => sum + s.count, 0);
-
-  return (
-    <Menu shadow="md" width={240} withinPortal>
-      <Menu.Target>
-        <Button
-          variant="light"
-          color="yellow"
-          size="xs"
-          rightSection={<IconChevronDown style={{ width: rem(14), height: rem(14) }} />}
-        >
-          {totalDrafts} unpublished
-        </Button>
-      </Menu.Target>
-      <Menu.Dropdown>
-        <Menu.Label>Spots with drafts</Menu.Label>
-        {spots.map((s) => (
-          <Menu.Item
-            key={s.spotId}
-            leftSection={<IconPhoto style={{ width: rem(14), height: rem(14) }} />}
-            rightSection={<Badge size="xs" variant="filled" color="yellow">{s.count}</Badge>}
-            onClick={() => handleNavigate(s.spotId)}
-          >
-            {s.spotName}
-          </Menu.Item>
-        ))}
-      </Menu.Dropdown>
-    </Menu>
-  );
-});
-
-DraftsDropdown.displayName = 'DraftsDropdown';
-
-// ============================================================================
 // UPLOADS TAB
 // ============================================================================
 
-/**
- * UploadsTab — shows all published media uploaded by the authenticated user.
- *
- * Toolbar:
- * - SelectionToolbar with bulk delete action
- * - DraftsDropdown (when there are unpublished drafts)
- */
 function UploadsTab() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { mutateAsync: deleteMedia } = useDeleteMedia();
 
   const { data: uploads = [], isLoading: uploadsLoading } = useQuery(
@@ -97,17 +37,121 @@ function UploadsTab() {
   );
 
   // ========================================================================
+  // SPOT FILTER
+  // ========================================================================
+
+  const [spotFilter, setSpotFilter] = useState<string | null>(null);
+
+  const spots = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const u of uploads) {
+      if (!seen.has(u.spotId)) seen.set(u.spotId, u.spotName ?? u.spotId);
+    }
+    return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+  }, [uploads]);
+
+  const visibleUploads = useMemo(
+    () => spotFilter ? uploads.filter((u) => u.spotId === spotFilter) : uploads,
+    [uploads, spotFilter],
+  );
+
+  // ========================================================================
   // SELECTION
   // ========================================================================
 
   const selection = useGallerySelection({
-    items: uploads,
+    items: visibleUploads,
     getId: (item) => item.id,
   });
+  const { disableSelectionMode, deselectItems } = selection;
+
+  useEffect(() => {
+    disableSelectionMode();
+    setLightboxIndex(null);
+  }, [spotFilter, disableSelectionMode]);
 
   // ========================================================================
-  // DELETE
+  // LIGHTBOX
   // ========================================================================
+
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // ========================================================================
+  // METADATA STATE (toolbar bulk edit)
+  // ========================================================================
+
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedPrice, setSelectedPrice] = useState<number>(MIN_MEDIA_PRICE_CENTS / 100);
+
+  const getTargetIds = useCallback((): string[] => {
+    return [...selection.selectedIds];
+  }, [selection.selectedIds]);
+
+  // ========================================================================
+  // MUTATIONS
+  // ========================================================================
+
+  const { mutateAsync: updatePublishedBatch } = useMutation(
+    trpc.media.updatePublishedBatch.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
+      },
+      onError: (err) => {
+        notify.error(getErrorMessage(err), 'Update Failed');
+      },
+    }),
+  );
+
+  const { mutateAsync: unpublishBatch } = useMutation(
+    trpc.media.unpublishBatch.mutationOptions({
+      onSuccess: (_, { mediaIds }) => {
+        void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
+        notify.success(`Moved ${mediaIds.length} item(s) back to drafts`, 'Unpublished');
+      },
+      onError: (err) => {
+        notify.error(getErrorMessage(err), 'Unpublish Failed');
+      },
+    }),
+  );
+
+  // ========================================================================
+  // HANDLERS
+  // ========================================================================
+
+  const handleBulkDateEdit = useCallback(async (date: Date) => {
+    const mediaIds = getTargetIds();
+    if (mediaIds.length === 0) return;
+    setSelectedDate(date);
+    try {
+      await updatePublishedBatch({ mediaIds, capturedAt: date });
+      notify.success(`Updated date for ${mediaIds.length} item(s)`, 'Date Updated');
+    } catch {
+      // error notification handled by mutation onError
+    }
+  }, [getTargetIds, updatePublishedBatch]);
+
+  const handleBulkPriceEdit = useCallback(async (price: number) => {
+    const mediaIds = getTargetIds();
+    if (mediaIds.length === 0) return;
+    setSelectedPrice(price);
+    try {
+      await updatePublishedBatch({ mediaIds, price: Math.round(price * 100) });
+      notify.success(`Updated price for ${mediaIds.length} item(s)`, 'Price Updated');
+    } catch {
+      // error notification handled by mutation onError
+    }
+  }, [getTargetIds, updatePublishedBatch]);
+
+  const handleLightboxUpdate = useCallback(async (id: string, update: { price?: number; capturedAt?: Date }) => {
+    const field = update.price !== undefined ? 'Price' : 'Date';
+    try {
+      await updatePublishedBatch({ mediaIds: [id], ...update });
+      notify.success(`${field} updated`, `${field} Updated`);
+    } catch {
+      // error notification handled by mutation onError
+    }
+  }, [updatePublishedBatch]);
 
   const handleBulkDelete = useCallback(
     async (selectedItems: typeof uploads) => {
@@ -117,22 +161,43 @@ function UploadsTab() {
       const succeededIds = selectedItems
         .filter((_, i) => results[i].status === 'fulfilled')
         .map((item) => item.id);
-      selection.deselectItems(succeededIds);
+      deselectItems(succeededIds);
     },
-    [deleteMedia, selection],
+    [deleteMedia, deselectItems],
   );
 
-  const renderDeleteAction = useCallback(
+  const handleBulkUnpublish = useCallback(
+    async (selectedItems: typeof uploads) => {
+      const mediaIds = selectedItems.map((item) => item.id);
+      await unpublishBatch({ mediaIds });
+      disableSelectionMode();
+    },
+    [unpublishBatch, disableSelectionMode],
+  );
+
+  // ========================================================================
+  // RENDER ACTIONS
+  // ========================================================================
+
+  const renderActions = useCallback(
     (selectedItems: typeof uploads) => (
-      <Menu.Item
-        color="red"
-        leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
-        onClick={() => handleBulkDelete(selectedItems)}
-      >
-        Delete {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
-      </Menu.Item>
+      <>
+        <Menu.Item
+          leftSection={<IconEyeOff style={{ width: rem(14), height: rem(14) }} />}
+          onClick={() => handleBulkUnpublish(selectedItems)}
+        >
+          Unpublish {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+        </Menu.Item>
+        <Menu.Item
+          color="red"
+          leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
+          onClick={() => handleBulkDelete(selectedItems)}
+        >
+          Delete {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+        </Menu.Item>
+      </>
     ),
-    [handleBulkDelete],
+    [handleBulkUnpublish, handleBulkDelete],
   );
 
   // ========================================================================
@@ -158,22 +223,61 @@ function UploadsTab() {
   }
 
   return (
-    <BaseGallery
-      items={uploads}
-      selection={selection}
-      toolbar={
-        <Group gap="md" justify="space-between" w="100%">
-          {draftCounts.length > 0 && <DraftsDropdown spots={draftCounts} />}
-          <SelectionToolbar selection={selection} renderActions={renderDeleteAction} />
-        </Group>
-      }
-      renderCard={(item) => (
-        <BaseCard
-          imageUrl={item.url}
-          resourceType={item.type === 'VIDEO' ? 'video' : 'image'}
-          alt={`Upload ${item.id}`}
+    <>
+      <BaseGallery
+        items={visibleUploads}
+        selection={selection}
+        toolbar={
+          <Group gap="md" justify="space-between" w="100%">
+            <Group gap="md">
+              {spots.length > 1 && (
+                <Select
+                  placeholder="All spots"
+                  data={spots}
+                  value={spotFilter}
+                  onChange={setSpotFilter}
+                  clearable
+                  size="xs"
+                  w={160}
+                  leftSection={<IconFilter size={14} />}
+                />
+              )}
+              {draftCounts.length > 0 && <DraftsDropdown spots={draftCounts} />}
+              <DateEditPopover
+                value={selectedDate}
+                selectedCount={selection.selectedCount}
+                onApply={handleBulkDateEdit}
+                disabled={!selection.hasSelection}
+                tooltip="Select items to edit"
+              />
+              <PriceEditPopover
+                value={selectedPrice}
+                selectedCount={selection.selectedCount}
+                onApply={handleBulkPriceEdit}
+                disabled={!selection.hasSelection}
+                tooltip="Select items to edit"
+              />
+            </Group>
+            <SelectionToolbar selection={selection} renderActions={renderActions} />
+          </Group>
+        }
+        renderCard={(item, context) => (
+          <PublishedCard
+            item={item}
+            onClick={!context.isSelectionMode ? () => setLightboxIndex(context.index) : undefined}
+          />
+        )}
+      />
+
+      {lightboxIndex !== null && (
+        <OwnerLightbox
+          items={visibleUploads}
+          initialIndex={lightboxIndex}
+          opened
+          onClose={() => setLightboxIndex(null)}
+          onUpdate={handleLightboxUpdate}
         />
       )}
-    />
+    </>
   );
 }

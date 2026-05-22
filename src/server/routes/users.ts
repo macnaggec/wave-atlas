@@ -10,6 +10,7 @@ export const usersRouter = router({
       type: m.type,
       // Show the watermarked URL — photographer sees the public version of their media
       url: m.lightboxUrl,
+      thumbnailUrl: m.thumbnailUrl,
       price: Number(m.price),
       capturedAt: m.capturedAt,
       spotId: m.spotId,

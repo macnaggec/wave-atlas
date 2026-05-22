@@ -53,7 +53,7 @@ export function useDraftEditing(
     if (mediaIds.length === 0) return;
 
     try {
-      await updateBatch({ mediaIds, price });
+      await updateBatch({ mediaIds, price: Math.round(price * 100) });
       updateDraftItem(mediaIds, { price: Math.round(price * 100) });
       notify.success(`Updated price for ${mediaIds.length} item(s)`, 'Price Updated');
     } catch {
