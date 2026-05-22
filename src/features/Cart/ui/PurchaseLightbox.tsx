@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { Group, Modal } from '@mantine/core';
-import { ImageWithSkeleton } from 'shared/ui';
+import { Group } from '@mantine/core';
+import { BaseLightbox } from 'shared/ui/BaseLightbox';
 import DownloadButton from 'features/Cart/ui/DownloadButton';
 
 export interface PurchaseLightboxItem {
@@ -21,6 +21,7 @@ export interface PurchaseLightboxProps {
  *
  * Shows a clean (no-watermark) preview via the stored previewUrl and
  * provides a download action for the original file.
+ * Closes (item = null) when previewUrl is unavailable.
  */
 const PurchaseLightbox = memo(function PurchaseLightbox({
   purchase,
@@ -29,39 +30,29 @@ const PurchaseLightbox = memo(function PurchaseLightbox({
   isAnyDownloading,
   onDownload,
 }: PurchaseLightboxProps) {
+  const item =
+    purchase && purchase.previewUrl
+      ? { id: purchase.mediaItem.id, url: purchase.previewUrl }
+      : null;
+
   return (
-    <Modal
-      opened={purchase !== null}
+    <BaseLightbox
+      item={item}
       onClose={onClose}
-      size="xl"
-      padding="sm"
-      centered
-      withCloseButton
-    >
-      {purchase && (
-        <Group
-          align="flex-end"
-          justify="flex-end"
-          mb="sm"
-        >
-          <DownloadButton
-            mediaItemId={purchase.mediaItem.id}
-            size="md"
-            loading={isDownloading}
-            disabled={isAnyDownloading}
-            onDownload={onDownload}
-          />
-        </Group>
-      )}
-      {purchase?.previewUrl && (
-        <ImageWithSkeleton
-          key={purchase.mediaItem.id}
-          src={purchase.previewUrl}
-          alt="Purchased media preview"
-          mah="70vh"
-        />
-      )}
-    </Modal>
+      renderFooter={() =>
+        purchase && (
+          <Group justify="flex-end">
+            <DownloadButton
+              mediaItemId={purchase.mediaItem.id}
+              size="md"
+              loading={isDownloading}
+              disabled={isAnyDownloading}
+              onDownload={onDownload}
+            />
+          </Group>
+        )
+      }
+    />
   );
 });
 
