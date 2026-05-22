@@ -105,24 +105,46 @@ export class MediaService {
     }
   }
 
-  async updateBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<MediaItem[]> {
-    await Promise.all(
-      mediaIds.map(async (id) => {
-        const item = await this.assertOwns(userId, id);
-        if (item.status !== MEDIA_STATUS.DRAFT) {
-          throw new BadRequestError(`Media ${id} is not a draft`);
-        }
-      }),
-    );
-    return Promise.all(mediaIds.map((id) => this.media.updateMedia(id, data)));
+  async updateBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<void> {
+    // Draft updates intentionally have no price floor — validated at publish time.
+    const items = await this.fetchOwnedBatch(userId, mediaIds);
+    for (const item of items) {
+      if (item.status !== MEDIA_STATUS.DRAFT) {
+        throw new BadRequestError(`Media ${item.id} is not a draft`);
+      }
+    }
+    await this.media.updateManyMedia(mediaIds, data);
+  }
+
+  async updatePublishedBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<void> {
+    if (data.price !== undefined && data.price < MIN_MEDIA_PRICE_CENTS) {
+      throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
+    }
+    const items = await this.fetchOwnedBatch(userId, mediaIds);
+    for (const item of items) {
+      if (item.status !== MEDIA_STATUS.PUBLISHED) {
+        throw new BadRequestError(`Media ${item.id} is not published`);
+      }
+    }
+    await this.media.updateManyMedia(mediaIds, data);
+  }
+
+  async unpublishBatch(userId: string, mediaIds: string[]): Promise<void> {
+    const items = await this.fetchOwnedBatch(userId, mediaIds);
+    for (const item of items) {
+      if (item.status !== MEDIA_STATUS.PUBLISHED) {
+        throw new BadRequestError(`Media ${item.id} is not published`);
+      }
+    }
+    await this.media.updateManyMedia(mediaIds, { status: MEDIA_STATUS.DRAFT });
   }
 
   async publish(
     userId: string,
     mediaIds: string[],
     data: UpdateBatchInput,
-  ): Promise<MediaItem[]> {
-    const items = await Promise.all(mediaIds.map((id) => this.assertOwns(userId, id)));
+  ): Promise<void> {
+    const items = await this.fetchOwnedBatch(userId, mediaIds);
 
     for (const item of items) {
       if (item.status !== MEDIA_STATUS.DRAFT) {
@@ -140,7 +162,30 @@ export class MediaService {
     if (data.price !== undefined) updateData.price = data.price;
     if (data.capturedAt) updateData.capturedAt = data.capturedAt;
 
-    return Promise.all(mediaIds.map((id) => this.media.updateMedia(id, updateData)));
+    await this.media.updateManyMedia(mediaIds, updateData);
+  }
+
+  /**
+   * Fetches all items in a single query, verifies each is owned by `userId`,
+   * and returns the lightweight batch records. Replaces N individual findById
+   * calls in batch operations.
+   */
+  private async fetchOwnedBatch(
+    userId: string,
+    mediaIds: string[],
+  ): Promise<{ id: string; status: string; price: number; photographerId: string }[]> {
+    const items = await this.media.findByIds(mediaIds);
+
+    const found = new Set(items.map((i) => i.id));
+    for (const id of mediaIds) {
+      if (!found.has(id)) throw new NotFoundError('Media Item');
+    }
+    for (const item of items) {
+      if (item.photographerId !== userId) {
+        throw new ForbiddenError('You do not have permission to modify this media');
+      }
+    }
+    return items;
   }
 
   private async assertOwns(userId: string, mediaId: string): Promise<MediaItem> {

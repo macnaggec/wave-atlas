@@ -1,6 +1,5 @@
 import { router, protectedProcedure } from 'server/trpc';
 import { mediaService } from 'server/services/MediaService';
-import { cloudinaryService } from 'server/services/CloudinaryService';
 import { createRateLimiter } from 'server/lib/rateLimiter';
 import {
   mediaCreateSchema,
@@ -21,7 +20,7 @@ export const mediaRouter = router({
       return next();
     })
     .mutation(({ ctx }) =>
-      cloudinaryService.generateUploadSignature(`wave-atlas/users/${ctx.user.id}`)
+      mediaService.generateUploadSignature(ctx.user.id)
     ),
 
   create: protectedProcedure
@@ -31,7 +30,7 @@ export const mediaRouter = router({
   update: protectedProcedure
     .input(mediaUpdateSchema)
     .mutation(({ input, ctx }) =>
-      mediaService.updateMedia(ctx.user.id, input.id, { price: input.price, status: input.status })
+      mediaService.updateMedia(ctx.user.id, input.id, { price: input.price })
     ),
 
   delete: protectedProcedure
@@ -42,6 +41,18 @@ export const mediaRouter = router({
     .input(mediaBatchUpdateSchema)
     .mutation(({ input, ctx }) =>
       mediaService.updateBatch(ctx.user.id, input.mediaIds, { price: input.price, capturedAt: input.capturedAt })
+    ),
+
+  updatePublishedBatch: protectedProcedure
+    .input(mediaBatchUpdateSchema)
+    .mutation(({ input, ctx }) =>
+      mediaService.updatePublishedBatch(ctx.user.id, input.mediaIds, { price: input.price, capturedAt: input.capturedAt })
+    ),
+
+  unpublishBatch: protectedProcedure
+    .input(z.object({ mediaIds: z.array(z.uuid()).min(1) }))
+    .mutation(({ input, ctx }) =>
+      mediaService.unpublishBatch(ctx.user.id, input.mediaIds)
     ),
 
   publish: protectedProcedure

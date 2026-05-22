@@ -15,6 +15,7 @@ function mapToPublishedMedia(
     id: row.id,
     type: row.type,
     lightboxUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
+    thumbnailUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
     price: row.price,
     capturedAt: row.capturedAt,
     spotId: row.spotId,
@@ -48,6 +49,7 @@ export interface IMediaRepository {
   createMedia(data: CreateMediaData): Promise<MediaItem>;
   findById(id: string): Promise<MediaItem | null>;
   updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem>;
+  updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
   softDelete(id: string): Promise<MediaItem>;
   hardDelete(id: string): Promise<void>;
   findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number; photographerId: string }[]>;
@@ -87,6 +89,12 @@ export class MediaRepository implements IMediaRepository {
     return runQuery(async () => {
       const row = await prisma.mediaItem.update({ where: { id }, data });
       return mapToMediaItem(row);
+    });
+  }
+
+  updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void> {
+    return runQuery(async () => {
+      await prisma.mediaItem.updateMany({ where: { id: { in: ids } }, data });
     });
   }
 
