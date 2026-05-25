@@ -4,6 +4,9 @@
   --z-controls: 100;
   --z-panels: 200;
   --z-modals: 500;
+
+  /* Left strip: 12px from viewport edge + 60px strip width */
+  --strip-safe: 72px;
 }
 
 html,
