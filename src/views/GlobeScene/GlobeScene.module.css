@@ -8,16 +8,3 @@
   z-index: 0;
 }
 
-.floatingControls {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-controls, 100);
-  pointer-events: none;
-  isolation: isolate;
-}
-
-.floatingControls > * {
-  pointer-events: auto;
-}
-
-

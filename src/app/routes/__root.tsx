@@ -1,11 +1,10 @@
 import { createRootRouteWithContext, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { Button, Center, Drawer, Stack, Text, Title } from '@mantine/core';
-import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import classes from './__root.module.css';
-import { GlobeScene } from 'views/GlobeScene';
-import { LeftStrip } from 'widgets/LeftStrip/LeftStrip';
+import { AppShell } from 'app/AppShell';
 import { AuthModalProvider } from 'features/Auth/AuthModalProvider';
 import { AddSpotProvider } from 'features/AddSpot';
 import { useCartSessionSync } from 'features/Cart/model/useCartSessionSync';
@@ -19,25 +18,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 /**
- * RootLayout — always-mounted root.
+ * RootLayout — routing infrastructure and provider tree.
  *
- * Owns the Drawer.Root so it never unmounts — animation state is never
- * lost on window focus, HMR, or StrictMode double-mount.
- *
- * `opened` is derived from whether a /_drawer route is matched.
- * `appReady` suppresses the open animation on the very first render
- * (direct page load) by setting duration to 0.
+ * Owns the Drawer.Root so it never unmounts across /_drawer navigations.
+ * Persistent floating UI lives in AppShell.
  */
 function RootLayout() {
-  const navigate = useNavigate();
   useCartSessionSync();
 
-  const [isUploadMode, setIsUploadMode] = useState(false);
-
-  const handleToggleUpload = useCallback((value?: boolean) => {
-    setIsUploadMode((prev) => (typeof value === 'boolean' ? value : !prev));
-  }, []);
-
+  const navigate = useNavigate();
   const isDrawerRoute = useRouterState({
     select: (s) => s.matches.some((m) => m.routeId === '/_drawer'),
   });
@@ -47,46 +36,29 @@ function RootLayout() {
   const isDrawerRouteRef = useRef(isDrawerRoute);
   isDrawerRouteRef.current = isDrawerRoute;
 
-  useEffect(() => {
-    setAppReady(true);
-  }, []);
+  useEffect(() => { setAppReady(true); }, []);
 
-  const handleClose = useCallback(() => {
-    setClosing(true);
-  }, []);
+  const handleClose = useCallback(() => setClosing(true), []);
 
   const handleExited = useCallback(() => {
     setClosing(false);
-    if (isDrawerRouteRef.current) {
-      void navigate({ to: '/' });
-    }
+    if (isDrawerRouteRef.current) void navigate({ to: '/' });
   }, [navigate]);
-
-  const drawerOpened = isDrawerRoute && !closing;
 
   return (
     <AuthModalProvider>
       <AddSpotProvider>
-        <GlobeScene />
-
-        <LeftStrip
-          isUploadMode={isUploadMode}
-          onToggleUpload={handleToggleUpload}
-        />
+        <AppShell />
 
         <Drawer.Root
-          opened={drawerOpened}
+          opened={isDrawerRoute && !closing}
           onClose={handleClose}
           position="right"
           size="xl"
           zIndex={200}
-          transitionProps={{
-            duration: appReady ? TRANSITION_MS : 0,
-            onExited: handleExited,
-          }}
+          transitionProps={{ duration: appReady ? TRANSITION_MS : 0, onExited: handleExited }}
         >
           <Drawer.Overlay backgroundOpacity={0.4} blur={4} />
-
           <Drawer.Content>
             {isDrawerRoute && <Outlet />}
           </Drawer.Content>
@@ -123,5 +95,3 @@ function RootNotFound() {
     </Center>
   );
 }
-
-

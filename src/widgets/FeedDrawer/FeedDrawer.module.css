@@ -1,0 +1,124 @@
+/* ── shared glass surface ─────────────────────────────────────────────────── */
+.panel,
+.tongue {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Panel ────────────────────────────────────────────────────────────────── */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 380px;
+  z-index: 200;
+  border-right: none;         /* flush with viewport edge */
+  border-radius: 12px 0 0 12px;
+
+  display: flex;
+  flex-direction: column;
+
+  transform: translateX(0);
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panelClosed {
+  transform: translateX(100%);
+}
+
+/* ── Top row: chevron + search ────────────────────────────────────────────── */
+.panelTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.searchWrapper {
+  flex: 1;
+  min-width: 0;  /* let the input shrink inside flex */
+}
+
+/* ── Feed body ────────────────────────────────────────────────────────────── */
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Chevron button ───────────────────────────────────────────────────────── */
+.chevronBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.55);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.chevronBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+/* ── Tongue tab — right-edge protrusion when panel is closed ──────────────── */
+.tongue {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 200;
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+
+  padding: 14px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  transform: translateY(-50%) translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 200ms ease 80ms, transform 220ms cubic-bezier(0.4, 0, 0.2, 1) 80ms,
+    background-color 150ms ease;
+}
+
+.tongue:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.tongueHidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(40px);
+  transition-delay: 0ms;
+}
+
+.tongueIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.tongueLabel {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  user-select: none;
+}

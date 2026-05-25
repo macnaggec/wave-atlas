@@ -1,9 +1,10 @@
-import React from 'react';
+import { Suspense } from 'react';
 import styles from './LeftStrip.module.css';
 import { ActionIcon, Divider, Tooltip } from '@mantine/core';
 import { IconCompass, IconCloudUpload } from '@tabler/icons-react';
 import { CartControl } from '../Header/CartControl';
 import { UserControl } from '../Header/UserControl';
+import { UploadIndicatorAffix } from 'features/Upload';
 import { useUser } from 'shared/hooks/useUser';
 import { useCartStore } from 'features/Cart/model/cartStore';
 
@@ -56,6 +57,10 @@ export function LeftStrip({ isUploadMode, onToggleUpload }: LeftStripProps) {
           </div>
         )}
       </div>
+
+      <Suspense>
+        <UploadIndicatorAffix />
+      </Suspense>
     </div>
   );
 }
