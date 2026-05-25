@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import superjson from 'superjson';
 import { auth } from 'server/auth';
 import { isHttpError } from 'shared/errors';
+import { logger } from 'shared/lib/logger';
 
 type GetSessionResult = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
@@ -14,7 +15,11 @@ export type TRPCContext = {
 export async function createContext(c: Context): Promise<TRPCContext> {
   const session = await auth.api
     .getSession({ headers: c.req.raw.headers })
-    .catch(() => null);
+    .catch((err) => {
+      logger.warn('[trpc] auth session retrieval failed', { err });
+      return null;
+    });
+
   return {
     session: session?.session ?? null,
     user: session?.user ?? null,

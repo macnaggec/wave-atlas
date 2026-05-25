@@ -163,5 +163,6 @@ Service            PrismaErrorMapper        errorFormatter      Client        DB
 | Throw `HttpError` subclasses, never plain `Error` | Plain errors lose their message — client gets generic `INTERNAL_SERVER_ERROR` |
 | Services never throw `TRPCError` | Keeps services transport-agnostic |
 | One translation point only (`errorFormatter`) | A second translator creates drift and inconsistency |
-| Swallowed errors must log | Silent `catch {}` hides bugs in production |
+| No empty `catch {}` blocks | Silent catches hide bugs and obscure real failures |
+| Swallowed errors must log | If an error is intentionally absorbed, record the reason and context |
 | Payment adapters return `false`, never throw | Prevents webhook spam from crashing the handler |
