@@ -4,10 +4,9 @@ import { IconShoppingCart } from '@tabler/icons-react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { useUser } from 'shared/hooks/useUser';
-import classes from './Header.module.css';
 
 /**
- * CartControl — cart icon button in the header.
+ * CartControl — cart icon button in the left strip.
  *
  * Navigates to /cart to open the route-driven cart drawer.
  * Navigates to / to close it if already on /cart.
@@ -42,14 +41,12 @@ export const CartControl = memo(function CartControl() {
       label={count}
       size={16}
       color='pink'
-      classNames={{ indicator: classes.cartIndicator }}
     >
       <ActionIcon
         variant={'outline'}
         size="lg"
         radius="xl"
         color='green'
-        className={classes.cartButton}
         aria-label={`Cart, ${count} item${count !== 1 ? 's' : ''}`}
         onClick={handleClick}
       >

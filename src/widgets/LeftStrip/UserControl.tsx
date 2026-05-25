@@ -4,7 +4,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
-import classes from './Header.module.css';
 
 /**
  * UserControl — auth-aware top-right slot.
@@ -48,7 +47,7 @@ export function UserControl() {
           color="blue"
           radius="xl"
           size={34}
-          className={classes.avatar}
+          style={{ cursor: 'pointer' }}
         >
           {initials}
         </Avatar>

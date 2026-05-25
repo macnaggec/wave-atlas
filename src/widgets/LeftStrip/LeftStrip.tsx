@@ -1,19 +1,17 @@
-import { Suspense } from 'react';
 import styles from './LeftStrip.module.css';
 import { ActionIcon, Divider, Tooltip } from '@mantine/core';
 import { IconCompass, IconCloudUpload } from '@tabler/icons-react';
-import { CartControl } from '../Header/CartControl';
-import { UserControl } from '../Header/UserControl';
-import { UploadIndicatorAffix } from 'features/Upload';
+import { CartControl } from './CartControl';
+import { UserControl } from './UserControl';
 import { useUser } from 'shared/hooks/useUser';
 import { useCartStore } from 'features/Cart/model/cartStore';
 
 interface LeftStripProps {
-  isUploadMode: boolean;
-  onToggleUpload: (value?: boolean) => void;
+  mode: 'closed' | 'feed' | 'upload';
+  onModeChange: (mode: 'closed' | 'feed' | 'upload') => void;
 }
 
-export function LeftStrip({ isUploadMode, onToggleUpload }: LeftStripProps) {
+export function LeftStrip({ mode, onModeChange }: LeftStripProps) {
   const { isAuthenticated } = useUser();
   const cartCount = useCartStore((s) => s.items.length);
   return (
@@ -28,10 +26,10 @@ export function LeftStrip({ isUploadMode, onToggleUpload }: LeftStripProps) {
         <div className={styles.modeGroup}>
           <Tooltip label="Explore" position="right" withArrow>
             <ActionIcon
-              className={`${styles.modeBtn} ${!isUploadMode ? styles.active : ''}`}
+              className={`${styles.modeBtn} ${mode === 'feed' ? styles.active : ''}`}
               size="lg"
               variant="transparent"
-              onClick={() => onToggleUpload(false)}
+              onClick={() => onModeChange('feed')}
               aria-label="Explore"
             >
               <IconCompass size={20} />
@@ -40,10 +38,10 @@ export function LeftStrip({ isUploadMode, onToggleUpload }: LeftStripProps) {
 
           <Tooltip label="Upload" position="right" withArrow>
             <ActionIcon
-              className={`${styles.modeBtn} ${isUploadMode ? styles.active : ''}`}
+              className={`${styles.modeBtn} ${mode === 'upload' ? styles.active : ''}`}
               size="lg"
               variant="transparent"
-              onClick={() => onToggleUpload(true)}
+              onClick={() => onModeChange('upload')}
               aria-label="Upload"
             >
               <IconCloudUpload size={20} />
@@ -57,10 +55,6 @@ export function LeftStrip({ isUploadMode, onToggleUpload }: LeftStripProps) {
           </div>
         )}
       </div>
-
-      <Suspense>
-        <UploadIndicatorAffix />
-      </Suspense>
     </div>
   );
 }
