@@ -5,6 +5,7 @@ import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import classes from './__root.module.css';
 import { GlobeScene } from 'views/GlobeScene';
+import { LeftStrip } from 'widgets/LeftStrip/LeftStrip';
 import { AuthModalProvider } from 'features/Auth/AuthModalProvider';
 import { AddSpotProvider } from 'features/AddSpot';
 import { useCartSessionSync } from 'features/Cart/model/useCartSessionSync';
@@ -30,6 +31,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootLayout() {
   const navigate = useNavigate();
   useCartSessionSync();
+
+  const [isUploadMode, setIsUploadMode] = useState(false);
+
+  const handleToggleUpload = useCallback((value?: boolean) => {
+    setIsUploadMode((prev) => (typeof value === 'boolean' ? value : !prev));
+  }, []);
 
   const isDrawerRoute = useRouterState({
     select: (s) => s.matches.some((m) => m.routeId === '/_drawer'),
@@ -61,6 +68,12 @@ function RootLayout() {
     <AuthModalProvider>
       <AddSpotProvider>
         <GlobeScene />
+
+        <LeftStrip
+          isUploadMode={isUploadMode}
+          onToggleUpload={handleToggleUpload}
+        />
+
         <Drawer.Root
           opened={drawerOpened}
           onClose={handleClose}
@@ -73,10 +86,12 @@ function RootLayout() {
           }}
         >
           <Drawer.Overlay backgroundOpacity={0.4} blur={4} />
+
           <Drawer.Content>
             {isDrawerRoute && <Outlet />}
           </Drawer.Content>
         </Drawer.Root>
+
         {!isDrawerRoute && <Outlet />}
       </AddSpotProvider>
     </AuthModalProvider>
