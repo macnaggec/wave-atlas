@@ -35,12 +35,12 @@
   width: calc(100vw - var(--strip-safe, 72px));
 }
 
-/* ── Top row: chevron + optional header slot ──────────────────────────────── */
+/* ── Top row: [← expand] [center indicator] [→ close] ────────────────────── */
 .panelTop {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -48,19 +48,15 @@
 .headerSlot {
   flex: 1;
   min-width: 0;
+  display: flex;
+  justify-content: center;
 }
 
-/* ── Back label (shown in upload mode alongside the arrow) ───────────────── */
-.backLabel {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.03em;
-  transition: color 150ms ease;
-}
-
-.chevronBtn:hover .backLabel {
-  color: #fff;
+/* ── Subheader: full-width row below top bar (e.g. search) ───────────────── */
+.subheader {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ── Panel body ───────────────────────────────────────────────────────────── */
@@ -89,6 +85,35 @@
 .chevronBtn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
+}
+
+/* X close button — top-right corner, one-column state only */
+.closeBtn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.55);
+  transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+  z-index: 1;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.closeBtnHidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ── Tongue tab — right-edge protrusion when panel is closed ──────────────── */

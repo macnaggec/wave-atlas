@@ -1,31 +1,35 @@
 import type { ReactNode } from 'react';
-import { IconChevronRight, IconChevronLeft, IconArrowLeft } from '@tabler/icons-react';
+import { IconChevronRight, IconChevronLeft, IconX } from '@tabler/icons-react';
 import styles from './SidePanel.module.css';
 
 interface SidePanelProps {
   isOpen: boolean;
-  onToggle: () => void;
+  /** Called when the tongue tab is clicked to reopen the panel. */
+  onOpen: () => void;
+  /** Called when the X button is clicked to close and reveal the map. Only active in one-column state. */
+  onClose: () => void;
   /** Expands the panel to cover most of the viewport width. */
   expanded?: boolean;
-  /** Optional content rendered in the top bar alongside the close chevron. */
+  /** Called when the left chevron is clicked to toggle expand/collapse. */
+  onExpandToggle?: () => void;
+  /** Center slot in the top bar (e.g. Browse/Upload SegmentedControl). */
   header?: ReactNode;
+  /** Full-width row below the top bar, above the scrollable body (e.g. search). */
+  subheader?: ReactNode;
   /** Optional label on the tongue tab (shown when panel is closed). */
   tongueLabel?: string;
-  /**
-   * When set, replaces the close chevron with a back-arrow + label.
-   * Use in upload mode so the button communicates "return to feed" intent.
-   */
-  backLabel?: string;
   children?: ReactNode;
 }
 
 export function SidePanel({
   isOpen,
-  onToggle,
+  onOpen,
+  onClose,
   expanded,
+  onExpandToggle,
   header,
+  subheader,
   tongueLabel,
-  backLabel,
   children,
 }: SidePanelProps) {
   const panelClass = [
@@ -36,14 +40,12 @@ export function SidePanel({
     .filter(Boolean)
     .join(' ');
 
-  const tongueHidden = isOpen || expanded;
-
   return (
     <>
-      {/* Tongue tab — visible only when panel is closed and not expanded */}
+      {/* Tongue tab — visible only when panel is closed */}
       <button
-        className={`${styles.tongue} ${tongueHidden ? styles.tongueHidden : ''}`}
-        onClick={onToggle}
+        className={`${styles.tongue} ${isOpen ? styles.tongueHidden : ''}`}
+        onClick={onOpen}
         aria-label="Open panel"
       >
         <IconChevronLeft size={14} className={styles.tongueIcon} />
@@ -51,25 +53,35 @@ export function SidePanel({
       </button>
 
       {/* Sliding panel */}
-      <div className={panelClass} aria-hidden={!isOpen && !expanded}>
-        {/* Top bar: close/back button + optional header slot */}
+      <div className={panelClass} aria-hidden={!isOpen}>
+        {/* Top bar: [← expand] [center: header] */}
         <div className={styles.panelTop}>
-          {backLabel ? (
-            <button
-              className={styles.chevronBtn}
-              onClick={onToggle}
-              aria-label={`Back to ${backLabel}`}
-            >
-              <IconArrowLeft size={16} />
-              <span className={styles.backLabel}>{backLabel}</span>
-            </button>
-          ) : (
-            <button className={styles.chevronBtn} onClick={onToggle} aria-label="Close panel">
-              <IconChevronRight size={16} />
-            </button>
-          )}
+          <button
+            className={styles.chevronBtn}
+            onClick={onExpandToggle}
+            aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
+          >
+            {expanded ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+          </button>
+
           {header && <div className={styles.headerSlot}>{header}</div>}
+
+          {/* Phantom spacer — balances the left chevron so header stays truly centered */}
+          <div className={styles.chevronBtn} aria-hidden="true" />
         </div>
+
+        {/* X button — top-right corner, one-column state only */}
+        <button
+          className={`${styles.closeBtn} ${expanded ? styles.closeBtnHidden : ''}`}
+          onClick={onClose}
+          aria-label="Close panel"
+          tabIndex={expanded ? -1 : undefined}
+        >
+          <IconX size={16} />
+        </button>
+
+        {/* Subheader: search bar, shown below top bar, above scrollable body */}
+        {subheader && <div className={styles.subheader}>{subheader}</div>}
 
         {/* Body */}
         <div className={styles.body}>{children}</div>

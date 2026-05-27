@@ -1,61 +1,57 @@
 import { Suspense, useState, useCallback } from 'react';
 import { GlobeScene } from 'views/GlobeScene';
 import { LeftStrip } from 'widgets/LeftStrip/LeftStrip';
-
-type PanelMode = 'closed' | 'feed' | 'upload';
 import { SidePanel } from 'widgets/SidePanel';
+import { ModeSwitcher } from 'widgets/SidePanel/ModeSwitcher';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { UploadIndicatorAffix } from 'features/Upload';
+import { UploadSidebar } from 'features/Upload/ui/UploadSidebar';
+import { SessionFeed } from 'widgets/SidePanel/SessionFeed';
 
 /**
  * AppShell — always-mounted persistent UI layer.
  *
- * Panel state is a single enum:
- *   'closed'  — panel hidden, tongue visible
- *   'feed'    — 380px panel with spot search
- *   'upload'  — expanded panel with upload surface
- *
- * Transitions:
- *   Explore button      → 'feed'   (always opens the feed)
- *   Upload button       → 'upload'
- *   Panel back arrow    → 'feed'   (from upload)
- *   Panel close chevron → 'closed' (from feed)
- *   Tongue tab          → 'feed'
+ * Panel state:
+ *   panelOpen  — whether the right-side panel is visible (false = tongue shown)
+ *   expanded   — whether the panel is stretched wide (left chevron toggled)
+ *   uploadMode — true while the upload flow is active (replaces feed in panel)
  */
 export function AppShell() {
-  const [mode, setMode] = useState<PanelMode>('feed');
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [uploadMode, setUploadMode] = useState(false);
 
-  const handlePanelToggle = useCallback(() => {
-    setMode((m) => {
-      if (m === 'upload') return 'feed';
-      if (m === 'feed') return 'closed';
-      return 'feed'; // closed → tongue was clicked
-    });
+  const handleOpen = useCallback(() => setPanelOpen(true), []);
+  const handleExpandToggle = useCallback(() => setExpanded((e) => !e), []);
+  const handleModeToggle = useCallback(() => setUploadMode((m) => !m), []);
+
+  const handleClose = useCallback(() => {
+    setPanelOpen(false);
+    setUploadMode(false);
   }, []);
 
   return (
     <>
-      <GlobeScene />
+      <div inert={expanded || undefined}>
+        <GlobeScene />
+      </div>
       <Suspense>
         <UploadIndicatorAffix />
       </Suspense>
 
-      <LeftStrip
-        mode={mode}
-        onModeChange={setMode}
-      />
+      <LeftStrip />
 
       <SidePanel
-        isOpen={mode !== 'closed'}
-        onToggle={handlePanelToggle}
-        expanded={mode === 'upload'}
-        header={mode === 'feed' ? <FeedSearch /> : undefined}
+        isOpen={panelOpen}
+        onOpen={handleOpen}
+        onClose={handleClose}
+        expanded={expanded}
+        onExpandToggle={handleExpandToggle}
         tongueLabel="Feed"
-        backLabel={mode === 'upload' ? 'Feed' : undefined}
+        header={<ModeSwitcher uploadMode={uploadMode} onToggle={handleModeToggle} />}
+        subheader={uploadMode ? undefined : <FeedSearch />}
       >
-        {mode === 'upload' && (
-          <div style={{ color: 'white', padding: 24 }}>Upload UI — coming soon</div>
-        )}
+        {uploadMode ? <UploadSidebar /> : <SessionFeed />}
       </SidePanel>
     </>
   );
