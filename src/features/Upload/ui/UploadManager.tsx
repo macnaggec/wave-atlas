@@ -1,6 +1,4 @@
-'use client';
-
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { MediaItem } from 'entities/Media/types';
 import { useUploadManager, useUploadQueue, useUploadBlocking, usePublish, useDraftEditing, useDraftMediaMutate } from '../model';
 import { useGooglePicker } from '../model/useGooglePicker';
@@ -11,86 +9,48 @@ import { PublishButton } from './UploadGallery/PublishButton';
 import { UploadItemAction } from './UploadGallery/types';
 
 export interface UploadManagerProps {
-  /**
-   * Spot ID to upload to
-   */
   spotId: string;
-
-  /**
-   * Spot name for display in progress widget
-   */
+  sessionId: string;
   spotName?: string | null;
-
-  /**
-   * User's draft media (authenticated users only)
-   */
   draftMedia: MediaItem[];
-
-  /**
-   * Callback after successful publish
-   */
   onPublishSuccess?: (mediaIds: string[]) => void;
-
-  /**
-   * Called whenever the total item count (queue + importing) changes.
-   * Used by parent layout to show/hide a pending-uploads indicator.
-   */
   onQueueChange?: (count: number) => void;
 }
 
-/**
- * UploadManager - Upload workflow composition component
- *
- * Thin wiring layer that composes upload hooks and renders the upload UI.
- * Each concern is fully delegated to a dedicated hook:
- * - `useUploadQueue`   — merges server drafts + active Zustand uploads
- * - `useUploadManager` — upload orchestration (add, remove, retry, metadata)
- * - `usePublish`       — publish server action, notifications, SWR + RSC invalidation
- * - `useDraftEditing`  — bulk price/date metadata editing
- * - `useUploadBlocking`— prevents concurrent uploads across spots
- *
- * Assumes:
- * - User is authenticated
- * - Valid spotId is provided
- *
- * Authentication gating and empty states are handled by parent components.
- */
 export function UploadManager({
   spotId,
+  sessionId,
   spotName,
   draftMedia,
   onPublishSuccess,
   onQueueChange,
 }: UploadManagerProps) {
-  const { queue, hasActiveUploads } = useUploadQueue(spotId, draftMedia);
-  const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(spotId);
+  const { queue, hasActiveUploads } = useUploadQueue(sessionId, draftMedia);
+  const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(sessionId);
 
-  const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId);
+  const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId, sessionId);
 
+  // Stable ref so effect deps don't change when caller passes an inline function
+  const onQueueChangeRef = useRef(onQueueChange);
+  useEffect(() => { onQueueChangeRef.current = onQueueChange; });
   useEffect(() => {
-    onQueueChange?.(queue.length + importingItems.length);
-  }, [queue.length, importingItems.length, onQueueChange]);
+    onQueueChangeRef.current?.(queue.length + importingItems.length);
+  }, [queue.length, importingItems.length]);
 
   const getItemId = useCallback((item: QueueItem) => item.mediaId ?? item.id, []);
-  // Error items are also selectable so users can bulk-delete them
+  // Only completed items are selectable — error items can't be price/date edited
   const selectableItems = useMemo(
-    () => queue.filter((item) => item.status === 'completed' || item.status === 'error'),
+    () => queue.filter((item) => item.status === 'completed'),
     [queue]
   );
   const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
 
-  const {
-    addFiles,
-    remove,
-    cancelUpload,
-    removeByMediaIds,
-    retry,
-  } = useUploadManager(spotId, spotName);
+  const { addFiles, remove, cancelUpload, removeByMediaIds, retry } = useUploadManager(spotId, sessionId, spotName);
 
   const { publishStats, isPublishing, publishingIds, handlePublish } = usePublish(
+    sessionId,
     queue,
     refetchDraftMedia,
-    selection.selectedIds,
     (mediaIds) => {
       removeByMediaIds(mediaIds);
       onPublishSuccess?.(mediaIds);
@@ -99,20 +59,13 @@ export function UploadManager({
 
   const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue, updateDraftItem);
 
-  const { isBlocked, blockingSpotName } = useUploadBlocking(spotId);
+  const { isBlocked } = useUploadBlocking(spotId);
 
-  const handleItemAction = useCallback((
-    action: UploadItemAction,
-    itemId: string
-  ) => {
-    if (action === 'delete') {
-      void remove(itemId);
-    } else if (action === 'cancel') {
-      void cancelUpload(itemId);
-    } else if (action === 'retry') {
-      retry?.(itemId);
-    }
-  }, [remove, cancelUpload, retry]);
+  // onAction is only wired to 'delete' (actions={['delete']})
+  // cancel → onCancelUpload prop; retry → onRetry prop
+  const handleItemAction = useCallback((_action: UploadItemAction, itemId: string) => {
+    void remove(itemId);
+  }, [remove]);
 
   return (
     <>
