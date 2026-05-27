@@ -62,6 +62,14 @@ export default function SpotSelect({ onSelect, selectedSpot }: SpotSelectProps) 
                         combobox.openDropdown();
                     }}
                     rightSection={loading && <Loader size={18} />}
+                    styles={{
+                      input: {
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#fff',
+                        '&::placeholder': { color: 'rgba(255,255,255,0.38)' },
+                      },
+                    }}
                 />
             </Combobox.Target>
 

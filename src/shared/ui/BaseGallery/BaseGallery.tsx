@@ -45,6 +45,9 @@ export interface BaseGalleryProps<T extends { id: string }> {
   /** Grid gap spacing (Mantine spacing value or CSS value) */
   gap?: string | number;
 
+  /** Override number of columns (default: 3 via CSS) */
+  columns?: number;
+
   /** Accessibility label for the gallery */
   'aria-label'?: string;
 }
@@ -80,6 +83,7 @@ function BaseGallery<T extends { id: string }>({
   prepend,
   emptyState,
   gap = 'md',
+  columns,
   'aria-label': ariaLabel = 'Gallery',
 }: BaseGalleryProps<T>) {
   // Stable click handler to avoid creating new functions per item
@@ -109,7 +113,12 @@ function BaseGallery<T extends { id: string }>({
       )}
 
       {/* Main gallery grid */}
-      <div className={styles.gallery} role="grid" aria-label={ariaLabel}>
+      <div
+        className={styles.gallery}
+        role="grid"
+        aria-label={ariaLabel}
+        style={columns !== undefined ? { gridTemplateColumns: `repeat(${columns}, 1fr)` } : undefined}
+      >
         {/* Prepend slot - for special first items like AddFileCard */}
         {prepend && (
           <div className={styles['gallery-item']} role="gridcell">

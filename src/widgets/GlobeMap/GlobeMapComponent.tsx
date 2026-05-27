@@ -68,7 +68,8 @@ export function GlobeMapComponent({
     saveCameraState,
   } = useMapStore();
 
-  const isPinMode = useMapStore((s) => s.interactionMode === 'pin-placement');
+  const interactionMode = useMapStore((s) => s.interactionMode);
+  const isPinMode = interactionMode === 'pin-placement';
   const { onClick: handlePinClick, cursor: pinCursor } = usePinPlacementMode();
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),
@@ -212,8 +213,8 @@ export function GlobeMapComponent({
           </Popup>
         )}
 
-        {/* Spot Preview Popup (Interactive) */}
-        {activeSpotId && (
+        {/* Spot Preview Popup (Interactive) — hidden in spot-select mode */}
+        {activeSpotId && interactionMode !== 'spot-select' && (
           <Popup
             longitude={spots.find(s => s.id === activeSpotId)?.coords[1] || 0}
             latitude={spots.find(s => s.id === activeSpotId)?.coords[0] || 0}
