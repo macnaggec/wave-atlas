@@ -26,6 +26,7 @@ function mapToPublishedMedia(
 
 export type CreateMediaData = {
   spotId: string;
+  sessionId?: string;
   photographerId: string;
   resource_type: 'image' | 'video';
   cloudinaryPublicId: string;
@@ -64,6 +65,7 @@ export class MediaRepository implements IMediaRepository {
       const row = await prisma.mediaItem.create({
         data: {
           spotId: data.spotId,
+          sessionId: data.sessionId,
           photographerId: data.photographerId,
           type: data.resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
           cloudinaryPublicId: data.cloudinaryPublicId,

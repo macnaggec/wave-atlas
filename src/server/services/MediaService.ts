@@ -9,6 +9,7 @@ import { cloudinaryService } from './CloudinaryService';
 
 export type CreateMediaInput = {
   spotId: string;
+  sessionId?: string;
   cloudinaryResult: {
     publicId: string;
     thumbnailUrl: string;
@@ -31,6 +32,7 @@ export type UpdateBatchInput = {
 
 export type RegisterDriveImportInput = {
   spotId: string;
+  sessionId?: string;
   remoteFileId: string;
   mimeType: string;
   accessToken: string;
@@ -49,6 +51,7 @@ export class MediaService {
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
     return this.media.createMedia({
       spotId: input.spotId,
+      sessionId: input.sessionId,
       photographerId: userId,
       resource_type: input.cloudinaryResult.resource_type as 'image' | 'video',
       cloudinaryPublicId: input.cloudinaryResult.publicId,
@@ -74,6 +77,7 @@ export class MediaService {
     try {
       return await this.media.createMedia({
         spotId: input.spotId,
+        sessionId: input.sessionId,
         photographerId: userId,
         resource_type: resource_type as 'image' | 'video',
         cloudinaryPublicId: publicId,
