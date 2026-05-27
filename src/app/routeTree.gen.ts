@@ -22,7 +22,6 @@ import { Route as DrawerMeIndexRouteImport } from './routes/_drawer.me.index'
 import { Route as DrawerSpotIdIndexRouteImport } from './routes/_drawer.$spotId.index'
 import { Route as DrawerMePurchasesRouteImport } from './routes/_drawer.me.purchases'
 import { Route as DrawerMeFavoritesRouteImport } from './routes/_drawer.me.favorites'
-import { Route as DrawerSpotIdUploadRouteImport } from './routes/_drawer.$spotId.upload'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -87,11 +86,6 @@ const DrawerMeFavoritesRoute = DrawerMeFavoritesRouteImport.update({
   path: '/favorites',
   getParentRoute: () => DrawerMeRoute,
 } as any)
-const DrawerSpotIdUploadRoute = DrawerSpotIdUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
-  getParentRoute: () => DrawerSpotIdRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -101,7 +95,6 @@ export interface FileRoutesByFullPath {
   '/me': typeof DrawerMeRouteWithChildren
   '/account': typeof PageAccountRoute
   '/order-success': typeof PageOrderSuccessRoute
-  '/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/me/favorites': typeof DrawerMeFavoritesRoute
   '/me/purchases': typeof DrawerMePurchasesRoute
   '/$spotId/': typeof DrawerSpotIdIndexRoute
@@ -113,7 +106,6 @@ export interface FileRoutesByTo {
   '/cart': typeof DrawerCartRoute
   '/account': typeof PageAccountRoute
   '/order-success': typeof PageOrderSuccessRoute
-  '/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/me/favorites': typeof DrawerMeFavoritesRoute
   '/me/purchases': typeof DrawerMePurchasesRoute
   '/$spotId': typeof DrawerSpotIdIndexRoute
@@ -130,7 +122,6 @@ export interface FileRoutesById {
   '/_drawer/me': typeof DrawerMeRouteWithChildren
   '/_page/account': typeof PageAccountRoute
   '/_page/order-success': typeof PageOrderSuccessRoute
-  '/_drawer/$spotId/upload': typeof DrawerSpotIdUploadRoute
   '/_drawer/me/favorites': typeof DrawerMeFavoritesRoute
   '/_drawer/me/purchases': typeof DrawerMePurchasesRoute
   '/_drawer/$spotId/': typeof DrawerSpotIdIndexRoute
@@ -146,7 +137,6 @@ export interface FileRouteTypes {
     | '/me'
     | '/account'
     | '/order-success'
-    | '/$spotId/upload'
     | '/me/favorites'
     | '/me/purchases'
     | '/$spotId/'
@@ -158,7 +148,6 @@ export interface FileRouteTypes {
     | '/cart'
     | '/account'
     | '/order-success'
-    | '/$spotId/upload'
     | '/me/favorites'
     | '/me/purchases'
     | '/$spotId'
@@ -174,7 +163,6 @@ export interface FileRouteTypes {
     | '/_drawer/me'
     | '/_page/account'
     | '/_page/order-success'
-    | '/_drawer/$spotId/upload'
     | '/_drawer/me/favorites'
     | '/_drawer/me/purchases'
     | '/_drawer/$spotId/'
@@ -281,23 +269,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DrawerMeFavoritesRouteImport
       parentRoute: typeof DrawerMeRoute
     }
-    '/_drawer/$spotId/upload': {
-      id: '/_drawer/$spotId/upload'
-      path: '/upload'
-      fullPath: '/$spotId/upload'
-      preLoaderRoute: typeof DrawerSpotIdUploadRouteImport
-      parentRoute: typeof DrawerSpotIdRoute
-    }
   }
 }
 
 interface DrawerSpotIdRouteChildren {
-  DrawerSpotIdUploadRoute: typeof DrawerSpotIdUploadRoute
   DrawerSpotIdIndexRoute: typeof DrawerSpotIdIndexRoute
 }
 
 const DrawerSpotIdRouteChildren: DrawerSpotIdRouteChildren = {
-  DrawerSpotIdUploadRoute: DrawerSpotIdUploadRoute,
   DrawerSpotIdIndexRoute: DrawerSpotIdIndexRoute,
 }
 

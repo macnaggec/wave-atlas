@@ -1,26 +1,18 @@
 import { Group, Paper, Text } from '@mantine/core';
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useRouterState } from '@tanstack/react-router';
 import { useUploadStore } from '../../model/uploadStore';
 import { useUploadWarning } from 'features/Upload/model';
 import { UploadIcon } from './UploadIcon';
 import classes from './UploadIndicator.module.css';
 
 /**
- * UploadIndicatorAffix - Inline upload status shown in the Header.
- *
- * Renders to the left of the avatar. Same height as UserControl (38px).
- * Shows: [Icon] "[Spot Name…] X/Y"
- * Click navigates directly to upload tab.
- *
- * Visibility:
- * - Show: Active uploads AND SidePanel closed (main page)
- * - Hide: SidePanel open OR no uploads
+ * UploadIndicatorAffix - Inline upload status shown when panel is closed.
+ * Upload is now managed from the sidebar, so this is display-only.
  */
 export function UploadIndicatorAffix() {
   const isPanelOpen = useRouterState({
     select: (s) => s.matches.some(m => 'spotId' in (m.params ?? {})),
   });
-  const navigate = useNavigate();
 
   const hasActiveUploads = useUploadStore(state =>
     state.uploadQueue.some(item => item.status !== 'completed' && item.status !== 'error')
@@ -32,12 +24,6 @@ export function UploadIndicatorAffix() {
 
   useUploadWarning(hasActiveUploads);
 
-  const handleClick = () => {
-    if (uploadingSpotId) {
-      navigate({ to: '/$spotId/upload', params: { spotId: uploadingSpotId } });
-    }
-  };
-
   if (!hasActiveUploads || !uploadingSpotId || isPanelOpen) {
     return null;
   }
@@ -45,13 +31,7 @@ export function UploadIndicatorAffix() {
   const displayName = uploadingSpotName || uploadingSpotId;
 
   return (
-    <Paper
-      shadow="sm"
-      px="sm"
-      withBorder
-      className={classes.plate}
-      onClick={handleClick}
-    >
+    <Paper shadow="sm" px="sm" withBorder className={classes.plate}>
       <Group gap="xs" wrap="nowrap">
         <UploadIcon size={16} />
         <Text size="sm" fw={500} className={classes.name}>

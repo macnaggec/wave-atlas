@@ -1,5 +1,4 @@
-import { memo, useCallback } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { memo } from 'react';
 import { Badge, Button, Menu, rem } from '@mantine/core';
 import { IconChevronDown, IconPhoto } from '@tabler/icons-react';
 
@@ -10,19 +9,10 @@ export interface DraftSpot {
 }
 
 /**
- * Dropdown button listing spots with unpublished drafts.
- * Each menu item navigates to the spot's upload page.
+ * Dropdown summarising spots with unpublished drafts.
+ * Navigation to upload happens via the Upload button in the left strip.
  */
 export const DraftsDropdown = memo(({ spots }: { spots: DraftSpot[] }) => {
-  const navigate = useNavigate();
-
-  const handleNavigate = useCallback(
-    (spotId: string) => {
-      void navigate({ to: '/$spotId/upload', params: { spotId } });
-    },
-    [navigate],
-  );
-
   const totalDrafts = spots.reduce((sum, s) => sum + s.count, 0);
 
   return (
@@ -44,7 +34,6 @@ export const DraftsDropdown = memo(({ spots }: { spots: DraftSpot[] }) => {
             key={s.spotId}
             leftSection={<IconPhoto style={{ width: rem(14), height: rem(14) }} />}
             rightSection={<Badge size="xs" variant="filled" color="yellow">{s.count}</Badge>}
-            onClick={() => handleNavigate(s.spotId)}
           >
             {s.spotName}
           </Menu.Item>

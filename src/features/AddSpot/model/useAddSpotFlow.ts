@@ -95,7 +95,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
 
     exitPinPlacement();
 
-    void navigate({ to: '/$spotId/upload', params: { spotId: spot.id } });
+    void navigate({ to: '/$spotId', params: { spotId: spot.id } });
   }, [
     tempPin,
     name,
@@ -144,7 +144,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
 
   const goToExisting = useCallback((spot: Spot) => {
     exitPinPlacement();
-    void navigate({ to: '/$spotId/upload', params: { spotId: spot.id } });
+    void navigate({ to: '/$spotId', params: { spotId: spot.id } });
   }, [exitPinPlacement, navigate]);
 
   return {

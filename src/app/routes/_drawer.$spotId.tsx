@@ -1,52 +1,19 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { Indicator, Skeleton, Tabs, Text } from '@mantine/core';
-import { useCallback, useState } from 'react';
+import { Skeleton, Text } from '@mantine/core';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import { CartButton } from 'features/Cart/ui/CartButton';
 import { DrawerBody, DrawerHeader } from 'shared/ui/DrawerLayout';
-import { useTabNavigation } from 'shared/hooks';
-import { SpotUploadContext } from 'app/contexts/SpotUploadContext';
 
 export const Route = createFileRoute('/_drawer/$spotId')({
   component: SpotLayout,
 });
 
-const TAB_ROUTES = {
-  gallery: '/$spotId',
-  upload: '/$spotId/upload',
-} as const;
-
 function SpotLayout() {
   const { spotId } = Route.useParams();
   const { data: preview } = useSpotPreview(spotId);
-  const [hasNewGallery, setHasNewGallery] = useState(false);
-  const [hasPendingUploads, setHasPendingUploads] = useState(false);
-
-  const {
-    activeTab,
-    handleTabChange: baseHandleTabChange,
-  } = useTabNavigation(TAB_ROUTES, { spotId });
-
-  const handleTabChange = useCallback((tab: string | null) => {
-    if (tab === 'gallery') setHasNewGallery(false);
-    baseHandleTabChange(tab);
-  }, [baseHandleTabChange]);
-
-  const handlePublishSuccess = useCallback(() => {
-    setHasNewGallery(true);
-  }, []);
-
-  const handleQueueChange = useCallback((count: number) => {
-    setHasPendingUploads(count > 0);
-  }, []);
-
-  const isUpload = activeTab === 'upload';
 
   return (
-    <SpotUploadContext.Provider value={{
-      onPublishSuccess: handlePublishSuccess,
-      onQueueChange: handleQueueChange
-    }}>
+    <>
       <DrawerHeader>
         {preview ? (
           <Text fw={600} size="lg">{preview.name}</Text>
@@ -55,37 +22,11 @@ function SpotLayout() {
         )}
       </DrawerHeader>
 
-      <Tabs value={activeTab} onChange={handleTabChange}>
-        <Tabs.List px="md">
-          <Tabs.Tab value="gallery">
-            <Indicator
-              disabled={!hasNewGallery}
-              color="red"
-              size={8}
-              offset={-4}
-              processing
-            >
-              Gallery
-            </Indicator>
-          </Tabs.Tab>
-          <Tabs.Tab value="upload">
-            <Indicator
-              disabled={!hasPendingUploads || activeTab === 'upload'}
-              color="red"
-              size={8}
-              offset={-4}
-            >
-              Upload
-            </Indicator>
-          </Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
       <DrawerBody>
         <Outlet />
       </DrawerBody>
 
-      {!isUpload && <CartButton spotId={spotId} />}
-    </SpotUploadContext.Provider>
+      <CartButton spotId={spotId} />
+    </>
   );
 }
