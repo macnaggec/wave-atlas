@@ -5,8 +5,7 @@ import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
 import { MediaItem } from 'entities/Media/types';
 import { MEDIA_STATUS } from 'entities/Media/constants';
 import { formatPrice } from 'shared/lib/currency';
-import { QueueItem, UploadStatus } from '../../model';
-import { UploadItemAction } from './types';
+import { QueueItem, UploadItemAction, UploadStatus } from '../../model';
 import DraftCard from '../cards/DraftCard';
 
 const ACTION_ICONS: Record<

@@ -12,7 +12,7 @@
 // ============================================================================
 export { useUploadManager } from './model';
 export { useDraftMedia, useDraftMediaMutate, draftMediaKey } from './model';
-export type { UploadItem, QueueItem, UploadStatus } from './model';
+export type { UploadItem, QueueItem, UploadStatus, UploadItemAction } from './model';
 
 // ============================================================================
 // UI - Main Components
@@ -23,7 +23,7 @@ export type { UploadManagerProps } from './ui/UploadManager';
 export { UploadIndicatorAffix, UploadIndicatorCompact } from './ui/UploadIndicator';
 
 export { UploadGallery } from './ui/UploadGallery';
-export type { UploadGalleryProps, UploadItemAction } from './ui/UploadGallery/types';
+export type { UploadGalleryProps } from './ui/UploadGallery/UploadGallery';
 
 export { PublishButton } from './ui/UploadGallery/PublishButton';
 export type { PublishButtonProps } from './ui/UploadGallery/PublishButton';

@@ -6,15 +6,19 @@ import { useGallerySelection } from 'shared/hooks/gallery';
 import { QueueItem } from '../model';
 import UploadGallery from './UploadGallery/UploadGallery';
 import { PublishButton } from './UploadGallery/PublishButton';
-import { UploadItemAction } from './UploadGallery/types';
+import { UploadItemAction } from '../model';
 
 export interface UploadManagerProps {
   spotId: string;
-  sessionId: string;
+  sessionId: string | null;
   spotName?: string | null;
   draftMedia: MediaItem[];
   onPublishSuccess?: (mediaIds: string[]) => void;
   onQueueChange?: (count: number) => void;
+  /** Hide the Publish button — used when publish is handled externally (e.g. accordion step 3). */
+  showPublish?: boolean;
+  /** When provided, replaces Cancel button with Proceed once uploads complete (upload wizard mode). */
+  onProceed?: (count: number) => void;
 }
 
 export function UploadManager({
@@ -24,8 +28,10 @@ export function UploadManager({
   draftMedia,
   onPublishSuccess,
   onQueueChange,
+  showPublish = true,
+  onProceed,
 }: UploadManagerProps) {
-  const { queue, hasActiveUploads } = useUploadQueue(sessionId, draftMedia);
+  const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId, draftMedia);
   const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(sessionId);
 
   const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId, sessionId);
@@ -85,15 +91,18 @@ export function UploadManager({
         actions={['delete']}
         onAction={handleItemAction}
         selection={selection}
+        onProceed={onProceed}
       />
-      <PublishButton
-        total={publishStats.total}
-        allReady={publishStats.allReady}
-        hasActiveUploads={hasActiveUploads}
-        isPublishing={isPublishing}
-        selectedCount={selection.selectedCount}
-        onPublish={handlePublish}
-      />
+      {showPublish && (
+        <PublishButton
+          total={publishStats.total}
+          allReady={publishStats.allReady}
+          hasActiveUploads={hasActiveUploads}
+          isPublishing={isPublishing}
+          selectedCount={selection.selectedCount}
+          onPublish={handlePublish}
+        />
+      )}
     </>
   );
 }
