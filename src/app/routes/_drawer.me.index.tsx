@@ -14,33 +14,14 @@ import {
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useTRPC } from 'app/lib/trpc';
+import type { SurfSessionItem } from 'entities/SurfSession/types';
+import { formatDateRange } from 'shared/lib/dateUtils';
 
 export const Route = createFileRoute('/_drawer/me/')({
   component: UploadsTab,
 });
 
-// ─── Session card ─────────────────────────────────────────────────────────────
-
-type SessionItem = {
-  id: string;
-  spot: { id: string; name: string; location: string };
-  startsAt: Date;
-  endsAt: Date;
-  status: string;
-  thumbnailUrl: string | null;
-  mediaCount: number;
-};
-
-function formatDateRange(startsAt: Date, endsAt: Date) {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const date = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const s = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const e = end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${date} · ${s}–${e}`;
-}
-
-function SessionCard({ session }: { session: SessionItem }) {
+function SessionCard({ session }: { session: SurfSessionItem }) {
   const isDraft = session.status === 'DRAFT';
 
   return (

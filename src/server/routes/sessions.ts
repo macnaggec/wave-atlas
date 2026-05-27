@@ -3,6 +3,26 @@ import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
 
 export const sessionsRouter = router({
+  /** Create a session and atomically attach + publish the specified draft media items. */
+  createAndPublish: protectedProcedure
+    .input(
+      z.object({
+        spotId: z.uuid(),
+        startsAt: z.coerce.date(),
+        endsAt: z.coerce.date(),
+        mediaIds: z.array(z.string().uuid()).min(1),
+      }),
+    )
+    .mutation(({ input, ctx }) =>
+      surfSessionRepository.createAndPublish({
+        spotId: input.spotId,
+        photographerId: ctx.user.id,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        mediaIds: input.mediaIds,
+      }),
+    ),
+
   /** Create a new surf session (spot + time window). Returns sessionId + spotId. */
   create: protectedProcedure
     .input(

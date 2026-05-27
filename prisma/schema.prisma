@@ -28,7 +28,7 @@ model User {
   sessions           Session[]
   createdSpots       Spot[]             @relation("UserCreatedSpots")
   transactions       Transaction[]
-  user_spot_covers   user_spot_covers[]
+  spotCovers         UserSpotCover[]
 
   @@map("users")
 }
@@ -117,19 +117,19 @@ model Spot {
   mediaItems       MediaItem[]
   surfSessions     SurfSession[]
   creator          User?              @relation("UserCreatedSpots", fields: [creatorId], references: [id])
-  user_spot_covers user_spot_covers[]
+  spotCovers   UserSpotCover[]
 
   @@map("spots")
 }
 
 model SurfSession {
-  id             String      @id @default(uuid())
-  spotId         String      @map("spot_id")
-  photographerId String      @map("photographer_id")
-  startsAt       DateTime    @map("starts_at")
-  endsAt         DateTime    @map("ends_at")
-  status         MediaStatus @default(DRAFT)
-  createdAt      DateTime    @default(now()) @map("created_at")
+  id             String            @id @default(uuid())
+  spotId         String            @map("spot_id")
+  photographerId String            @map("photographer_id")
+  startsAt       DateTime          @map("starts_at")
+  endsAt         DateTime          @map("ends_at")
+  status         SurfSessionStatus @default(DRAFT)
+  createdAt      DateTime          @default(now()) @map("created_at")
 
   spot         Spot        @relation(fields: [spotId], references: [id])
   photographer User        @relation("PhotographerSurfSessions", fields: [photographerId], references: [id])
@@ -210,16 +210,23 @@ model PayoutRequest {
   @@map("payout_requests")
 }
 
-model user_spot_covers {
-  user_id    String
-  spot_id    String
-  image_url  String
-  created_at DateTime @default(now())
-  updated_at DateTime
-  spots      Spot     @relation(fields: [spot_id], references: [id], onDelete: Cascade)
-  users      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+model UserSpotCover {
+  userId    String   @map("user_id")
+  spotId    String   @map("spot_id")
+  imageUrl  String   @map("image_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([user_id, spot_id])
+  @@id([userId, spotId])
+  @@map("user_spot_covers")
+}
+
+enum SurfSessionStatus {
+  DRAFT
+  PUBLISHED
+  DELETED
 }
 
 enum MediaType {

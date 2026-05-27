@@ -10,28 +10,10 @@ import {
 } from '@mantine/core';
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useTRPC } from 'app/lib/trpc';
+import type { SurfSessionItem } from 'entities/SurfSession/types';
+import { formatDateRange } from 'shared/lib/dateUtils';
 
-// ─── Session card ─────────────────────────────────────────────────────────────
-
-function formatDateRange(startsAt: Date, endsAt: Date): string {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const dateStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const startTime = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const endTime = end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${dateStr} · ${startTime}–${endTime}`;
-}
-
-type SessionItem = {
-  id: string;
-  spot: { id: string; name: string; location: string };
-  startsAt: Date;
-  endsAt: Date;
-  thumbnailUrl: string | null;
-  mediaCount: number;
-};
-
-function SessionCard({ session }: { session: SessionItem }) {
+function SessionCard({ session }: { session: SurfSessionItem }) {
   return (
     <Stack
       gap={0}
