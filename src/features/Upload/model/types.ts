@@ -1,5 +1,4 @@
 import { MediaItem } from 'entities/Media/types';
-import type { MediaResourceType } from 'entities/Media/constants';
 
 /**
  * Upload status lifecycle:
@@ -7,6 +6,9 @@ import type { MediaResourceType } from 'entities/Media/constants';
  *                                        ↘ error
  */
 export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error' | 'importing';
+
+/** Actions available on individual upload cards. */
+export type UploadItemAction = 'delete' | 'cancel' | 'retry' | 'edit';
 
 /**
  * Zustand shape — owns upload-pipeline state only.
@@ -16,13 +18,15 @@ export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'com
 export interface UploadItem {
   id: string;
   spotId: string;
-  sessionId: string;
+  sessionId: string | null;
   file: File | null;
   previewUrl: string;
   status: UploadStatus;
   progress: number;
   /** DB id of the saved MediaItem. Set on completion; undefined while uploading. */
   mediaId?: string;
+  /** EXIF-derived capture time, stored after upload completes. */
+  capturedAt?: Date;
   error?: string;
   cloudinaryResult?: CloudinaryResult;
   abortUpload?: () => void;
@@ -41,12 +45,13 @@ export interface QueueItem extends UploadItem {
  * Cloudinary upload response — shaped by the server-signed upload params.
  * eager[0] = thumbnail (public), eager[1] = lightbox (public, watermarked).
  * Original is authenticated — stored by publicId, never exposed raw.
+ * resource_type mirrors the Cloudinary HTTP response field name intentionally.
  */
 export interface CloudinaryResult {
   publicId: string;
   thumbnailUrl: string;
   lightboxUrl: string;
-  resource_type: MediaResourceType;
+  resource_type: 'image' | 'video';
 }
 
 /**

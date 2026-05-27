@@ -30,7 +30,7 @@ function revokeBlobUrl(url?: string): void {
  */
 export const useUploadManager = (
   spotId: string,
-  sessionId: string,
+  sessionId: string | null,
   spotName: string | null = null
 ) => {
   const draftCache = useDraftMediaMutate(sessionId);
@@ -55,6 +55,65 @@ export const useUploadManager = (
       store.setSpotContext(spotId, spotName);
     }
   }, [spotId, spotName]);
+
+  // ========================================================================
+  // UPLOAD ORCHESTRATION - How uploads happen (implementation)
+  // Defined first so business-logic callbacks can reference processUpload without stale closures.
+  // ========================================================================
+
+  const processUpload = useCallback(async (
+    id: string,
+    file: File | null
+  ) => {
+    if (!file) return;
+
+    const pipeline = createPipeline(id, spotId, sessionId);
+    let mediaItem: MediaItem;
+
+    try {
+      validateFileSize(file);
+      const exifData = await pipeline.extractMetadata(file);
+      const store = useUploadStore.getState();
+      const existingCloudinaryResult = store.uploadQueue
+        .find(i => i.id === id)
+        ?.cloudinaryResult;
+
+      let cloudResult;
+
+      if (existingCloudinaryResult) {
+        // Retry scenario: reuse existing Cloudinary upload
+        cloudResult = existingCloudinaryResult;
+        store.updateItem(id, { status: 'saving', progress: 100 });
+      } else {
+        // Normal flow: sign → upload → save
+        cloudResult = await uploadNewFile(id, file, pipeline);
+        store.updateItem(id, { cloudinaryResult: cloudResult });
+      }
+
+      mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
+      pipeline.complete(mediaItem.id, mediaItem.capturedAt ?? undefined);
+      useUploadStore.getState().incrementSessionCompleted();
+
+    } catch (error: unknown) {
+      const errorMessage = pipeline.handleError(error);
+
+      if (errorMessage) {
+        notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
+      }
+
+      return;
+    }
+
+    // Upload succeeded — write the confirmed MediaItem directly into SWR's cache.
+    // This bypasses the 'use cache' layer which may still serve stale data due to
+    // revalidateTag propagation delay. SWR's cache update triggers a re-render in
+    // useDraftMedia → useUploadQueue dedup hides the Zustand copy in the same cycle.
+    //
+    // The Zustand item carries only mediaId now. TQ is the single source of truth
+    // for MediaItem data. Writing to TQ here makes the result immediately visible
+    // in useUploadQueue without any promotion logic.
+    void draftCache.append(mediaItem);
+  }, [spotId, draftCache]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -83,8 +142,8 @@ export const useUploadManager = (
 
     const newItems = createPendingItems(files, spotId, sessionId);
     store.addToQueue(newItems);
-    startUploads(newItems);
-  }, [spotId, spotName]);
+    newItems.forEach(item => processUpload(item.id, item.file));
+  }, [spotId, spotName, sessionId, processUpload]);
 
   /**
    * User cancels an upload (only aborts, doesn't delete from DB)
@@ -131,7 +190,7 @@ export const useUploadManager = (
     // If completed, delete from DB and mark as deleted
     if (item.status === 'completed' && item.mediaId) {
       try {
-        await deleteIfCompleted(item);
+        await deleteMedia({ id: item.mediaId });
         void draftCache.remove(item.mediaId);
       } catch {
         return;
@@ -156,7 +215,7 @@ export const useUploadManager = (
       error: undefined,
     });
     processUpload(id, item.file!);
-  }, [spotId]);
+  }, [processUpload]);
 
   /**
    * System removes published items from queue
@@ -183,133 +242,6 @@ export const useUploadManager = (
     store.clearCompleted();
   }, []);
 
-  // ========================================================================
-  // UPLOAD ORCHESTRATION - How uploads happen (implementation)
-  // ========================================================================
-
-  const processUpload = useCallback(async (
-    id: string,
-    file: File | null
-  ) => {
-    if (!file) return;
-
-    const pipeline = createPipeline(id);
-    let mediaItem: MediaItem;
-
-    try {
-      validateFileSize(file);
-      const exifData = await pipeline.extractMetadata(file);
-      const store = useUploadStore.getState();
-      const existingCloudinaryResult = store.uploadQueue
-        .find(i => i.id === id)
-        ?.cloudinaryResult;
-
-      let cloudResult;
-
-      if (existingCloudinaryResult) {
-        // Retry scenario: reuse existing Cloudinary upload
-        cloudResult = existingCloudinaryResult;
-        store.updateItem(id, { status: 'saving', progress: 100 });
-      } else {
-        // Normal flow: sign → upload → save
-        cloudResult = await uploadNewFile(id, file, pipeline);
-        store.updateItem(id, { cloudinaryResult: cloudResult });
-      }
-
-      mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
-      pipeline.complete(mediaItem.id);
-      useUploadStore.getState().incrementSessionCompleted();
-
-    } catch (error: unknown) {
-      const errorMessage = pipeline.handleError(error);
-
-      if (errorMessage) {
-        notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
-      }
-
-      return;
-    }
-
-    // Upload succeeded — write the confirmed MediaItem directly into SWR's cache.
-    // This bypasses the 'use cache' layer which may still serve stale data due to
-    // revalidateTag propagation delay. SWR's cache update triggers a re-render in
-    // useDraftMedia → useUploadQueue dedup hides the Zustand copy in the same cycle.
-    //
-    // The Zustand item carries only mediaId now. TQ is the single source of truth
-    // for MediaItem data. Writing to TQ here makes the result immediately visible
-    // in useUploadQueue without any promotion logic.
-    void draftCache.append(mediaItem);
-  }, [spotId, draftCache]);
-
-  const startUploads = (items: UploadItem[]) => {
-    // client uuids
-    items.forEach((item) => {
-      processUpload(item.id, item.file);
-    });
-  };
-
-  const createPipeline = (id: string) => {
-    return createUploadPipeline(
-      spotId,
-      sessionId,
-      (updates) => {
-        // Update store even if component unmounted (background uploads).
-        const store = useUploadStore.getState();
-        store.updateItem(id, updates);
-      },
-    );
-  };
-
-  const uploadNewFile = async (
-    id: string,
-    file: File,
-    pipeline: ReturnType<typeof createUploadPipeline>
-  ) => {
-    const signature = await pipeline.getSignature();
-
-    const { promise, abort } = pipeline.uploadToCloud(
-      file,
-      signature,
-      (progress) => {
-        const store = useUploadStore.getState();
-        store.updateItem(id, { progress });
-      },
-    );
-
-    const store = useUploadStore.getState();
-    store.updateItem(id, { abortUpload: abort });
-
-    return await promise;
-  };
-
-  // ========================================================================
-  // HELPERS - Supporting operations
-  // ========================================================================
-
-  const abortIfUploading = async (item: UploadItem) => {
-    if (item.abortUpload && isUploading(item.status)) {
-      try {
-        item.abortUpload();
-      } catch (err) {
-        // Abort errors expected
-      }
-    }
-  };
-
-  const deleteIfCompleted = async (item: UploadItem) => {
-    if (item.status === 'completed' && item.mediaId) {
-      await deleteMedia({ id: item.mediaId });
-      // rejection propagates; onError in useDeleteMedia handles notification
-    }
-  };
-
-  const isUploading = (status: string) => {
-    return ['signing', 'uploading', 'saving'].includes(status);
-  };
-
-  const canRetry = (item: UploadItem | undefined) => {
-    return item && item.status === 'error' && item.file;
-  };
 
   // ========================================================================
   // PUBLIC API
@@ -326,10 +258,56 @@ export const useUploadManager = (
 };
 
 // ===========================================================================
+// MODULE-LEVEL HELPERS - No hook deps; accept all inputs as explicit params
+// ===========================================================================
+
+function createPipeline(id: string, spotId: string, sessionId: string | null) {
+  return createUploadPipeline(
+    spotId,
+    sessionId,
+    (updates) => {
+      // Update store even if component unmounted (background uploads).
+      useUploadStore.getState().updateItem(id, updates);
+    },
+  );
+}
+
+async function uploadNewFile(
+  id: string,
+  file: File,
+  pipeline: ReturnType<typeof createUploadPipeline>,
+) {
+  const signature = await pipeline.getSignature();
+
+  const { promise, abort } = pipeline.uploadToCloud(
+    file,
+    signature,
+    (progress) => { useUploadStore.getState().updateItem(id, { progress }); },
+  );
+
+  useUploadStore.getState().updateItem(id, { abortUpload: abort });
+  return promise;
+}
+
+async function abortIfUploading(item: UploadItem) {
+  if (item.abortUpload && isUploading(item.status)) {
+    try { item.abortUpload(); } catch { /* abort errors expected */ }
+  }
+}
+
+function isUploading(status: string) {
+  return ['signing', 'uploading', 'saving'].includes(status);
+}
+
+function canRetry(item: UploadItem | undefined) {
+  return item && item.status === 'error' && item.file;
+}
+
+// ===========================================================================
 // PURE FUNCTIONS - No side effects, easy to test
 // ===========================================================================
 
-function createPendingItems(files: File[], spotId: string, sessionId: string): UploadItem[] {
+function createPendingItems(files: File[], spotId: string, sessionId: string | null): UploadItem[] {
   return files.map((file) => ({
     id: uuidv4(),
     spotId,

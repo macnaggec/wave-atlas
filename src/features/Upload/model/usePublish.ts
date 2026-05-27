@@ -17,7 +17,7 @@ export interface PublishStats {
  * calls sessions.publish, shows notifications.
  */
 export function usePublish(
-  sessionId: string,
+  sessionId: string | null,
   queue: QueueItem[],
   mutateDraftMedia: () => Promise<unknown>,
   onSuccess?: (mediaIds: string[]) => void
@@ -60,7 +60,7 @@ export function usePublish(
   }, [queue]);
 
   const handlePublish = useCallback(async () => {
-    if (!publishStats.allReady || publishStats.total === 0) return;
+    if (!sessionId || !publishStats.allReady || publishStats.total === 0) return;
 
     const allMediaIds = queue
       .filter(item => item.status === 'completed' && item.mediaId)

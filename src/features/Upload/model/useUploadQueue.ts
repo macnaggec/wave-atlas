@@ -5,14 +5,17 @@ import { QueueItem } from './types';
 
 /**
  * Merges server state (TanStack Query drafts) with client state (active Zustand uploads)
- * into a unified queue view for a specific surf session.
+ * into a unified queue view for a specific spot.
+ *
+ * sessionId may be null in the deferred-session flow (upload before time entry).
+ * In that case draftMedia will be [] and the queue is driven purely by Zustand.
  */
-export function useUploadQueue(sessionId: string, draftMedia: MediaItem[]) {
+export function useUploadQueue(spotId: string, sessionId: string | null, draftMedia: MediaItem[]) {
   const uploadQueue = useUploadStore(state => state.uploadQueue);
 
   const activeUploads = useMemo(
-    () => uploadQueue.filter(item => item.sessionId === sessionId),
-    [uploadQueue, sessionId]
+    () => uploadQueue.filter(item => item.spotId === spotId),
+    [uploadQueue, spotId]
   );
 
   const queue = useMemo(() => {

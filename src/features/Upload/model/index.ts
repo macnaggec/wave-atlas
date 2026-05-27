@@ -20,4 +20,4 @@ export { useDraftEditing } from './useDraftEditing';
 export { draftMediaKey } from './draftMediaKey';
 
 // Types
-export type { UploadItem, QueueItem, UploadStatus, CloudinaryResult, ExifMetadata } from './types';
+export type { UploadItem, QueueItem, UploadStatus, UploadItemAction, CloudinaryResult, ExifMetadata } from './types';

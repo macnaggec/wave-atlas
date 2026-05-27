@@ -1,17 +1,15 @@
 import { trpcClient } from 'app/lib/trpcClient';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { AppRouter } from 'server/router';
 import { uploadToCloudinary } from './cloudinaryTransport';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { extractExifData } from 'shared/lib/exifExtractor';
 import { MediaItem } from 'entities/Media/types';
 import { CloudinaryResult, ExifMetadata, UploadItem } from './types';
 
-type SignatureData = inferRouterOutputs<AppRouter>['media']['signCloudinary'];
+type SignatureData = Awaited<ReturnType<typeof trpcClient.media.signCloudinary.mutate>>;
 
 export function createUploadPipeline(
   spotId: string,
-  sessionId: string,
+  sessionId: string | null,
   updateStatus: (updates: Partial<UploadItem>) => void,
 ) {
   async function extractMetadata(file: File): Promise<ExifMetadata> {
@@ -53,7 +51,7 @@ export function createUploadPipeline(
     updateStatus({ status: 'saving', progress: 100 });
     const mediaItem = await trpcClient.media.create.mutate({
       spotId,
-      sessionId,
+      ...(sessionId !== null ? { sessionId } : {}),
       cloudinaryResult: cloudResult,
       capturedAt: exifData.capturedAt ?? undefined,
     });
@@ -64,8 +62,8 @@ export function createUploadPipeline(
       : mediaItem;
   }
 
-  function complete(mediaId: string): void {
-    updateStatus({ status: 'completed', mediaId });
+  function complete(mediaId: string, capturedAt?: Date): void {
+    updateStatus({ status: 'completed', mediaId, capturedAt });
   }
 
   // Returns the error message to show, or null if the error is a silent user cancellation.

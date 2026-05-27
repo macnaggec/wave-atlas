@@ -25,16 +25,23 @@ export function useDraftMedia(sessionId: string | null) {
 
 /**
  * Cache mutation helpers scoped to a session's draft media query.
+ * When sessionId is null (deferred session flow), all operations are no-ops —
+ * the Zustand upload queue is the sole source of truth until publish time.
  */
-export function useDraftMediaMutate(sessionId: string) {
+export function useDraftMediaMutate(sessionId: string | null) {
   const queryClient = useQueryClient();
   const trpc = useTRPC();
-  const queryOptions = trpc.sessions.draftMedia.queryOptions(sessionId);
+  const queryOptions = sessionId
+    ? trpc.sessions.draftMedia.queryOptions(sessionId)
+    : null;
 
-  const refetch = () =>
-    queryClient.invalidateQueries({ queryKey: queryOptions.queryKey });
+  const refetch = (): Promise<unknown> => {
+    if (queryOptions) return queryClient.invalidateQueries({ queryKey: queryOptions.queryKey });
+    return Promise.resolve();
+  };
 
   const append = (item: MediaItem) => {
+    if (!queryOptions) return;
     queryClient.setQueryData(
       queryOptions.queryKey,
       (current: MediaItem[] | undefined) => {
@@ -47,6 +54,7 @@ export function useDraftMediaMutate(sessionId: string) {
   };
 
   const remove = (id: string) => {
+    if (!queryOptions) return;
     queryClient.setQueryData(
       queryOptions.queryKey,
       (current: MediaItem[] | undefined) =>
@@ -55,6 +63,7 @@ export function useDraftMediaMutate(sessionId: string) {
   };
 
   const update = (ids: string[], updates: Partial<Pick<MediaItem, 'price' | 'capturedAt'>>) => {
+    if (!queryOptions) return;
     const idSet = new Set(ids);
     queryClient.setQueryData(
       queryOptions.queryKey,
