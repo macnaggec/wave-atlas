@@ -11,6 +11,7 @@ type SignatureData = inferRouterOutputs<AppRouter>['media']['signCloudinary'];
 
 export function createUploadPipeline(
   spotId: string,
+  sessionId: string,
   updateStatus: (updates: Partial<UploadItem>) => void,
 ) {
   async function extractMetadata(file: File): Promise<ExifMetadata> {
@@ -52,6 +53,7 @@ export function createUploadPipeline(
     updateStatus({ status: 'saving', progress: 100 });
     const mediaItem = await trpcClient.media.create.mutate({
       spotId,
+      sessionId,
       cloudinaryResult: cloudResult,
       capturedAt: exifData.capturedAt ?? undefined,
     });

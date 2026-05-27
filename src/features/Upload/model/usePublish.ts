@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { usePublishMedia } from 'entities/Media/model/usePublishMedia';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTRPC } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { MIN_MEDIA_PRICE_CENTS, MEDIA_STATUS } from 'entities/Media/constants';
 import { QueueItem } from './types';
 
@@ -8,74 +10,77 @@ export interface PublishStats {
   total: number;
   ready: number;
   allReady: boolean;
-  mediaIds: string[];
 }
 
 /**
- * Orchestrates the publish flow: derives readiness from the queue,
- * calls the publish mutation, shows notifications, and delegates cache
- * invalidation and cleanup to the caller.
- *
- * publishingIds — set of mediaIds currently mid-publish (client-only).
- * Used by UploadCardRenderer to show per-card "Publishing…" overlay.
+ * Orchestrates session publish: derives readiness from the queue,
+ * calls sessions.publish, shows notifications.
  */
 export function usePublish(
+  sessionId: string,
   queue: QueueItem[],
   mutateDraftMedia: () => Promise<unknown>,
-  selectedIds: readonly string[] | undefined,
   onSuccess?: (mediaIds: string[]) => void
 ) {
-  const { mutateAsync: publishMedia } = usePublishMedia();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
 
+  const { mutateAsync: publishSession } = useMutation(
+    trpc.sessions.publish.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: trpc.sessions.list.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.sessions.mine.queryKey() });
+      },
+      onError: (err) => {
+        notify.error(getErrorMessage(err), 'Publish Failed');
+      },
+    }),
+  );
+
   const publishStats = useMemo((): PublishStats => {
     const completed = queue.filter(item => item.status === 'completed' && item.result);
-    const target = selectedIds && selectedIds.length > 0
-      ? completed.filter(item => selectedIds.includes(item.result!.id))
-      : completed;
-
-    const ready = target.filter(item => {
+    const ready = completed.filter(item => {
       const r = item.result!;
-      // DRIVE_PENDING items have no Cloudinary resource yet — skip resource.url check.
-      // The server handles Cloudinary import at publish time via publishDriveItem.
       const hasResource =
         r.status === MEDIA_STATUS.DRIVE_PENDING || !!r.resource.url;
       return (
         r.capturedAt &&
         r.price !== undefined &&
         r.price >= MIN_MEDIA_PRICE_CENTS &&
-        hasResource &&
-        r.spotId
+        hasResource
       );
     });
-
     return {
-      total: target.length,
+      total: completed.length,
       ready: ready.length,
-      allReady: target.length > 0 && ready.length === target.length,
-      mediaIds: ready.map(item => item.result!.id),
+      allReady: completed.length > 0 && ready.length === completed.length,
     };
-  }, [queue, selectedIds]);
+  }, [queue]);
 
   const handlePublish = useCallback(async () => {
-    if (publishStats.mediaIds.length === 0) return;
+    if (!publishStats.allReady || publishStats.total === 0) return;
 
-    const ids = publishStats.mediaIds;
+    const allMediaIds = queue
+      .filter(item => item.status === 'completed' && item.mediaId)
+      .map(item => item.mediaId!);
+
     setIsPublishing(true);
-    setPublishingIds(new Set(ids));
+    setPublishingIds(new Set(allMediaIds));
+
     try {
-      await publishMedia({ mediaIds: ids });
-      notify.success(`Successfully published ${ids.length} item(s)`, 'Published');
+      const result = await publishSession(sessionId);
+      notify.success(`Successfully published ${result.mediaIds.length} item(s)`, 'Published');
       void mutateDraftMedia();
-      onSuccess?.(ids);
+      onSuccess?.(result.mediaIds);
     } catch {
-      // notification handled by usePublishMedia onError
+      // notification handled by mutation onError
     } finally {
       setIsPublishing(false);
       setPublishingIds(new Set());
     }
-  }, [publishStats.mediaIds, mutateDraftMedia, publishMedia, onSuccess]);
+  }, [sessionId, publishStats, queue, mutateDraftMedia, publishSession, onSuccess]);
 
   return { publishStats, isPublishing, publishingIds, handlePublish };
 }

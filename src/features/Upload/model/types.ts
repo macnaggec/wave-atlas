@@ -16,6 +16,7 @@ export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'com
 export interface UploadItem {
   id: string;
   spotId: string;
+  sessionId: string;
   file: File | null;
   previewUrl: string;
   status: UploadStatus;

@@ -30,9 +30,10 @@ function revokeBlobUrl(url?: string): void {
  */
 export const useUploadManager = (
   spotId: string,
+  sessionId: string,
   spotName: string | null = null
 ) => {
-  const draftCache = useDraftMediaMutate(spotId);
+  const draftCache = useDraftMediaMutate(sessionId);
   const { mutateAsync: deleteMedia } = useDeleteMedia();
 
   // ========================================================================
@@ -80,7 +81,7 @@ export const useUploadManager = (
     // Set upload context when actually starting uploads
     store.setSpotContext(spotId, spotName);
 
-    const newItems = createPendingItems(files, spotId);
+    const newItems = createPendingItems(files, spotId, sessionId);
     store.addToQueue(newItems);
     startUploads(newItems);
   }, [spotId, spotName]);
@@ -250,6 +251,7 @@ export const useUploadManager = (
   const createPipeline = (id: string) => {
     return createUploadPipeline(
       spotId,
+      sessionId,
       (updates) => {
         // Update store even if component unmounted (background uploads).
         const store = useUploadStore.getState();
@@ -327,10 +329,11 @@ export const useUploadManager = (
 // PURE FUNCTIONS - No side effects, easy to test
 // ===========================================================================
 
-function createPendingItems(files: File[], spotId: string): UploadItem[] {
+function createPendingItems(files: File[], spotId: string, sessionId: string): UploadItem[] {
   return files.map((file) => ({
     id: uuidv4(),
     spotId,
+    sessionId,
     file,
     previewUrl: URL.createObjectURL(file),
     status: 'pending' as const,

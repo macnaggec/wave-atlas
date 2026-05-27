@@ -8,12 +8,13 @@ export { draftMediaKey } from './draftMediaKey';
 
 /**
  * Client-side draft media hook, backed by TanStack Query via tRPC.
+ * Fetches draft media for a specific surf session.
  */
-export function useDraftMedia(spotId: string | null) {
+export function useDraftMedia(sessionId: string | null) {
   const trpc = useTRPC();
   const { data, isLoading, error } = useQuery({
-    ...trpc.spots.drafts.queryOptions(spotId ?? ''),
-    enabled: !!spotId,
+    ...trpc.sessions.draftMedia.queryOptions(sessionId ?? ''),
+    enabled: !!sessionId,
   });
   return {
     draftMedia: data ?? [],
@@ -23,16 +24,12 @@ export function useDraftMedia(spotId: string | null) {
 }
 
 /**
- * Cache mutation helpers scoped to a spot's draft media query.
- *
- * - `refetch()` — invalidates TanStack Query cache (triggers re-fetch).
- * - `append(item)` — optimistically writes a new item, then revalidates.
- * - `remove(id)` — optimistically removes an item without revalidation.
+ * Cache mutation helpers scoped to a session's draft media query.
  */
-export function useDraftMediaMutate(spotId: string) {
+export function useDraftMediaMutate(sessionId: string) {
   const queryClient = useQueryClient();
   const trpc = useTRPC();
-  const queryOptions = trpc.spots.drafts.queryOptions(spotId);
+  const queryOptions = trpc.sessions.draftMedia.queryOptions(sessionId);
 
   const refetch = () =>
     queryClient.invalidateQueries({ queryKey: queryOptions.queryKey });
@@ -68,4 +65,3 @@ export function useDraftMediaMutate(spotId: string) {
 
   return { refetch, append, remove, update };
 }
-

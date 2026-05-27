@@ -16,10 +16,11 @@ const PICKER_MIME_TYPES = [
 
 type DriveDoc = google.picker.PickerDocument;
 
-function createImportingItem(doc: DriveDoc, spotId: string): QueueItem {
+function createImportingItem(doc: DriveDoc, spotId: string, sessionId: string): QueueItem {
   return {
     id: `drive-import-${doc.id}`,
     spotId,
+    sessionId,
     file: null,
     previewUrl: doc.thumbnails?.[0]?.url ?? doc.url ?? '',
     status: 'importing',
@@ -91,9 +92,9 @@ function buildPicker(
     .build();
 }
 
-export function useGooglePicker(spotId: string) {
+export function useGooglePicker(spotId: string, sessionId: string) {
   const trpc = useTRPC();
-  const { append } = useDraftMediaMutate(spotId);
+  const { append } = useDraftMediaMutate(sessionId);
 
   const [isPickerInitializing, setIsPickerInitializing] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -105,7 +106,7 @@ export function useGooglePicker(spotId: string) {
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {
-      const skeletons = docs.map((doc) => createImportingItem(doc, spotId));
+      const skeletons = docs.map((doc) => createImportingItem(doc, spotId, sessionId));
       setImportingItems((current) => [...current, ...skeletons]);
 
       await Promise.all(docs.map(async (doc) => {
@@ -114,6 +115,7 @@ export function useGooglePicker(spotId: string) {
         try {
           const mediaItem = await registerDriveImport({
             spotId,
+            sessionId,
             remoteFileId: doc.id,
             mimeType: doc.mimeType,
             accessToken,

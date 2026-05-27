@@ -4,12 +4,8 @@ import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 
 /**
- * Mutation hook for publishing media items.
- *
- * Single source of truth for:
- * - tRPC publish call
- * - spots.details + spots.drafts query invalidation
- * - error notification
+ * Mutation hook for publishing individual media items (used outside session flow).
+ * Invalidates spots.details on success.
  */
 export function usePublishMedia() {
   const trpc = useTRPC();
@@ -19,7 +15,6 @@ export function usePublishMedia() {
     trpc.media.publish.mutationOptions({
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: trpc.spots.details.queryKey() });
-        void queryClient.invalidateQueries({ queryKey: trpc.spots.drafts.queryKey() });
       },
       onError: (err) => {
         notify.error(getErrorMessage(err), 'Publish Failed');
