@@ -114,10 +114,6 @@ export function AppShell() {
   const prevExpandedRef = useRef(false);
 
   const selection = useMapStore((s) => s.selection);
-  const setSidePanelOpen = useMapStore((s) => s.setSidePanelOpen);
-
-  // Sync visibility to mapStore so map-side code can read it.
-  useEffect(() => { setSidePanelOpen(panelOpen); }, [panelOpen, setSidePanelOpen]);
 
   // Auto-open when a spot is selected (e.g. marker click while tongue is showing).
   useEffect(() => {

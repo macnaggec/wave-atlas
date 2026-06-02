@@ -23,7 +23,6 @@ export type InteractionMode = 'explore' | 'pin-placement' | 'spot-select';
 
 interface MapState {
   selection: Spot | null;
-  isSidePanelOpen: boolean;
   cameraState: CameraState;
   interactionMode: InteractionMode;
   /** Temporary pin position while in pin-placement mode. */
@@ -37,7 +36,6 @@ interface MapState {
 interface MapActions {
   setSelection: (spot: Spot) => void;
   clearSelection: () => void;
-  setSidePanelOpen: (open: boolean) => void;
   saveCameraState: (camera: CameraState) => void;
   enterPinPlacement: (initialName?: string) => void;
   exitPinPlacement: () => void;
@@ -54,7 +52,6 @@ export const useMapStore = create<MapStore>()(
   persist(
     (set) => ({
       selection: null,
-      isSidePanelOpen: true,
       cameraState: DEFAULT_CAMERA,
       interactionMode: 'explore',
       tempPin: null,
@@ -63,7 +60,6 @@ export const useMapStore = create<MapStore>()(
 
       setSelection: (spot) => set({ selection: spot }),
       clearSelection: () => set({ selection: null }),
-      setSidePanelOpen: (open) => set({ isSidePanelOpen: open }),
       saveCameraState: (camera) => set({ cameraState: camera }),
       enterPinPlacement: (initialName = '') =>
         set({ interactionMode: 'pin-placement', tempPin: null, pendingSpotName: initialName }),
