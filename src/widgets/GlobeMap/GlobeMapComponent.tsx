@@ -126,12 +126,12 @@ export function GlobeMapComponent({
   });
 
   // Close popup when the drawer opens (URL has a $spotId param).
-  const panelOpen = useRouterState({
+  const hasSpotRoute = useRouterState({
     select: (s) => s.matches.some((m) => 'spotId' in (m.params ?? {})),
   });
   useEffect(() => {
-    if (panelOpen) mapCommands.onPanelOpen();
-  }, [panelOpen]);
+    if (hasSpotRoute) mapCommands.onPanelOpen();
+  }, [hasSpotRoute]);
 
   useEffect(() => {
     return () => cameraService.unregister();
