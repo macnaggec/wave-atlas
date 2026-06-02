@@ -1,4 +1,5 @@
 import { Suspense, useState, useCallback, useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Popover, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { IconCalendar } from '@tabler/icons-react';
@@ -111,6 +112,7 @@ export function AppShell() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
 
   const selection = useMapStore((s) => s.selection);
+  const navigate = useNavigate();
 
   // Auto-open when a spot is selected (e.g. marker click while tongue is showing).
   useEffect(() => {
@@ -139,11 +141,11 @@ export function AppShell() {
 
   const handleExpandToggle = useCallback(() => setFeedExpanded((e) => !e), []);
 
-  // When the panel is expanded, selecting a spot via search should update
-  // the store filter but not fly the camera — the map is in the background.
+  // When the panel is expanded, selecting a spot via search navigates to the
+  // route without flying the camera — fly is a gesture-site decision, not route.
   const handleSearchSelectNoFly = useCallback((spot: Spot) => {
-    useMapStore.getState().setSelection(spot);
-  }, []);
+    void navigate({ to: '/$spotId', params: { spotId: spot.id } });
+  }, [navigate]);
 
   const handleUploadClick = useCallback(() => {
     setUploadSpot(selection);

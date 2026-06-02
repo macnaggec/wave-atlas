@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
 import { useState, type ReactNode } from 'react';
 import { Skeleton, Text } from '@mantine/core';
+import type { Spot } from 'entities/Spot/types';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
@@ -18,7 +19,7 @@ function PanelLayout() {
   );
 }
 
-type SpotLoaderData = { spotName: string | null };
+type SpotLoaderData = { spot: Spot | null };
 
 function PanelFrame({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -61,7 +62,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
     }
 
     if (spotMatch) {
-      const spotName = (spotMatch.loaderData as unknown as SpotLoaderData | undefined)?.spotName;
+      const spotName = (spotMatch.loaderData as unknown as SpotLoaderData | undefined)?.spot?.name ?? null;
       return spotName ? (
         <Text fw={600} size="lg">{spotName}</Text>
       ) : (

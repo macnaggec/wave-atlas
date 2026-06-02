@@ -3,7 +3,6 @@ import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEv
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
-import { useRouterState } from '@tanstack/react-router';
 
 import { Spot } from 'entities/Spot/types';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
@@ -124,14 +123,6 @@ export function GlobeMapComponent({
     onClearSelection: () => mapCommands.clearAll(),
     onUserInteractionStart
   });
-
-  // Close popup when the drawer opens (URL has a $spotId param).
-  const hasSpotRoute = useRouterState({
-    select: (s) => s.matches.some((m) => 'spotId' in (m.params ?? {})),
-  });
-  useEffect(() => {
-    if (hasSpotRoute) mapCommands.onPanelOpen();
-  }, [hasSpotRoute]);
 
   useEffect(() => {
     return () => cameraService.unregister();

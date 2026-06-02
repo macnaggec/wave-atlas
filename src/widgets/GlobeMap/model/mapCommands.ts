@@ -1,26 +1,21 @@
-import { Spot } from 'entities/Spot/types';
-import { useMapStore } from './mapStore';
+import type { Spot } from 'entities/Spot/types';
 import { cameraService } from './CameraService';
+import { router } from 'app/lib/router';
 
 export const mapCommands = {
   selectFromSearch(spot: Spot) {
-    useMapStore.getState().setSelection(spot);
     cameraService.flyTo(spot, false);
+    void router.navigate({ to: '/$spotId', params: { spotId: spot.id } });
   },
 
   selectFromPin(spot: Spot) {
-    useMapStore.getState().setSelection(spot);
     cameraService.flyTo(spot, false);
+    void router.navigate({ to: '/$spotId', params: { spotId: spot.id } });
   },
 
-  /** Background map click — clear spot selection entirely. */
+  /** Background map click — navigate to root; /$spotId unmount clears selection. */
   clearAll() {
-    useMapStore.getState().clearSelection();
     cameraService.resetPadding();
-  },
-
-  /** Drawer panel opened (URL with $spotId) — remove map highlight. */
-  onPanelOpen() {
-    useMapStore.getState().clearSelection();
+    void router.navigate({ to: '/' });
   },
 };
