@@ -1,10 +1,9 @@
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import { Popover, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { IconCalendar } from '@tabler/icons-react';
 import { GlobeScene } from 'views/GlobeScene';
 import { LeftStrip } from 'widgets/LeftStrip/LeftStrip';
-import { MyCollection } from 'widgets/SidePanel/MyCollection';
 import { SidePanel } from 'widgets/SidePanel';
 import { ScopeSwitcher } from 'widgets/SidePanel/ScopeSwitcher';
 import { FeedSearch } from 'widgets/FeedDrawer';
@@ -104,14 +103,12 @@ function FilterPills({ active, onChange }: { active: ActiveFilter; onChange: (f:
 export function AppShell() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [feedExpanded, setFeedExpanded] = useState(false);
-  const [collectionMode, setCollectionMode] = useState(false);
   const [uploadMode, setUploadMode] = useState(false);
   const [uploadSpot, setUploadSpot] = useState<Spot | null>(null);
   const [selectedSession, setSelectedSession] = useState<SurfSessionItem | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryScope, setGalleryScope] = useState<'sessions' | 'gallery'>('sessions');
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
-  const prevExpandedRef = useRef(false);
 
   const selection = useMapStore((s) => s.selection);
 
@@ -134,19 +131,11 @@ export function AppShell() {
   const isCAll = hasSpot && galleryOpen && selectedSession == null && !uploadMode;
   const isCSession = selectedSession != null && !uploadMode;
   const expanded = feedExpanded;
-  const showFilter = !uploadMode && !isCAll && !isCSession && !collectionMode;
+  const showFilter = !uploadMode && !isCAll && !isCSession;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleOpen = useCallback(() => setPanelOpen(true), []);
   const handleClose = useCallback(() => setPanelOpen(false), []);
-
-  const handleOpenCollection = useCallback(() => {
-    prevExpandedRef.current = feedExpanded;
-    setCollectionMode(true);
-    setPanelOpen(true);
-    setUploadMode(false);
-    setFeedExpanded(true);
-  }, [feedExpanded]);
 
   const handleExpandToggle = useCallback(() => setFeedExpanded((e) => !e), []);
 
@@ -213,7 +202,7 @@ export function AppShell() {
   // ── SidePanel props ────────────────────────────────────────────────────────
 
   // Tongue label: spot name when a spot is active, mode label otherwise.
-  const tongueLabel = collectionMode ? 'Collection' : uploadMode ? 'Upload' : (selection?.name ?? 'Feed');
+  const tongueLabel = uploadMode ? 'Upload' : (selection?.name ?? 'Feed');
 
   return (
     <>
@@ -224,7 +213,7 @@ export function AppShell() {
         <UploadIndicatorAffix />
       </Suspense>
 
-      <LeftStrip onOpenCollection={handleOpenCollection} />
+      <LeftStrip />
 
       {/* Compact-mode filter pills — float on the map right beside the sidebar */}
       {showFilter && !expanded && panelOpen && (
@@ -246,13 +235,10 @@ export function AppShell() {
         onOpen={handleOpen}
         onClose={handleClose}
         expanded={expanded}
-        onBack={collectionMode ? () => { setCollectionMode(false); setFeedExpanded(prevExpandedRef.current); } : undefined}
-        onExpandToggle={!collectionMode && !uploadMode && !isCAll && !isCSession ? handleExpandToggle : undefined}
+        onExpandToggle={!uploadMode && !isCAll && !isCSession ? handleExpandToggle : undefined}
         tongueLabel={tongueLabel}
         header={
-          collectionMode
-            ? <Text size="sm" fw={500} c="dimmed">My Collection</Text>
-            : uploadMode
+          uploadMode
             ? <Text size="sm" fw={500} c="dimmed">Upload</Text>
             : isCSession && selectedSession
             ? (
@@ -274,9 +260,7 @@ export function AppShell() {
             : <Text size="sm" fw={500} c="dimmed">Recent Sessions</Text>
         }
         subheader={
-          collectionMode
-            ? undefined
-            : uploadMode
+          uploadMode
             ? <FeedSearch
                 autoFocus={!uploadSpot}
                 placeholder={!uploadSpot ? 'Where did you shoot?' : undefined}
@@ -325,11 +309,8 @@ export function AppShell() {
             : undefined
         }
       >
-        {/* Collection mode */}
-        {collectionMode && <MyCollection />}
-
         {/* Upload mode */}
-        <div style={{ display: !collectionMode && uploadMode ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: uploadMode ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
           {uploadSpot
             ? <UploadSidebar active={uploadMode} spot={uploadSpot} onCancel={handleUploadCancel} />
             : (
@@ -346,7 +327,7 @@ export function AppShell() {
         </div>
 
         {/* Browse states */}
-        <div style={{ display: !collectionMode && !uploadMode ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: !uploadMode ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
           {/* State A + State B: session list */}
           {!isCAll && !isCSession && (
             <SessionFeed expanded={feedExpanded} activeFilter={activeFilter} onSessionClick={handleSessionClick} />

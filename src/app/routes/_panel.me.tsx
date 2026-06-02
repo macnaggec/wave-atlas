@@ -9,7 +9,7 @@ const TAB_ROUTES = {
 } as const;
 
 export const Route = createFileRoute('/_panel/me')({
-  staticData: { panelHeader: 'My Collection' },
+  staticData: { panelHeader: 'My Collection', forceExpanded: true },
   component: MeLayout,
 });
 

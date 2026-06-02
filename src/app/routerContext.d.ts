@@ -10,5 +10,7 @@ declare module '@tanstack/react-router' {
     drawer?: true;
     /** Panel header text — read by PanelFrame in _panel.tsx; no effect bridge needed. */
     panelHeader?: string;
+    /** When true: panel is force-expanded (75vw) with a back button instead of a toggle. */
+    forceExpanded?: boolean;
   }
 }

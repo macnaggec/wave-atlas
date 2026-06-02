@@ -40,6 +40,11 @@ function PanelFrame({ children }: { children: ReactNode }) {
   // From-spot name for cart back-link — reads from already-cached spots list
   const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '');
 
+  // Per-route force-expanded: /me is always wide with a back button, no toggle
+  const forceExpanded = matches.some(
+    (m) => !!(m.staticData as { forceExpanded?: boolean }).forceExpanded,
+  );
+
   const header: ReactNode = (() => {
     if (cartMatch) {
       return (
@@ -78,8 +83,9 @@ function PanelFrame({ children }: { children: ReactNode }) {
       isOpen={isOpen}
       onOpen={() => setIsOpen(true)}
       onClose={() => setIsOpen(false)}
-      expanded={expanded}
-      onExpandToggle={() => setExpanded((e) => !e)}
+      expanded={forceExpanded || expanded}
+      onExpandToggle={forceExpanded ? undefined : () => setExpanded((e) => !e)}
+      onBack={forceExpanded ? () => void navigate({ to: '/' }) : undefined}
       header={header}
     >
       {children}
