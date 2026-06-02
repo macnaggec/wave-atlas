@@ -19,7 +19,7 @@ const DEFAULT_CAMERA: CameraState = {
   bearing: 0,
 };
 
-export type InteractionMode = 'explore' | 'pin-placement' | 'spot-select';
+export type InteractionMode = 'explore' | 'pin-placement';
 
 interface MapState {
   selection: Spot | null;
@@ -37,8 +37,6 @@ interface MapActions {
   saveCameraState: (camera: CameraState) => void;
   enterPinPlacement: (initialName?: string) => void;
   exitPinPlacement: () => void;
-  enterSpotSelect: () => void;
-  exitSpotSelect: () => void;
   setTempPin: (pos: LngLat) => void;
   clearTempPin: () => void;
 }
@@ -61,8 +59,6 @@ export const useMapStore = create<MapStore>()(
         set({ interactionMode: 'pin-placement', tempPin: null, pendingSpotName: initialName }),
       exitPinPlacement: () =>
         set({ interactionMode: 'explore', tempPin: null, pendingSpotName: '' }),
-      enterSpotSelect: () => set({ interactionMode: 'spot-select' }),
-      exitSpotSelect: () => set({ interactionMode: 'explore' }),
       setTempPin: (pos) => set({ tempPin: pos }),
       clearTempPin: () => set({ tempPin: null }),
     }),
