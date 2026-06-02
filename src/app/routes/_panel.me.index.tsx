@@ -17,7 +17,7 @@ import { useTRPC } from 'app/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
-export const Route = createFileRoute('/_drawer/me/')({
+export const Route = createFileRoute('/_panel/me/')({
   component: UploadsTab,
 });
 
@@ -69,8 +69,6 @@ function SessionCard({ session }: { session: SurfSessionItem }) {
     </Stack>
   );
 }
-
-// ─── Tab ─────────────────────────────────────────────────────────────────────
 
 function UploadsTab() {
   const trpc = useTRPC();

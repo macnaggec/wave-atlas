@@ -8,5 +8,7 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /** Mark a route as rendered inside the global drawer. */
     drawer?: true;
+    /** Panel header text — read by PanelFrame in _panel.tsx; no effect bridge needed. */
+    panelHeader?: string;
   }
 }

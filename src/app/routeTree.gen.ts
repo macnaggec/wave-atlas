@@ -10,36 +10,51 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PanelRouteImport } from './routes/_panel'
 import { Route as PageRouteImport } from './routes/_page'
-import { Route as DrawerRouteImport } from './routes/_drawer'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PanelMeRouteImport } from './routes/_panel.me'
+import { Route as PanelCartRouteImport } from './routes/_panel.cart'
+import { Route as PanelSpotIdRouteImport } from './routes/_panel.$spotId'
 import { Route as PageOrderSuccessRouteImport } from './routes/_page.order-success'
 import { Route as PageAccountRouteImport } from './routes/_page.account'
-import { Route as DrawerMeRouteImport } from './routes/_drawer.me'
-import { Route as DrawerCartRouteImport } from './routes/_drawer.cart'
-import { Route as DrawerSpotIdRouteImport } from './routes/_drawer.$spotId'
-import { Route as DrawerMeIndexRouteImport } from './routes/_drawer.me.index'
-import { Route as DrawerSpotIdIndexRouteImport } from './routes/_drawer.$spotId.index'
-import { Route as DrawerMePurchasesRouteImport } from './routes/_drawer.me.purchases'
-import { Route as DrawerMeFavoritesRouteImport } from './routes/_drawer.me.favorites'
+import { Route as PanelMeIndexRouteImport } from './routes/_panel.me.index'
+import { Route as PanelSpotIdIndexRouteImport } from './routes/_panel.$spotId.index'
+import { Route as PanelMePurchasesRouteImport } from './routes/_panel.me.purchases'
+import { Route as PanelMeFavoritesRouteImport } from './routes/_panel.me.favorites'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PageRoute = PageRouteImport.update({
-  id: '/_page',
+const PanelRoute = PanelRouteImport.update({
+  id: '/_panel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DrawerRoute = DrawerRouteImport.update({
-  id: '/_drawer',
+const PageRoute = PageRouteImport.update({
+  id: '/_page',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PanelMeRoute = PanelMeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => PanelRoute,
+} as any)
+const PanelCartRoute = PanelCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => PanelRoute,
+} as any)
+const PanelSpotIdRoute = PanelSpotIdRouteImport.update({
+  id: '/$spotId',
+  path: '/$spotId',
+  getParentRoute: () => PanelRoute,
 } as any)
 const PageOrderSuccessRoute = PageOrderSuccessRouteImport.update({
   id: '/order-success',
@@ -51,92 +66,77 @@ const PageAccountRoute = PageAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => PageRoute,
 } as any)
-const DrawerMeRoute = DrawerMeRouteImport.update({
-  id: '/me',
-  path: '/me',
-  getParentRoute: () => DrawerRoute,
-} as any)
-const DrawerCartRoute = DrawerCartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => DrawerRoute,
-} as any)
-const DrawerSpotIdRoute = DrawerSpotIdRouteImport.update({
-  id: '/$spotId',
-  path: '/$spotId',
-  getParentRoute: () => DrawerRoute,
-} as any)
-const DrawerMeIndexRoute = DrawerMeIndexRouteImport.update({
+const PanelMeIndexRoute = PanelMeIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DrawerMeRoute,
+  getParentRoute: () => PanelMeRoute,
 } as any)
-const DrawerSpotIdIndexRoute = DrawerSpotIdIndexRouteImport.update({
+const PanelSpotIdIndexRoute = PanelSpotIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DrawerSpotIdRoute,
+  getParentRoute: () => PanelSpotIdRoute,
 } as any)
-const DrawerMePurchasesRoute = DrawerMePurchasesRouteImport.update({
+const PanelMePurchasesRoute = PanelMePurchasesRouteImport.update({
   id: '/purchases',
   path: '/purchases',
-  getParentRoute: () => DrawerMeRoute,
+  getParentRoute: () => PanelMeRoute,
 } as any)
-const DrawerMeFavoritesRoute = DrawerMeFavoritesRouteImport.update({
+const PanelMeFavoritesRoute = PanelMeFavoritesRouteImport.update({
   id: '/favorites',
   path: '/favorites',
-  getParentRoute: () => DrawerMeRoute,
+  getParentRoute: () => PanelMeRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/$spotId': typeof DrawerSpotIdRouteWithChildren
-  '/cart': typeof DrawerCartRoute
-  '/me': typeof DrawerMeRouteWithChildren
   '/account': typeof PageAccountRoute
   '/order-success': typeof PageOrderSuccessRoute
-  '/me/favorites': typeof DrawerMeFavoritesRoute
-  '/me/purchases': typeof DrawerMePurchasesRoute
-  '/$spotId/': typeof DrawerSpotIdIndexRoute
-  '/me/': typeof DrawerMeIndexRoute
+  '/$spotId': typeof PanelSpotIdRouteWithChildren
+  '/cart': typeof PanelCartRoute
+  '/me': typeof PanelMeRouteWithChildren
+  '/me/favorites': typeof PanelMeFavoritesRoute
+  '/me/purchases': typeof PanelMePurchasesRoute
+  '/$spotId/': typeof PanelSpotIdIndexRoute
+  '/me/': typeof PanelMeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/cart': typeof DrawerCartRoute
   '/account': typeof PageAccountRoute
   '/order-success': typeof PageOrderSuccessRoute
-  '/me/favorites': typeof DrawerMeFavoritesRoute
-  '/me/purchases': typeof DrawerMePurchasesRoute
-  '/$spotId': typeof DrawerSpotIdIndexRoute
-  '/me': typeof DrawerMeIndexRoute
+  '/cart': typeof PanelCartRoute
+  '/me/favorites': typeof PanelMeFavoritesRoute
+  '/me/purchases': typeof PanelMePurchasesRoute
+  '/$spotId': typeof PanelSpotIdIndexRoute
+  '/me': typeof PanelMeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_drawer': typeof DrawerRouteWithChildren
   '/_page': typeof PageRouteWithChildren
+  '/_panel': typeof PanelRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_drawer/$spotId': typeof DrawerSpotIdRouteWithChildren
-  '/_drawer/cart': typeof DrawerCartRoute
-  '/_drawer/me': typeof DrawerMeRouteWithChildren
   '/_page/account': typeof PageAccountRoute
   '/_page/order-success': typeof PageOrderSuccessRoute
-  '/_drawer/me/favorites': typeof DrawerMeFavoritesRoute
-  '/_drawer/me/purchases': typeof DrawerMePurchasesRoute
-  '/_drawer/$spotId/': typeof DrawerSpotIdIndexRoute
-  '/_drawer/me/': typeof DrawerMeIndexRoute
+  '/_panel/$spotId': typeof PanelSpotIdRouteWithChildren
+  '/_panel/cart': typeof PanelCartRoute
+  '/_panel/me': typeof PanelMeRouteWithChildren
+  '/_panel/me/favorites': typeof PanelMeFavoritesRoute
+  '/_panel/me/purchases': typeof PanelMePurchasesRoute
+  '/_panel/$spotId/': typeof PanelSpotIdIndexRoute
+  '/_panel/me/': typeof PanelMeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/account'
+    | '/order-success'
     | '/$spotId'
     | '/cart'
     | '/me'
-    | '/account'
-    | '/order-success'
     | '/me/favorites'
     | '/me/purchases'
     | '/$spotId/'
@@ -145,9 +145,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/cart'
     | '/account'
     | '/order-success'
+    | '/cart'
     | '/me/favorites'
     | '/me/purchases'
     | '/$spotId'
@@ -155,24 +155,24 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/_drawer'
     | '/_page'
+    | '/_panel'
     | '/auth'
-    | '/_drawer/$spotId'
-    | '/_drawer/cart'
-    | '/_drawer/me'
     | '/_page/account'
     | '/_page/order-success'
-    | '/_drawer/me/favorites'
-    | '/_drawer/me/purchases'
-    | '/_drawer/$spotId/'
-    | '/_drawer/me/'
+    | '/_panel/$spotId'
+    | '/_panel/cart'
+    | '/_panel/me'
+    | '/_panel/me/favorites'
+    | '/_panel/me/purchases'
+    | '/_panel/$spotId/'
+    | '/_panel/me/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DrawerRoute: typeof DrawerRouteWithChildren
   PageRoute: typeof PageRouteWithChildren
+  PanelRoute: typeof PanelRouteWithChildren
   AuthRoute: typeof AuthRoute
 }
 
@@ -185,18 +185,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_panel': {
+      id: '/_panel'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_page': {
       id: '/_page'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_drawer': {
-      id: '/_drawer'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DrawerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -205,6 +205,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_panel/me': {
+      id: '/_panel/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof PanelMeRouteImport
+      parentRoute: typeof PanelRoute
+    }
+    '/_panel/cart': {
+      id: '/_panel/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof PanelCartRouteImport
+      parentRoute: typeof PanelRoute
+    }
+    '/_panel/$spotId': {
+      id: '/_panel/$spotId'
+      path: '/$spotId'
+      fullPath: '/$spotId'
+      preLoaderRoute: typeof PanelSpotIdRouteImport
+      parentRoute: typeof PanelRoute
     }
     '/_page/order-success': {
       id: '/_page/order-success'
@@ -220,100 +241,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageAccountRouteImport
       parentRoute: typeof PageRoute
     }
-    '/_drawer/me': {
-      id: '/_drawer/me'
-      path: '/me'
-      fullPath: '/me'
-      preLoaderRoute: typeof DrawerMeRouteImport
-      parentRoute: typeof DrawerRoute
-    }
-    '/_drawer/cart': {
-      id: '/_drawer/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof DrawerCartRouteImport
-      parentRoute: typeof DrawerRoute
-    }
-    '/_drawer/$spotId': {
-      id: '/_drawer/$spotId'
-      path: '/$spotId'
-      fullPath: '/$spotId'
-      preLoaderRoute: typeof DrawerSpotIdRouteImport
-      parentRoute: typeof DrawerRoute
-    }
-    '/_drawer/me/': {
-      id: '/_drawer/me/'
+    '/_panel/me/': {
+      id: '/_panel/me/'
       path: '/'
       fullPath: '/me/'
-      preLoaderRoute: typeof DrawerMeIndexRouteImport
-      parentRoute: typeof DrawerMeRoute
+      preLoaderRoute: typeof PanelMeIndexRouteImport
+      parentRoute: typeof PanelMeRoute
     }
-    '/_drawer/$spotId/': {
-      id: '/_drawer/$spotId/'
+    '/_panel/$spotId/': {
+      id: '/_panel/$spotId/'
       path: '/'
       fullPath: '/$spotId/'
-      preLoaderRoute: typeof DrawerSpotIdIndexRouteImport
-      parentRoute: typeof DrawerSpotIdRoute
+      preLoaderRoute: typeof PanelSpotIdIndexRouteImport
+      parentRoute: typeof PanelSpotIdRoute
     }
-    '/_drawer/me/purchases': {
-      id: '/_drawer/me/purchases'
+    '/_panel/me/purchases': {
+      id: '/_panel/me/purchases'
       path: '/purchases'
       fullPath: '/me/purchases'
-      preLoaderRoute: typeof DrawerMePurchasesRouteImport
-      parentRoute: typeof DrawerMeRoute
+      preLoaderRoute: typeof PanelMePurchasesRouteImport
+      parentRoute: typeof PanelMeRoute
     }
-    '/_drawer/me/favorites': {
-      id: '/_drawer/me/favorites'
+    '/_panel/me/favorites': {
+      id: '/_panel/me/favorites'
       path: '/favorites'
       fullPath: '/me/favorites'
-      preLoaderRoute: typeof DrawerMeFavoritesRouteImport
-      parentRoute: typeof DrawerMeRoute
+      preLoaderRoute: typeof PanelMeFavoritesRouteImport
+      parentRoute: typeof PanelMeRoute
     }
   }
 }
-
-interface DrawerSpotIdRouteChildren {
-  DrawerSpotIdIndexRoute: typeof DrawerSpotIdIndexRoute
-}
-
-const DrawerSpotIdRouteChildren: DrawerSpotIdRouteChildren = {
-  DrawerSpotIdIndexRoute: DrawerSpotIdIndexRoute,
-}
-
-const DrawerSpotIdRouteWithChildren = DrawerSpotIdRoute._addFileChildren(
-  DrawerSpotIdRouteChildren,
-)
-
-interface DrawerMeRouteChildren {
-  DrawerMeFavoritesRoute: typeof DrawerMeFavoritesRoute
-  DrawerMePurchasesRoute: typeof DrawerMePurchasesRoute
-  DrawerMeIndexRoute: typeof DrawerMeIndexRoute
-}
-
-const DrawerMeRouteChildren: DrawerMeRouteChildren = {
-  DrawerMeFavoritesRoute: DrawerMeFavoritesRoute,
-  DrawerMePurchasesRoute: DrawerMePurchasesRoute,
-  DrawerMeIndexRoute: DrawerMeIndexRoute,
-}
-
-const DrawerMeRouteWithChildren = DrawerMeRoute._addFileChildren(
-  DrawerMeRouteChildren,
-)
-
-interface DrawerRouteChildren {
-  DrawerSpotIdRoute: typeof DrawerSpotIdRouteWithChildren
-  DrawerCartRoute: typeof DrawerCartRoute
-  DrawerMeRoute: typeof DrawerMeRouteWithChildren
-}
-
-const DrawerRouteChildren: DrawerRouteChildren = {
-  DrawerSpotIdRoute: DrawerSpotIdRouteWithChildren,
-  DrawerCartRoute: DrawerCartRoute,
-  DrawerMeRoute: DrawerMeRouteWithChildren,
-}
-
-const DrawerRouteWithChildren =
-  DrawerRoute._addFileChildren(DrawerRouteChildren)
 
 interface PageRouteChildren {
   PageAccountRoute: typeof PageAccountRoute
@@ -327,10 +284,51 @@ const PageRouteChildren: PageRouteChildren = {
 
 const PageRouteWithChildren = PageRoute._addFileChildren(PageRouteChildren)
 
+interface PanelSpotIdRouteChildren {
+  PanelSpotIdIndexRoute: typeof PanelSpotIdIndexRoute
+}
+
+const PanelSpotIdRouteChildren: PanelSpotIdRouteChildren = {
+  PanelSpotIdIndexRoute: PanelSpotIdIndexRoute,
+}
+
+const PanelSpotIdRouteWithChildren = PanelSpotIdRoute._addFileChildren(
+  PanelSpotIdRouteChildren,
+)
+
+interface PanelMeRouteChildren {
+  PanelMeFavoritesRoute: typeof PanelMeFavoritesRoute
+  PanelMePurchasesRoute: typeof PanelMePurchasesRoute
+  PanelMeIndexRoute: typeof PanelMeIndexRoute
+}
+
+const PanelMeRouteChildren: PanelMeRouteChildren = {
+  PanelMeFavoritesRoute: PanelMeFavoritesRoute,
+  PanelMePurchasesRoute: PanelMePurchasesRoute,
+  PanelMeIndexRoute: PanelMeIndexRoute,
+}
+
+const PanelMeRouteWithChildren =
+  PanelMeRoute._addFileChildren(PanelMeRouteChildren)
+
+interface PanelRouteChildren {
+  PanelSpotIdRoute: typeof PanelSpotIdRouteWithChildren
+  PanelCartRoute: typeof PanelCartRoute
+  PanelMeRoute: typeof PanelMeRouteWithChildren
+}
+
+const PanelRouteChildren: PanelRouteChildren = {
+  PanelSpotIdRoute: PanelSpotIdRouteWithChildren,
+  PanelCartRoute: PanelCartRoute,
+  PanelMeRoute: PanelMeRouteWithChildren,
+}
+
+const PanelRouteWithChildren = PanelRoute._addFileChildren(PanelRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DrawerRoute: DrawerRouteWithChildren,
   PageRoute: PageRouteWithChildren,
+  PanelRoute: PanelRouteWithChildren,
   AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport

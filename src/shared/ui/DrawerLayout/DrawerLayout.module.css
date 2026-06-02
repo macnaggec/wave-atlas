@@ -1,29 +1,14 @@
-.layout {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  /* Containing block for all position: absolute floating buttons */
-  position: relative;
-}
-
-.body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* Mantine sets z-index: 1000 on Drawer.Header for sticky-over-overlay use cases.
-   In DrawerLayout the header is a flex sibling above DrawerBody (the scroll container)
-   — it never scrolls under content. Resetting to auto prevents it from covering
-   overflow from sibling elements such as Indicator badges on Tabs. */
-.header {
-  z-index: auto;
-}
-
 .floatingAction {
-  position: absolute;
+  position: sticky;
   bottom: var(--mantine-spacing-xl);
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--mantine-spacing-xl);
+  /* Prevent the sticky div itself from blocking pointer events on content below */
+  pointer-events: none;
+}
+
+.floatingAction > * {
+  pointer-events: auto;
 }

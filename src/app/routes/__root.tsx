@@ -1,15 +1,12 @@
-import { createRootRouteWithContext, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
-import { Button, Center, Drawer, Stack, Text, Title } from '@mantine/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getErrorMessage } from 'shared/lib/getErrorMessage';
-import classes from './__root.module.css';
+import { Button, Center, Stack, Text, Title } from '@mantine/core';
 import { AppShell } from 'app/AppShell';
 import { AuthModalProvider } from 'features/Auth/AuthModalProvider';
 import { AddSpotProvider } from 'features/AddSpot';
 import { useCartSessionSync } from 'features/Cart/model/useCartSessionSync';
-
-const TRANSITION_MS = 300;
+import classes from './__root.module.css';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -17,54 +14,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: RootNotFound,
 });
 
-/**
- * RootLayout — routing infrastructure and provider tree.
- *
- * Owns the Drawer.Root so it never unmounts across /_drawer navigations.
- * Persistent floating UI lives in AppShell.
- */
 function RootLayout() {
   useCartSessionSync();
-
-  const navigate = useNavigate();
-  const isDrawerRoute = useRouterState({
-    select: (s) => s.matches.some((m) => m.routeId === '/_drawer'),
-  });
-
-  const [appReady, setAppReady] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const isDrawerRouteRef = useRef(isDrawerRoute);
-  isDrawerRouteRef.current = isDrawerRoute;
-
-  useEffect(() => { setAppReady(true); }, []);
-
-  const handleClose = useCallback(() => setClosing(true), []);
-
-  const handleExited = useCallback(() => {
-    setClosing(false);
-    if (isDrawerRouteRef.current) void navigate({ to: '/' });
-  }, [navigate]);
 
   return (
     <AuthModalProvider>
       <AddSpotProvider>
         <AppShell />
-
-        <Drawer.Root
-          opened={isDrawerRoute && !closing}
-          onClose={handleClose}
-          position="right"
-          size="xl"
-          zIndex={200}
-          transitionProps={{ duration: appReady ? TRANSITION_MS : 0, onExited: handleExited }}
-        >
-          <Drawer.Overlay backgroundOpacity={0.4} blur={4} />
-          <Drawer.Content>
-            {isDrawerRoute && <Outlet />}
-          </Drawer.Content>
-        </Drawer.Root>
-
-        {!isDrawerRoute && <Outlet />}
+        <Outlet />
       </AddSpotProvider>
     </AuthModalProvider>
   );

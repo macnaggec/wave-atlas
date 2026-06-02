@@ -1,1 +1,1 @@
-export { DrawerLayout, DrawerBody, DrawerHeader, FloatingAction } from './DrawerLayout';
+export { FloatingAction } from './DrawerLayout';

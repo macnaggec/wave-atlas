@@ -8,15 +8,10 @@ import DownloadButton from 'features/Cart/ui/DownloadButton';
 import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
 import { formatPrice } from 'shared/lib/currency';
 
-export const Route = createFileRoute('/_drawer/me/purchases')({
+export const Route = createFileRoute('/_panel/me/purchases')({
   component: PurchasesTab,
 });
 
-/**
- * PurchasesTab — shows media purchased by the authenticated user.
- * Clicking a thumbnail opens a clean (no-watermark) preview modal.
- * Download triggers a server-side signed URL generation with purchase ownership check.
- */
 function PurchasesTab() {
   const trpc = useTRPC();
   const { data: purchases = [], isLoading } = useQuery(trpc.checkout.myPurchases.queryOptions());

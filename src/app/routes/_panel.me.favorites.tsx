@@ -1,13 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Center, Text } from '@mantine/core';
 
-export const Route = createFileRoute('/_drawer/me/favorites')({
+export const Route = createFileRoute('/_panel/me/favorites')({
   component: FavoritesTab,
 });
 
-/**
- * FavoritesTab — shows media favorited by the authenticated user.
- */
 function FavoritesTab() {
   return (
     <Center mih={200}>

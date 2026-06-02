@@ -69,6 +69,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative; /* containing block for FloatingAction sticky positioning */
 }
 
 /* ── Top-row icon button (expand/back + hide) ─────────────────────────────── */

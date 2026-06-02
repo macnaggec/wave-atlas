@@ -6,7 +6,7 @@ import { useCartStore, toCartItem } from 'features/Cart';
 import { MediaItem } from 'entities/Media/types';
 import { useCallback, useMemo } from 'react';
 
-export const Route = createFileRoute('/_drawer/$spotId/')({
+export const Route = createFileRoute('/_panel/$spotId/')({
   component: GalleryTab,
 });
 
