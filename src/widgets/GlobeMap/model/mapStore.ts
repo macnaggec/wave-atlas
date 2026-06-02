@@ -29,8 +29,6 @@ interface MapState {
   tempPin: LngLat | null;
   /** Name pre-filled from the search query that triggered pin-placement. */
   pendingSpotName: string;
-  /** Whether the sidebar is in wide/expanded mode (C-all, C-session, or user-expanded). */
-  sidebarExpanded: boolean;
 }
 
 interface MapActions {
@@ -43,7 +41,6 @@ interface MapActions {
   exitSpotSelect: () => void;
   setTempPin: (pos: LngLat) => void;
   clearTempPin: () => void;
-  setSidebarExpanded: (expanded: boolean) => void;
 }
 
 interface MapStore extends MapState, MapActions { }
@@ -56,7 +53,6 @@ export const useMapStore = create<MapStore>()(
       interactionMode: 'explore',
       tempPin: null,
       pendingSpotName: '',
-      sidebarExpanded: false,
 
       setSelection: (spot) => set({ selection: spot }),
       clearSelection: () => set({ selection: null }),
@@ -69,7 +65,6 @@ export const useMapStore = create<MapStore>()(
       exitSpotSelect: () => set({ interactionMode: 'explore' }),
       setTempPin: (pos) => set({ tempPin: pos }),
       clearTempPin: () => set({ tempPin: null }),
-      setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
     }),
     {
       name: 'wave-atlas-map',
