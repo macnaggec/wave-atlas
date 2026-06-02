@@ -65,10 +65,11 @@ export const spotsRouter = router({
         spotId: z.string(),
         cursor: z.string().uuid().optional(),
         limit: z.number().min(1).max(100).default(30),
+        sortOrder: z.enum(['asc', 'desc']).default('desc'),
       }),
     )
     .query(({ input }) =>
-      spotRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit)
+      spotRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder)
     ),
 
   card: publicProcedure.input(z.string()).query(({ input: id }) => spotRepository.findSpotCard(id)),

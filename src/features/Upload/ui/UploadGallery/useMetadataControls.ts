@@ -10,7 +10,6 @@ interface Selection {
 
 interface UseMetadataControlsProps {
   completedItems: QueueItem[];
-  hasActiveUploads: boolean;
   selection: Selection;
   onBulkDateEdit?: (selectedIds: string[], date: Date) => void;
   onBulkPriceEdit?: (selectedIds: string[], price: number) => void;
@@ -28,7 +27,6 @@ interface UseMetadataControlsProps {
  */
 export function useMetadataControls({
   completedItems,
-  hasActiveUploads,
   selection,
   onBulkDateEdit,
   onBulkPriceEdit,
@@ -43,11 +41,8 @@ export function useMetadataControls({
     return targetItems.some(item => item.result?.dateSource === 'exif');
   }, [hasSelection, selectedItems, completedItems]);
 
-  // Disable toolbar while uploads are still in progress
-  const isDisabled = hasActiveUploads;
-
-  // Tooltip message for disabled controls
-  const tooltip = hasActiveUploads ? 'Wait for all uploads to complete' : undefined;
+  const isDisabled = false;
+  const tooltip = undefined;
 
   // Date apply handler - captures selection state at invocation time
   const handleDateApply = useCallback(

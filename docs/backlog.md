@@ -204,3 +204,7 @@
     - Prerequisite: none
 
 56. checkout whithout authentication shows error, even it was implemented.
+57. is it possible to load libraries like motion deferred and is it worth to do.
+58. bug: no centering and filtering when select spot from search result for the first try, works ok if to search and select one more time.
+59. Need to disable cursor when spot is selected in search bar. clearing selected spot with x button enables it back
+60. add location to selected spot name because there are like echo beach on bali and echo beach on banyak islands.

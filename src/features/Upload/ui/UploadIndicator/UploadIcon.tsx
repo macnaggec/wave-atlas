@@ -1,4 +1,4 @@
-'use client';
+
 
 import { FC } from 'react';
 import { ActionIcon } from '@mantine/core';

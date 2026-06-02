@@ -1,4 +1,4 @@
-'use client';
+
 
 // Generic gallery component (foundation for feature-specific galleries)
 export { default as BaseGallery } from './BaseGallery';

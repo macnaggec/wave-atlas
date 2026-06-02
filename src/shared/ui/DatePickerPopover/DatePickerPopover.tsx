@@ -1,5 +1,3 @@
-'use client';
-
 import React, { FC, ReactNode, useState } from 'react';
 import { Popover, Button, Stack, Group } from '@mantine/core';
 import { DatePicker, TimeInput } from '@mantine/dates';
@@ -54,6 +52,8 @@ export interface DatePickerPopoverProps {
 
   /** Maximum selectable date (dates after this will be disabled) */
   maxDate?: Date;
+  /** Optional style overrides for the trigger button */
+  buttonStyle?: React.CSSProperties;
 }
 
 /**
@@ -72,6 +72,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
   renderFooter,
   buttonLabel,
   maxDate,
+  buttonStyle,
 }) => {
   const [opened, setOpened] = useState(false);
   const [draftDate, setDraftDate] = useState<Date>(value || new Date());
@@ -96,7 +97,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
     if (draftDate) {
       if (showTimeRange) {
         // Combine date with from time
-        const [hours, minutes] = fromTime.split(':').map(Number);
+        const [hours, minutes] = fromTime.split(':').map(Number) as [number, number];
         const finalDate = new Date(draftDate);
         finalDate.setHours(hours, minutes, 0, 0);
         onApply(finalDate, fromTime, toTime);
@@ -163,13 +164,15 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
     >
       <Popover.Target>
         <Button
-          variant="light"
+          variant="transparent"
           color={color}
-          leftSection={<IconCalendar size={16} />}
-          rightSection={<IconChevronDown size={14} />}
+          leftSection={<IconCalendar size={13} />}
+          rightSection={<IconChevronDown size={11} />}
           disabled={disabled}
           onClick={togglePopover}
           radius="xl"
+          size="xs"
+          style={buttonStyle}
         >
           {formattedDate}
         </Button>
@@ -186,20 +189,34 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
 
           {/* Time Range - Optional */}
           {showTimeRange && (
-            <Group gap="sm" grow>
+            <Group gap="xs" grow>
               <TimeInput
-                label="From"
+                label="FROM"
                 value={fromTime}
                 onChange={handleFromTimeChange}
-                leftSection={<IconClock size={16} />}
+                leftSection={<IconClock size={14} />}
                 max={maxTimeValue}
+                size="md"
+                radius="xl"
+                variant="filled"
+                styles={{
+                  wrapper: { '--input-bg': 'rgba(0,0,0,0.05)', '--input-bd': 'transparent' } as React.CSSProperties,
+                  label: { fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.06em', marginBottom: 4 },
+                }}
               />
               <TimeInput
-                label="To"
+                label="TO"
                 value={toTime}
                 onChange={handleToTimeChange}
-                leftSection={<IconClock size={16} />}
+                leftSection={<IconClock size={14} />}
                 max={maxTimeValue}
+                size="md"
+                radius="xl"
+                variant="filled"
+                styles={{
+                  wrapper: { '--input-bg': 'rgba(0,0,0,0.05)', '--input-bd': 'transparent' } as React.CSSProperties,
+                  label: { fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.06em', marginBottom: 4 },
+                }}
               />
             </Group>
           )}
@@ -209,11 +226,11 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
 
           {/* Action buttons */}
           <Group gap="xs" grow>
-            <Button onClick={handleApply}>
+            <Button radius="xl" onClick={handleApply}>
               Apply
             </Button>
 
-            <Button variant="subtle" onClick={handleCancel}>
+            <Button radius="xl" variant="subtle" onClick={handleCancel}>
               Cancel
             </Button>
           </Group>

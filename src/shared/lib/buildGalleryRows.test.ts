@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildGalleryRows } from './buildGalleryRows';
+import type { GalleryRow } from './buildGalleryRows';
 import type { MediaItem } from 'entities/Media/types';
 
 function makeItem(id: string, capturedAt: Date): MediaItem {
@@ -38,17 +39,17 @@ describe('buildGalleryRows — base behaviour', () => {
     const rows = buildGalleryRows(items);
 
     expect(rows).toHaveLength(2);
-    expect(rows[0].type).toBe('divider');
-    expect(rows[1].type).toBe('media');
-    if (rows[1].type === 'media') expect(rows[1].items).toHaveLength(3);
+    expect(rows[0]!.type).toBe('divider');
+    expect(rows[1]!.type).toBe('media');
+    expect((rows[1]! as Extract<GalleryRow, { type: 'media' }>).items).toHaveLength(3);
   });
 
   it('divider carries mediaRowCount equal to ceil(items / columns)', () => {
     const items = Array.from({ length: 7 }, (_, i) => makeItem(`m${i}`, JAN_1));
     const rows = buildGalleryRows(items);
 
-    expect(rows[0].type).toBe('divider');
-    if (rows[0].type === 'divider') expect(rows[0].mediaRowCount).toBe(3); // ceil(7/3)
+    expect(rows[0]!.type).toBe('divider');
+    expect((rows[0]! as Extract<GalleryRow, { type: 'divider' }>).mediaRowCount).toBe(3); // ceil(7/3)
   });
 
   it('produces partial last row when items do not fill a full row', () => {
@@ -56,7 +57,7 @@ describe('buildGalleryRows — base behaviour', () => {
     const rows = buildGalleryRows(items);
 
     expect(rows).toHaveLength(3); // divider + row(3) + row(1)
-    if (rows[2].type === 'media') expect(rows[2].items).toHaveLength(1);
+    expect((rows[2]! as Extract<GalleryRow, { type: 'media' }>).items).toHaveLength(1);
   });
 
   it('inserts a divider before each new date group', () => {
@@ -64,10 +65,10 @@ describe('buildGalleryRows — base behaviour', () => {
     const rows = buildGalleryRows(items);
 
     expect(rows).toHaveLength(4);
-    expect(rows[0].type).toBe('divider');
-    expect(rows[2].type).toBe('divider');
-    if (rows[0].type === 'divider') expect(rows[0].date).toEqual(JAN_1);
-    if (rows[2].type === 'divider') expect(rows[2].date).toEqual(JAN_2);
+    expect(rows[0]!.type).toBe('divider');
+    expect(rows[2]!.type).toBe('divider');
+    expect((rows[0]! as Extract<GalleryRow, { type: 'divider' }>).date).toEqual(JAN_1);
+    expect((rows[2]! as Extract<GalleryRow, { type: 'divider' }>).date).toEqual(JAN_2);
   });
 
   it('handles 3 distinct dates correctly', () => {
@@ -135,8 +136,8 @@ describe('buildGalleryRows — hour drill-down (expandedDate)', () => {
     const hourDividers = rows.filter((r) => r.type === 'hour-divider');
 
     expect(hourDividers).toHaveLength(2);
-    if (hourDividers[0].type === 'hour-divider') expect(hourDividers[0].hour).toBe(10);
-    if (hourDividers[1].type === 'hour-divider') expect(hourDividers[1].hour).toBe(14);
+    expect((hourDividers[0]! as Extract<GalleryRow, { type: 'hour-divider' }>).hour).toBe(10);
+    expect((hourDividers[1]! as Extract<GalleryRow, { type: 'hour-divider' }>).hour).toBe(14);
   });
 
   it('orders items within the expanded day chronologically (earliest first)', () => {
@@ -145,8 +146,8 @@ describe('buildGalleryRows — hour drill-down (expandedDate)', () => {
     const mediaRows = rows.filter((r) => r.type === 'media');
 
     // First media row should have the 10am item, second the 2pm item
-    if (mediaRows[0].type === 'media') expect(mediaRows[0].items[0].id).toBe('a');
-    if (mediaRows[1].type === 'media') expect(mediaRows[1].items[0].id).toBe('b');
+    expect((mediaRows[0]! as Extract<GalleryRow, { type: 'media' }>).items[0]!.id).toBe('a');
+    expect((mediaRows[1]! as Extract<GalleryRow, { type: 'media' }>).items[0]!.id).toBe('b');
   });
 
   it('does not insert hour-dividers in other date groups', () => {

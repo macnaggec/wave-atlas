@@ -57,7 +57,6 @@ export const useMapInteraction = ({
   }, [spots, onSpotClick]);
 
   const onMapClick = useCallback((event: MapMouseEvent) => {
-    // Stop spinning on click interaction
     onUserInteractionStart();
 
     const feature = event.features?.[0];

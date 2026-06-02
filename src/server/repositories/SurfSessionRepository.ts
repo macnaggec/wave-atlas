@@ -51,12 +51,18 @@ export class SurfSessionRepository {
     });
   }
 
-  listPublished(filter: { spotId?: string; cursor?: string; limit: number }): Promise<SurfSessionPage> {
+  listPublished(filter: { spotId?: string; cursor?: string; limit: number; dateFrom?: Date; dateTo?: Date }): Promise<SurfSessionPage> {
     return runQuery(async () => {
       const rows = await prisma.surfSession.findMany({
         where: {
           status: SurfSessionStatus.PUBLISHED,
           ...(filter.spotId ? { spotId: filter.spotId } : {}),
+          ...(filter.dateFrom || filter.dateTo ? {
+            startsAt: {
+              ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
+              ...(filter.dateTo ? { lt: filter.dateTo } : {}),
+            },
+          } : {}),
         },
         take: filter.limit + 1,
         ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),

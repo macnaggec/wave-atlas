@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { FC, memo, useCallback } from 'react';
 import { ActionIcon, Badge, Group } from '@mantine/core';

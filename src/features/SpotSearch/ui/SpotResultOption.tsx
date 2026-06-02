@@ -32,7 +32,7 @@ export function SpotResultOption({ spot, onAliasError }: SpotResultOptionProps) 
     const trimmed = aliasValue.trim();
     const result = spotAliasSchema.safeParse(trimmed);
     if (!result.success) {
-      setAliasError(result.error.issues[0].message);
+      setAliasError(result.error.issues[0]!.message);
       return;
     }
     await aliasMutation.mutateAsync({ spotId: spot.id, alias: trimmed });

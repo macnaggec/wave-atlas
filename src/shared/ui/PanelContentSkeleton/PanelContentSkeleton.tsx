@@ -1,4 +1,4 @@
-'use client';
+
 
 import { SimpleGrid, Skeleton, Stack } from '@mantine/core';
 

@@ -1,9 +1,20 @@
-'use client';
+
 
 import React, { ReactNode, memo } from 'react';
 import { Button, Group, Menu } from '@mantine/core';
 import { IconDots } from '@tabler/icons-react';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
+
+const glass = {
+  background: 'rgba(255,255,255,0.08)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: 'rgba(255,255,255,0.85)',
+};
+const ghost = {
+  background: 'transparent',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: 'rgba(255,255,255,0.5)',
+};
 
 export interface SelectionToolbarProps<T> {
   selection: UseGallerySelectionReturn<T>;
@@ -19,46 +30,52 @@ const SelectionToolbar = memo(<T,>({
   renderContent,
 }: SelectionToolbarProps<T>) => {
   return (
-    <Group justify="space-between" mb="md">
-      {/* Left: Actions menu + metadata content */}
-      <Group gap="sm">
+    <Group justify="space-between">
+      {/* Left: bulk actions (selection mode) + metadata content */}
+      <Group gap="xs">
         {selection.isSelectionMode && renderActions && hasActions?.(selection.selectedItems) !== false && (
           <Menu position="bottom-start" withArrow>
             <Menu.Target>
               <Button
-                variant="light"
-                leftSection={<IconDots size={18} />}
+                variant="transparent"
+                size="xs"
+                leftSection={<IconDots size={14} />}
                 disabled={!selection.hasSelection}
+                style={glass}
+                radius="xl"
               >
                 Actions
               </Button>
             </Menu.Target>
-
             <Menu.Dropdown>
               {renderActions(selection.selectedItems)}
             </Menu.Dropdown>
           </Menu>
         )}
-
-        {renderContent && renderContent()}
+        {renderContent?.()}
       </Group>
 
-      {/* Right: Selection controls */}
+      {/* Right: select-all + select/done toggle */}
       <Group gap="xs">
         {selection.isSelectionMode && (
           <Button
-            variant="default"
+            variant="transparent"
+            size="xs"
+            style={ghost}
+            radius="xl"
             onClick={selection.isAllSelected ? selection.clearSelection : selection.selectAll}
           >
-            {selection.isAllSelected ? 'Deselect All' : 'Select All'}
+            {selection.isAllSelected ? 'Deselect all' : 'Select all'}
           </Button>
         )}
-
         <Button
-          variant={selection.isSelectionMode ? 'subtle' : 'light'}
+          variant="transparent"
+          size="xs"
+          style={selection.isSelectionMode ? ghost : glass}
+          radius="xl"
           onClick={selection.isSelectionMode ? selection.disableSelectionMode : selection.enableSelectionMode}
         >
-          {selection.isSelectionMode ? 'Cancel' : 'Select'}
+          {selection.isSelectionMode ? 'Done' : 'Select'}
         </Button>
       </Group>
     </Group>
@@ -66,5 +83,4 @@ const SelectionToolbar = memo(<T,>({
 }) as <T>(props: SelectionToolbarProps<T>) => React.ReactElement;
 
 (SelectionToolbar as React.MemoExoticComponent<React.FC>).displayName = 'SelectionToolbar';
-
 export default SelectionToolbar;

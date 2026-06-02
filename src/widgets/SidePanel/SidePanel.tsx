@@ -1,22 +1,26 @@
 import type { ReactNode } from 'react';
-import { IconChevronRight, IconChevronLeft, IconX } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconArrowLeft } from '@tabler/icons-react';
 import styles from './SidePanel.module.css';
 
 interface SidePanelProps {
   isOpen: boolean;
   /** Called when the tongue tab is clicked to reopen the panel. */
   onOpen: () => void;
-  /** Called when the X button is clicked to close and reveal the map. Only active in one-column state. */
+  /** Called when the hide button (›) is clicked to collapse to tongue. */
   onClose: () => void;
   /** Expands the panel to cover most of the viewport width. */
   expanded?: boolean;
-  /** Called when the left chevron is clicked to toggle expand/collapse. */
+  /** Called when the expand/collapse toggle is clicked. */
   onExpandToggle?: () => void;
-  /** Center slot in the top bar (e.g. Browse/Upload SegmentedControl). */
+  /** When provided, replaces the expand toggle with a ← back button. */
+  onBack?: () => void;
+  /** Center slot in the top bar (e.g. ModeSwitcher or search bar). */
   header?: ReactNode;
-  /** Full-width row below the top bar, above the scrollable body (e.g. search). */
+  /** Right-of-header slot in the top bar (e.g. an Upload button). */
+  topAction?: ReactNode;
+  /** Full-width row below the top bar, above the scrollable body (e.g. search in State A). */
   subheader?: ReactNode;
-  /** Optional label on the tongue tab (shown when panel is closed). */
+  /** Label on the tongue tab (shown when panel is closed). */
   tongueLabel?: string;
   children?: ReactNode;
 }
@@ -27,7 +31,9 @@ export function SidePanel({
   onClose,
   expanded,
   onExpandToggle,
+  onBack,
   header,
+  topAction,
   subheader,
   tongueLabel,
   children,
@@ -36,9 +42,7 @@ export function SidePanel({
     styles.panel,
     !isOpen ? styles.panelClosed : '',
     expanded ? styles.panelExpanded : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  ].filter(Boolean).join(' ');
 
   return (
     <>
@@ -52,39 +56,40 @@ export function SidePanel({
         {tongueLabel && <span className={styles.tongueLabel}>{tongueLabel}</span>}
       </button>
 
-      {/* Sliding panel */}
       <div className={panelClass} aria-hidden={!isOpen}>
-        {/* Top bar: [← expand] [center: header] */}
+        {/* Top bar: [expand/back] [center: header] [hide ›] */}
         <div className={styles.panelTop}>
           <button
-            className={styles.chevronBtn}
-            onClick={onExpandToggle}
-            aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
+            className={`${styles.topBtn} ${!onBack && !onExpandToggle ? styles.topBtnHidden : ''}`}
+            onClick={onBack ?? onExpandToggle}
+            aria-label={onBack ? 'Back' : expanded ? 'Collapse panel' : 'Expand panel'}
+            tabIndex={!onBack && !onExpandToggle ? -1 : undefined}
           >
-            {expanded ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+            {onBack
+              ? <IconArrowLeft size={16} />
+              : expanded
+              ? <IconMinimize size={16} />
+              : <IconMaximize size={16} />}
           </button>
 
           {header && <div className={styles.headerSlot}>{header}</div>}
 
-          {/* Phantom spacer — balances the left chevron so header stays truly centered */}
-          <div className={styles.chevronBtn} aria-hidden="true" />
+          {topAction && <div className={styles.topActionSlot}>{topAction}</div>}
+
+          <button
+            className={styles.topBtn}
+            onClick={onClose}
+            aria-label="Hide panel"
+          >
+            <IconChevronRight size={16} />
+          </button>
         </div>
 
-        {/* X button — top-right corner, one-column state only */}
-        <button
-          className={`${styles.closeBtn} ${expanded ? styles.closeBtnHidden : ''}`}
-          onClick={onClose}
-          aria-label="Close panel"
-          tabIndex={expanded ? -1 : undefined}
-        >
-          <IconX size={16} />
-        </button>
-
-        {/* Subheader: search bar, shown below top bar, above scrollable body */}
+        {/* Subheader: full-width row below top bar (e.g. search in State A) */}
         {subheader && <div className={styles.subheader}>{subheader}</div>}
 
         {/* Body */}
-        <div className={styles.body}>{children}</div>
+        <div className={`${styles.body} dark-surface`}>{children}</div>
       </div>
     </>
   );

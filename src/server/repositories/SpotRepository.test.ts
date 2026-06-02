@@ -84,7 +84,7 @@ describe('SpotRepository.findPublishedBySpot', () => {
 
     await repo.findPublishedBySpot('spot-1', undefined, 3);
 
-    const call = mockFindMany.mock.calls[0][0];
+    const call = mockFindMany.mock.calls[0]![0]!;
     expect(call.cursor).toBeUndefined();
     expect(call.skip).toBeUndefined();
   });

@@ -49,7 +49,8 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
         py="xl"
         style={{
           borderRadius: 8,
-          background: 'rgba(255,255,255,0.07)',
+          background: 'rgba(255,255,255,0.08)',
+          border: '1px dashed rgba(255,255,255,0.14)',
           opacity: disabled ? 0.5 : 1,
         }}
       >

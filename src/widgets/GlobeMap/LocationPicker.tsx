@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useRef, useCallback, useState } from 'react';
 import Map, { MapRef, Marker, NavigationControl, MapLayerMouseEvent } from 'react-map-gl';

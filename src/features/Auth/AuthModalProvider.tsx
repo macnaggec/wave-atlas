@@ -26,6 +26,8 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
         centered
         size="sm"
         title="Sign in to Wave Atlas"
+        overlayProps={{ backgroundOpacity: 0.45, blur: 4 }}
+        styles={{ content: { borderRadius: 16, overflow: 'hidden' } }}
         zIndex={400}
       >
         <AuthPage onSuccess={close} />

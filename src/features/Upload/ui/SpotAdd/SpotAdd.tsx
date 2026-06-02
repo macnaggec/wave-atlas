@@ -24,7 +24,7 @@ const SpotAdd = ({
     const validateName = (value: string) => {
         const result = spotNameSchema.safeParse(value.trim());
         if (!result.success) {
-            setError(result.error.issues[0].message);
+            setError(result.error.issues[0]!.message);
             return false;
         }
         setError(null);

@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { FC, memo } from 'react';
 import { Group, Button } from '@mantine/core';

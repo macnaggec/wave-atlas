@@ -13,6 +13,12 @@ export function StepPill({ icon, label }: { icon: ReactNode; label: string }) {
   );
 }
 
+export function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = (minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
 export function combineDateAndTime(date: Date, timeStr: string): Date {
   const [h, m] = timeStr.split(':').map(Number);
   const result = new Date(date);

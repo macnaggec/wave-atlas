@@ -121,8 +121,8 @@ export function useAddSpotFlow(): AddSpotFlowState {
     if (!tempPin) return;
     const nameResult = spotNameSchema.safeParse(name.trim());
     const locationResult = spotLocationSchema.safeParse(location.trim());
-    if (!nameResult.success) setNameError(nameResult.error.issues[0].message);
-    if (!locationResult.success) setLocationError(locationResult.error.issues[0].message);
+    if (!nameResult.success) setNameError(nameResult.error.issues[0]!.message);
+    if (!locationResult.success) setLocationError(locationResult.error.issues[0]!.message);
     if (!nameResult.success || !locationResult.success) return;
     setIsCheckingNearby(true);
     try {

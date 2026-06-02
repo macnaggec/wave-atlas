@@ -25,10 +25,10 @@ export function buildGalleryRows(
   let groupStart = 0;
 
   while (groupStart < items.length) {
-    const groupDate = items[groupStart].capturedAt;
+    const groupDate = items[groupStart]!.capturedAt;
 
     let groupEnd = groupStart + 1;
-    while (groupEnd < items.length && isSameCalendarDay(items[groupEnd].capturedAt, groupDate)) {
+    while (groupEnd < items.length && isSameCalendarDay(items[groupEnd]!.capturedAt, groupDate)) {
       groupEnd++;
     }
 
@@ -43,23 +43,23 @@ export function buildGalleryRows(
 
       let hourStart = 0;
       while (hourStart < chronological.length) {
-        const hour = chronological[hourStart].capturedAt.getUTCHours();
+        const hour = chronological[hourStart]!.capturedAt.getUTCHours();
         let hourEnd = hourStart + 1;
-        while (hourEnd < chronological.length && chronological[hourEnd].capturedAt.getUTCHours() === hour) {
+        while (hourEnd < chronological.length && chronological[hourEnd]!.capturedAt.getUTCHours() === hour) {
           hourEnd++;
         }
         const hourItems = chronological.slice(hourStart, hourEnd);
         rows.push({ type: 'hour-divider', date: groupDate, hour, key: `hour-${groupDate.toISOString()}-${hour}` });
         for (let i = 0; i < hourItems.length; i += columns) {
           const chunk = hourItems.slice(i, i + columns);
-          rows.push({ type: 'media', items: chunk, key: `media-${chunk[0].id}` });
+          rows.push({ type: 'media', items: chunk, key: `media-${chunk[0]!.id}` });
         }
         hourStart = hourEnd;
       }
     } else {
       for (let i = 0; i < groupItems.length; i += columns) {
         const chunk = groupItems.slice(i, i + columns);
-        rows.push({ type: 'media', items: chunk, key: `media-${chunk[0].id}` });
+        rows.push({ type: 'media', items: chunk, key: `media-${chunk[0]!.id}` });
       }
     }
 

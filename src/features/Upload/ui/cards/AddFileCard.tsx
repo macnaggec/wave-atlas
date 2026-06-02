@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { FC, memo, useRef } from 'react';
 import { ActionIcon, Box, Stack, Text, Tooltip } from '@mantine/core';
@@ -122,7 +122,7 @@ const AddFileCard: FC<AddFileCardProps> = memo(({
       <Stack align="center" justify="center" gap={4} className={classes.content}>
         <ActionIcon
           size={36}
-          radius="md"
+          radius="xl"
           variant="light"
           color={disabled ? "gray" : "blue"}
           className={classes.actionIcon}

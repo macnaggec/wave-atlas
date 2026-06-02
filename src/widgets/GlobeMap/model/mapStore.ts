@@ -22,20 +22,22 @@ const DEFAULT_CAMERA: CameraState = {
 export type InteractionMode = 'explore' | 'pin-placement' | 'spot-select';
 
 interface MapState {
-  selectedSpot: Spot | null;
-  /** Derived from selectedSpot for backward-compat with existing selectors. */
-  selectedSpotId: string | null;
+  selection: Spot | null;
+  isSidePanelOpen: boolean;
   cameraState: CameraState;
   interactionMode: InteractionMode;
   /** Temporary pin position while in pin-placement mode. */
   tempPin: LngLat | null;
   /** Name pre-filled from the search query that triggered pin-placement. */
   pendingSpotName: string;
+  /** Whether the sidebar is in wide/expanded mode (C-all, C-session, or user-expanded). */
+  sidebarExpanded: boolean;
 }
 
 interface MapActions {
-  selectSpot: (spot: Spot) => void;
+  setSelection: (spot: Spot) => void;
   clearSelection: () => void;
+  setSidePanelOpen: (open: boolean) => void;
   saveCameraState: (camera: CameraState) => void;
   enterPinPlacement: (initialName?: string) => void;
   exitPinPlacement: () => void;
@@ -43,6 +45,7 @@ interface MapActions {
   exitSpotSelect: () => void;
   setTempPin: (pos: LngLat) => void;
   clearTempPin: () => void;
+  setSidebarExpanded: (expanded: boolean) => void;
 }
 
 interface MapStore extends MapState, MapActions { }
@@ -50,15 +53,17 @@ interface MapStore extends MapState, MapActions { }
 export const useMapStore = create<MapStore>()(
   persist(
     (set) => ({
-      selectedSpot: null,
-      selectedSpotId: null,
+      selection: null,
+      isSidePanelOpen: true,
       cameraState: DEFAULT_CAMERA,
       interactionMode: 'explore',
       tempPin: null,
       pendingSpotName: '',
+      sidebarExpanded: false,
 
-      selectSpot: (spot) => set({ selectedSpot: spot, selectedSpotId: spot.id }),
-      clearSelection: () => set({ selectedSpot: null, selectedSpotId: null }),
+      setSelection: (spot) => set({ selection: spot }),
+      clearSelection: () => set({ selection: null }),
+      setSidePanelOpen: (open) => set({ isSidePanelOpen: open }),
       saveCameraState: (camera) => set({ cameraState: camera }),
       enterPinPlacement: (initialName = '') =>
         set({ interactionMode: 'pin-placement', tempPin: null, pendingSpotName: initialName }),
@@ -68,6 +73,7 @@ export const useMapStore = create<MapStore>()(
       exitSpotSelect: () => set({ interactionMode: 'explore' }),
       setTempPin: (pos) => set({ tempPin: pos }),
       clearTempPin: () => set({ tempPin: null }),
+      setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
     }),
     {
       name: 'wave-atlas-map',

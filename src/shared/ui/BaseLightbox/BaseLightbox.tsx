@@ -30,7 +30,7 @@ const mediaStyle: React.CSSProperties = {
  */
 const BaseLightbox: FC<BaseLightboxProps> = memo(({ item, onClose, renderFooter }) => {
   return (
-    <Modal opened={item !== null} onClose={onClose} size="xl" centered padding="md" withCloseButton zIndex={300}>
+    <Modal opened={item !== null} onClose={onClose} size="xl" centered padding="md" withCloseButton overlayProps={{ backgroundOpacity: 0.45, blur: 4 }} styles={{ content: { borderRadius: 16, overflow: 'hidden' } }} zIndex={300}>
       {item && (
         <Stack gap="md">
           {item.type === 'video'

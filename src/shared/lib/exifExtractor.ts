@@ -41,7 +41,7 @@ function toCameraLocalAsUTC(d: Date, offsetStr: string | undefined): Date {
 
   // exifr already applied the offset → d is true UTC; camera local = UTC + offset
   const sign = m[1] === '+' ? 1 : -1;
-  const offsetMs = sign * (parseInt(m[2]) * 60 + parseInt(m[3])) * 60_000;
+  const offsetMs = sign * (parseInt(m[2]!) * 60 + parseInt(m[3]!)) * 60_000;
   return new Date(d.getTime() + offsetMs);
 }
 

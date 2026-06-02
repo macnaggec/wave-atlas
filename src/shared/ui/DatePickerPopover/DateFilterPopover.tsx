@@ -1,4 +1,4 @@
-'use client';
+
 
 import { FC, memo, useCallback, useState } from 'react';
 import { Popover, Button, Indicator, CloseButton, Group } from '@mantine/core';

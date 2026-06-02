@@ -1,47 +1,67 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
-import { IconLogin2, IconPhoto, IconVideo } from '@tabler/icons-react';
+import { Box, Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
+import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icons-react';
+import { useMutation } from '@tanstack/react-query';
+import { useTRPC } from 'app/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
 import { useUploadStore } from '../model/uploadStore';
 import type { Spot } from 'entities/Spot/types';
-import { SpotStep } from './steps/SpotStep';
 import { UploadStep } from './steps/UploadStep';
 import { TimeStep } from './steps/TimeStep';
+import { combineDateAndTime, minutesToTime } from './steps/helpers';
 
 // ─── Files pill ───────────────────────────────────────────────────────────────
 
-function FilesPill({ spotId }: { spotId: string }) {
+interface FilesPillProps {
+  spotId: string;
+  onOpen: () => void;
+  photoPrice: number | null;
+  videoPrice: number | null;
+}
+
+function FilesPill({ spotId, onOpen, photoPrice, videoPrice }: FilesPillProps) {
   const queue = useUploadStore((s) => s.uploadQueue);
+  const [hovered, setHovered] = useState(false);
+
   const { photoCount, videoCount } = useMemo(() => {
     const completed = queue.filter(
-      (item) => item.spotId === spotId && item.status === 'completed'
+      (i) => i.spotId === spotId && i.status === 'completed',
     );
     const vc = completed.filter(
-      (item) =>
-        item.cloudinaryResult?.resource_type === 'video' ||
-        item.file?.type.startsWith('video/')
+      (i) =>
+        i.cloudinaryResult?.resource_type === 'video' ||
+        i.file?.type.startsWith('video/'),
     ).length;
     return { photoCount: completed.length - vc, videoCount: vc };
   }, [queue, spotId]);
 
+  const fmt = (p: number | null) => (p !== null && p > 0 ? `$${p.toFixed(0)}` : 'free');
+
   return (
     <>
-      <Group px="md" py="xs" gap="xs">
-        {photoCount > 0 && (
-          <Group gap={4}>
-            <IconPhoto size={14} style={{ color: 'rgba(255,255,255,0.65)' }} />
-            <Text size="sm" fw={500} style={{ color: '#fff' }}>{photoCount}</Text>
-          </Group>
-        )}
-        {videoCount > 0 && (
-          <Group gap={4}>
-            <IconVideo size={14} style={{ color: 'rgba(255,255,255,0.65)' }} />
-            <Text size="sm" fw={500} style={{ color: '#fff' }}>{videoCount}</Text>
-          </Group>
-        )}
+      <Group px="md" py="md" gap="xs" justify="space-between" onClick={onOpen} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ cursor: 'pointer' }}>
+        <Group gap="md">
+          {photoCount > 0 && (
+            <Group gap={4}>
+              <IconPhoto size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <Text size="sm" fw={500} c="white">{photoCount}</Text>
+              <Text size="xs" style={{ color: 'rgba(255,255,255,0.35)' }}>·</Text>
+              <Text size="xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{fmt(photoPrice)}</Text>
+            </Group>
+          )}
+          {videoCount > 0 && (
+            <Group gap={4}>
+              <IconVideo size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <Text size="sm" fw={500} c="white">{videoCount}</Text>
+              <Text size="xs" style={{ color: 'rgba(255,255,255,0.35)' }}>·</Text>
+              <Text size="xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{fmt(videoPrice)}</Text>
+            </Group>
+          )}
+        </Group>
+        <IconChevronRight size={13} style={{ color: hovered ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.6)', transition: 'color 150ms ease' }} />
       </Group>
-      <Divider />
+      <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
     </>
   );
 }
@@ -67,46 +87,139 @@ function AuthGate() {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export function UploadSidebar() {
+export function UploadSidebar({ active = true, spot, onCancel }: { active?: boolean; spot: Spot; onCancel: () => void }) {
   const { isAuthenticated, isLoading } = useUser();
+  const trpc = useTRPC();
   const clearQueue = useUploadStore((s) => s.clearQueue);
+  const uploadQueue = useUploadStore((s) => s.uploadQueue);
 
-  const [spot, setSpot] = useState<Spot | null>(null);
   const [uploadConfirmed, setUploadConfirmed] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [photoPrice, setPhotoPrice] = useState<number | null>(3);
+  const [videoPrice, setVideoPrice] = useState<number | null>(3);
+  const [sessionDate, setSessionDate] = useState<Date | null>(null);
+  const [sessionRange, setSessionRange] = useState<[number, number]>([360, 600]);
+
+  const mediaIds = useMemo(() => {
+    return uploadQueue
+      .filter((item) => item.spotId === spot.id && item.status === 'completed' && item.mediaId)
+      .map((item) => item.mediaId!);
+  }, [uploadQueue, spot.id]);
+
+  const { mutateAsync: createAndPublish, isPending } = useMutation(
+    trpc.sessions.createAndPublish.mutationOptions(),
+  );
+
+  const canPublish = uploadConfirmed && !!sessionDate && sessionRange[0] < sessionRange[1];
+
+  const handleUploadConfirm = useCallback(() => setUploadConfirmed(true), []);
+
+  const handlePricesChange = useCallback((pp?: number, vp?: number) => {
+    if (pp !== undefined) setPhotoPrice(pp);
+    if (vp !== undefined) setVideoPrice(vp);
+  }, []);
 
   const handleClearSpot = useCallback(() => {
     clearQueue();
-    setSpot(null);
     setUploadConfirmed(false);
+    setUploadModalOpen(false);
+    setPhotoPrice(3);
+    setVideoPrice(3);
+    setSessionDate(null);
+    setSessionRange([360, 600]);
   }, [clearQueue]);
+
+  const handleCancelUpload = useCallback(() => {
+    setUploadConfirmed(false);
+    setUploadModalOpen(false);
+    setPhotoPrice(3);
+    setVideoPrice(3);
+  }, []);
+
+  const handleTimeChange = useCallback((date: Date | null, range: [number, number]) => {
+    setSessionDate(date);
+    setSessionRange(range);
+  }, []);
+
+  const handlePublish = useCallback(async () => {
+    if (!sessionDate) return;
+    const startsAt = combineDateAndTime(sessionDate, minutesToTime(sessionRange[0]));
+    const endsAt = combineDateAndTime(sessionDate, minutesToTime(sessionRange[1]));
+    await createAndPublish({ spotId: spot.id, startsAt, endsAt, mediaIds });
+    handleClearSpot();
+    onCancel();
+  }, [sessionDate, sessionRange, spot.id, mediaIds, createAndPublish, handleClearSpot, onCancel]);
 
   if (isLoading) return null;
   if (!isAuthenticated) return <AuthGate />;
 
   return (
-    <Stack gap={0}>
-      {/* Step 1 — stays mounted; morphs between search bar and pill+X */}
-      <SpotStep spot={spot} onSelect={setSpot} onClear={handleClearSpot} />
-
-      {/* Step 2 */}
-      {spot && (
-        uploadConfirmed ? (
-          <FilesPill spotId={spot.id} />
-        ) : (
-          <UploadStep
-            spot={spot}
-            onConfirm={() => setUploadConfirmed(true)}
-          />
-        )
-      )}
-
-      {/* Step 3 */}
-      {uploadConfirmed && spot && (
-        <TimeStep
-          spot={spot}
-          onPublished={handleClearSpot}
+    <Stack gap={0} style={{ flex: 1 }}>
+      {/* File selection */}
+      {uploadConfirmed && (
+        <FilesPill
+          spotId={spot.id}
+          onOpen={() => setUploadModalOpen(true)}
+          photoPrice={photoPrice}
+          videoPrice={videoPrice}
         />
       )}
+      <UploadStep
+        spot={spot}
+        onConfirm={handleUploadConfirm}
+        onCancel={handleCancelUpload}
+        hideZone={uploadConfirmed}
+        externalModalOpen={uploadConfirmed ? uploadModalOpen : undefined}
+        onModalOpenChange={uploadConfirmed ? setUploadModalOpen : undefined}
+        onPricesChange={handlePricesChange}
+      />
+
+      {/* Time */}
+      {uploadConfirmed && (
+        <TimeStep spot={spot} onChange={handleTimeChange} />
+      )}
+
+      {/* Publish footer */}
+      {uploadConfirmed && (
+        <Box>
+          <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+          <Group px="md" py="lg" justify="center">
+            <Button
+              variant="transparent"
+              radius="xl"
+              disabled={!canPublish}
+              loading={isPending}
+              onClick={() => { void handlePublish(); }}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.9)',
+              }}
+            >
+              Publish session
+            </Button>
+          </Group>
+        </Box>
+      )}
+
+      {/* Cancel */}
+      <Group px="md" py="md" justify="center" style={{ marginTop: 'auto' }}>
+        <button
+          onClick={() => { handleClearSpot(); onCancel(); }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#ffaade',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+            padding: '4px 8px',
+            textShadow: '0 0 8px rgba(255,170,222,1), 0 0 24px rgba(255,120,200,0.7)',
+          }}
+        >
+          Cancel
+        </button>
+      </Group>
     </Stack>
   );
 }

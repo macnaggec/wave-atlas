@@ -8,14 +8,11 @@ import { formatPrice } from 'shared/lib/currency';
 import { QueueItem, UploadItemAction, UploadStatus } from '../../model';
 import DraftCard from '../cards/DraftCard';
 
-const ACTION_ICONS: Record<
-  UploadItemAction,
-  { icon: typeof IconTrash; label: string; color: string }
-> = {
-  delete: { icon: IconTrash, label: 'Delete', color: 'red' },
-  cancel: { icon: IconX, label: 'Cancel', color: 'gray' },
-  retry: { icon: IconRefresh, label: 'Retry', color: 'blue' },
-  edit: { icon: IconPencil, label: 'Edit', color: 'gray' },
+const ACTION_ICONS: Record<UploadItemAction, { icon: typeof IconTrash; label: string }> = {
+  delete: { icon: IconTrash, label: 'Delete' },
+  cancel: { icon: IconX, label: 'Cancel' },
+  retry: { icon: IconRefresh, label: 'Retry' },
+  edit: { icon: IconPencil, label: 'Edit' },
 };
 
 interface UploadCardRendererProps {
@@ -73,8 +70,8 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
 
   const overlays = isPublishing
     ? renderPublishingOverlay()
-    : isCompleted && item.result
-      ? renderDraftOverlay(item.result)
+    : isCompleted
+      ? item.result ? renderDraftOverlay(item.result) : null
       : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
 
   const actionButtons = actions && actions.length > 0 ? (
@@ -85,17 +82,17 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
         return (
           <ActionIcon
             key={actionType}
-            variant="filled"
-            color={config.color}
+            variant="transparent"
             size="sm"
             radius="xl"
             aria-label={config.label}
+            className={classes.actionBtn}
             onClick={(e) => {
               e.stopPropagation();
               onAction?.(actionType, item.id);
             }}
           >
-            <Icon style={{ width: rem(14), height: rem(14) }} />
+            <Icon style={{ width: rem(12), height: rem(12) }} />
           </ActionIcon>
         );
       })}
@@ -123,12 +120,12 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     prev.item.status === next.item.status &&
     prev.item.progress === next.item.progress &&
     prev.item.error === next.item.error &&
+    !!prev.item.result === !!next.item.result &&
     prev.item.result?.capturedAt === next.item.result?.capturedAt &&
     prev.item.result?.price === next.item.result?.price &&
     prev.item.result?.status === next.item.result?.status &&
     prev.hasDateError === next.hasDateError &&
-    prev.isPublishing === next.isPublishing &&
-    prev.actions?.join() === next.actions?.join()
+    prev.isPublishing === next.isPublishing
 );
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';

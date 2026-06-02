@@ -2,3 +2,17 @@
   aspect-ratio: 4 / 3;
   width: 100%;
 }
+
+.actionBtn {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}

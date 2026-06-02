@@ -1,17 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Button, RangeSlider, Stack, Text } from '@mantine/core';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
-import { useMutation } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import type { Spot } from 'entities/Spot/types';
-import { combineDateAndTime } from './helpers';
-
-function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-  const m = (minutes % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+import { minutesToTime } from './helpers';
 
 function dateToMinutes(d: Date): number {
   return d.getHours() * 60 + d.getMinutes();
@@ -19,99 +11,104 @@ function dateToMinutes(d: Date): number {
 
 interface TimeStepProps {
   spot: Spot;
-  onPublished: () => void;
+  onChange: (date: Date | null, range: [number, number]) => void;
 }
 
-export function TimeStep({ spot, onPublished }: TimeStepProps) {
-  const trpc = useTRPC();
-
-  // Seed start/end from EXIF capturedAt stored on completed items
+export function TimeStep({ spot, onChange }: TimeStepProps) {
   const queue = useUploadStore((s) => s.uploadQueue);
-  const completedItems = useMemo(
-    () => queue.filter((item) => item.spotId === spot.id && item.status === 'completed' && item.mediaId),
-    [queue, spot.id],
-  );
-  const mediaIds = useMemo(() => completedItems.map((item) => item.mediaId!), [completedItems]);
-  const exifDates = useMemo(
-    () => completedItems.filter((item) => item.capturedAt).map((item) => item.capturedAt!),
-    [completedItems],
-  );
+  const exifDates = useMemo(() => {
+    return queue
+      .filter((item) => item.spotId === spot.id && item.status === 'completed' && item.capturedAt)
+      .map((item) => item.capturedAt!);
+  }, [queue, spot.id]);
 
   const [date, setDate] = useState<Date | null>(() => {
     if (exifDates.length === 0) return new Date();
     return new Date(Math.min(...exifDates.map((d) => d.getTime())));
   });
 
+  const [isDragging, setIsDragging] = useState(false);
   const [range, setRange] = useState<[number, number]>(() => {
-    if (exifDates.length === 0) return [360, 600]; // 06:00 – 10:00
+    if (exifDates.length === 0) return [360, 600];
     const start = Math.min(...exifDates.map(dateToMinutes));
     const end = Math.max(...exifDates.map(dateToMinutes));
     return [start, Math.max(start + 15, end)];
   });
 
-  const startTime = minutesToTime(range[0]);
-  const endTime = minutesToTime(range[1]);
+  const handleDateChange = useCallback((val: Date | string | null) => {
+    const newDate = !val ? null : typeof val === 'string' ? new Date(val) : val;
+    setDate(newDate);
+    onChange(newDate, range);
+  }, [range, onChange]);
 
-  const startsAt = date ? combineDateAndTime(date, startTime) : null;
-  const endsAt = date ? combineDateAndTime(date, endTime) : null;
-  const canPublish = !!date && range[0] < range[1];
-
-  const { mutateAsync: createAndPublish, isPending } = useMutation(
-    trpc.sessions.createAndPublish.mutationOptions(),
-  );
-
-  const handlePublish = useCallback(async () => {
-    if (!startsAt || !endsAt) return;
-    await createAndPublish({ spotId: spot.id, startsAt, endsAt, mediaIds });
-    onPublished();
-  }, [spot.id, startsAt, endsAt, mediaIds, createAndPublish, onPublished]);
-
-  const handleDateChange = (val: Date | string | null) => {
-    if (!val) { setDate(null); return; }
-    setDate(typeof val === 'string' ? new Date(val) : val);
-  };
+  const handleRangeChange = useCallback((newRange: [number, number]) => {
+    setIsDragging(true);
+    setRange(newRange);
+    onChange(date, newRange);
+  }, [date, onChange]);
 
   return (
-    <Stack gap="md" p="md" align="center">
-      <Text size="sm" fw={500} style={{ color: '#fff' }}>When did you surf?</Text>
+    <Stack gap={0} p="md">
+      <Text size="sm" fw={500} ta="center" mb="lg" style={{ letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>When did you shoot?</Text>
 
-      <DatePicker
-        value={date}
-        onChange={handleDateChange}
-        maxDate={new Date()}
-        size="sm"
-        styles={{
-          calendarHeader: { color: '#fff' },
-          calendarHeaderLevel: { color: '#fff', background: 'transparent' },
-          calendarHeaderControl: { color: 'rgba(255,255,255,0.65)' },
-          weekday: { color: 'rgba(255,255,255,0.5)' },
-          day: { color: '#fff' },
-        }}
-      />
+      <Stack gap={'40px'}>
+        <Center>
+          <DatePicker
+            value={date}
+            onChange={handleDateChange}
+            maxDate={new Date()}
+            size="sm"
+            styles={{
+              calendarHeader: { color: '#fff' },
+              calendarHeaderLevel: { color: '#fff', background: 'transparent' },
+              calendarHeaderControl: { color: 'rgba(255,255,255,0.65)' },
+              weekday: { color: 'rgba(255,255,255,0.5)' },
+              day: { color: '#fff' },
+            }}
+          />
+        </Center>
 
-      <Stack gap={6} w="100%">
-        <Text size="xs" style={{ color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>
-          {minutesToTime(range[0])} – {minutesToTime(range[1])}
-        </Text>
-        <RangeSlider
-          value={range}
-          onChange={setRange}
-          min={0}
-          max={1440}
-          step={15}
-          minRange={15}
-          label={minutesToTime}
-        />
+        <Stack gap={6}>
+          <Text
+            ta="center"
+            style={{
+              lineHeight: '22px',
+              color: isDragging ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.65)',
+              fontSize: isDragging ? 15 : 12,
+              fontWeight: isDragging ? 600 : 400,
+              transition: 'all 120ms ease',
+            }}
+          >
+            {minutesToTime(range[0])} – {minutesToTime(range[1])}
+          </Text>
+          <RangeSlider
+            value={range}
+            onChange={handleRangeChange}
+            onChangeEnd={() => setIsDragging(false)}
+            min={0}
+            max={1440}
+            step={15}
+            minRange={15}
+            label={null}
+            size="xs"
+            styles={{
+              root: {
+                '--slider-radius': '2px',
+                '--slider-track-bg': 'rgba(255,255,255,0.08)',
+                '--slider-color': 'rgba(255,255,255,0.28)',
+              } as React.CSSProperties,
+              thumb: {
+                border: 'none',
+                width: 22,
+                height: 10,
+                borderRadius: 99,
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+              },
+            }}
+          />
+        </Stack>
       </Stack>
-
-      <Button
-        onClick={() => { void handlePublish(); }}
-        disabled={!canPublish}
-        loading={isPending}
-        fullWidth
-      >
-        Publish session
-      </Button>
     </Stack>
   );
 }

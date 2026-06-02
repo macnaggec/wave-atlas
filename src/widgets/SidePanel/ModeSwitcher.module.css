@@ -13,7 +13,7 @@
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.6);
   border: none;
   background: transparent;
   cursor: pointer;
@@ -22,11 +22,11 @@
 }
 
 .segment:not(.segmentActive):hover {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .segmentActive {
   background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   cursor: default;
 }

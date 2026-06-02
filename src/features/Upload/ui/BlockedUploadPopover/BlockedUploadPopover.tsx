@@ -1,4 +1,4 @@
-'use client';
+
 
 import { FC, ReactElement, useState } from 'react';
 import { Box, Popover } from '@mantine/core';

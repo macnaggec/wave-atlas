@@ -3,18 +3,36 @@ import type { ReactNode } from 'react';
 import { Button, Text } from '@mantine/core';
 import SpotSearch from 'features/SpotSearch/SpotSearch';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
 import { useAddSpot } from 'features/AddSpot';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
 import type { Spot } from 'entities/Spot/types';
 
-export function FeedSearch() {
-  const selectSpot = useMapStore((s) => s.selectSpot);
+interface FeedSearchProps {
+  placeholder?: string;
+  onSpotSelect?: (spot: Spot) => void;
+  /** When provided, overrides mapStore.selection for chip display. */
+  activeSpot?: Spot | null;
+  /** When provided, overrides the default mapCommands.clearAll() on chip clear. */
+  onClear?: () => void;
+  autoFocus?: boolean;
+}
+
+export function FeedSearch({ placeholder, onSpotSelect, activeSpot: activeSpotOverride, onClear, autoFocus }: FeedSearchProps = {}) {
+  const storeSelection = useMapStore((s) => s.selection);
+  const selection = activeSpotOverride !== undefined ? activeSpotOverride : storeSelection;
   const { startAddSpot } = useAddSpot();
   const { isAuthenticated } = useUser();
   const { open: openAuthModal } = useAuthModal();
 
-  const handleSelect = useCallback((spot: Spot) => selectSpot(spot), [selectSpot]);
+  const handleSelect = useCallback((spot: Spot) => {
+    if (onSpotSelect) {
+      onSpotSelect(spot);
+    } else {
+      mapCommands.selectFromSearch(spot);
+    }
+  }, [onSpotSelect]);
 
   const emptyAction = useCallback(
     (search: string): ReactNode => {
@@ -34,5 +52,14 @@ export function FeedSearch() {
     [isAuthenticated, startAddSpot, openAuthModal],
   );
 
-  return <SpotSearch onSpotSelect={handleSelect} emptyAction={emptyAction} />;
+  return (
+    <SpotSearch
+      onSpotSelect={handleSelect}
+      emptyAction={emptyAction}
+      placeholder={placeholder}
+      onClear={onClear ?? (() => mapCommands.clearAll())}
+      activeSpot={selection}
+      autoFocus={autoFocus}
+    />
+  );
 }

@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useCallback } from 'react';
 import { useUpdateBatchMedia } from 'entities/Media/model/useUpdateBatchMedia';
@@ -55,7 +55,6 @@ export function useDraftEditing(
     try {
       await updateBatch({ mediaIds, price: Math.round(price * 100) });
       updateDraftItem(mediaIds, { price: Math.round(price * 100) });
-      notify.success(`Updated price for ${mediaIds.length} item(s)`, 'Price Updated');
     } catch {
       // notification handled by useUpdateBatchMedia onError
     }

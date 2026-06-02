@@ -129,7 +129,7 @@ describe('CheckoutService.createCheckoutSession', () => {
     const orderCallOrder = mockOrders.createOrder.mock.invocationCallOrder[0];
     const paymentCallOrder = mockPayment.createCheckoutSession.mock.invocationCallOrder[0];
 
-    expect(orderCallOrder).toBeLessThan(paymentCallOrder);
+    expect(orderCallOrder).toBeLessThan(paymentCallOrder!);
   });
 
   it('passes totalCents derived from DB prices — not from client input', async () => {

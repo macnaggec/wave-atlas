@@ -23,6 +23,8 @@ export interface PriceEditPopoverProps {
   disabled?: boolean;
   /** Tooltip text to show when disabled */
   tooltip?: string;
+  /** Optional label prefix shown in the trigger button (e.g. "Photos", "Videos") */
+  label?: string;
 }
 
 /**
@@ -38,6 +40,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
   totalCount = 0,
   disabled = false,
   tooltip,
+  label,
 }) => {
   const [opened, setOpened] = useState(false);
   const [draftPrice, setDraftPrice] = useState<number | string>(value >= MIN_PRICE ? value : MIN_PRICE);
@@ -55,17 +58,17 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
       : null;
 
   const displayPrice = value > 0 ? `$${value.toFixed(2)}` : 'Set price';
+  const buttonLabel = label ? `${label} · ${displayPrice}` : displayPrice;
 
+  const itemLabel = label ? label.toLowerCase() : (selectedCount === 1 ? 'item' : 'items');
   const footerMessage = selectedCount > 0
-    ? `Applying to ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}`
-    : 'Applying to all items';
+    ? `Applying to ${selectedCount} ${itemLabel}`
+    : `Applying to all ${itemLabel}`;
 
   const footer = (selectedCount > 0 || totalCount > 0) ? (
-    <Box p="xs" bg="green.0" style={{ borderRadius: '4px' }}>
-      <Text size="sm" c="dimmed" ta="center">
-        {footerMessage}
-      </Text>
-    </Box>
+    <Text size="xs" ta="center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+      {footerMessage}
+    </Text>
   ) : null;
 
   useEffect(() => {
@@ -97,18 +100,24 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
       position="bottom"
       withArrow
       shadow="md"
+      radius="md"
     >
       <Popover.Target>
         <Button
-          variant="light"
-          color="green"
-          leftSection={<IconCurrencyDollar size={16} />}
-          rightSection={<IconChevronDown size={14} />}
+          variant="transparent"
+          size="xs"
+          leftSection={<IconCurrencyDollar size={13} />}
+          rightSection={<IconChevronDown size={11} />}
           disabled={disabled}
-          radius="xl"
+          radius="md"
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: 'rgba(255,255,255,0.85)',
+          }}
           onClick={() => setOpened((o) => !o)}
         >
-          {displayPrice}
+          {buttonLabel}
         </Button>
       </Popover.Target>
 
@@ -126,16 +135,17 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
             fixedDecimalScale
             prefix="$"
             autoFocus
+            radius="md"
             error={priceError}
           />
 
           {footer}
 
           <Group gap="xs" grow>
-            <Button onClick={handleApply} disabled={!canApply}>
+            <Button onClick={handleApply} disabled={!canApply} radius="md">
               Apply
             </Button>
-            <Button variant="subtle" onClick={handleCancel}>
+            <Button variant="subtle" onClick={handleCancel} radius="md">
               Cancel
             </Button>
           </Group>

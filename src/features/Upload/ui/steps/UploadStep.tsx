@@ -6,17 +6,22 @@ import { UploadManager } from '../UploadManager';
 interface UploadStepProps {
   spot: Spot;
   onConfirm: (count: number) => void;
+  onCancel?: () => void;
+  hideZone?: boolean;
+  externalModalOpen?: boolean;
+  onModalOpenChange?: (open: boolean) => void;
+  onPricesChange?: (photoPrice?: number, videoPrice?: number) => void;
 }
 
-export function UploadStep({ spot, onConfirm }: UploadStepProps) {
+export function UploadStep({ spot, onConfirm, onCancel, hideZone, externalModalOpen, onModalOpenChange, onPricesChange }: UploadStepProps) {
   const uploadQueue = useUploadStore((s) => s.uploadQueue);
   const hasFiles = uploadQueue.some((item) => item.spotId === spot.id);
 
   return (
     <Stack gap={0}>
-      {!hasFiles && (
+      {!hasFiles && !hideZone && (
         <Box px="md" pt="md" pb="xs">
-          <Text size="sm" fw={500} style={{ color: '#fff' }}>Select files</Text>
+          <Text size="xs" fw={500} style={{ letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Select files</Text>
         </Box>
       )}
 
@@ -27,6 +32,11 @@ export function UploadStep({ spot, onConfirm }: UploadStepProps) {
         draftMedia={[]}
         showPublish={false}
         onProceed={onConfirm}
+        onCancelAll={onCancel}
+        hideZone={hideZone}
+        externalModalOpen={externalModalOpen}
+        onModalOpenChange={onModalOpenChange}
+        onPricesChange={onPricesChange}
       />
     </Stack>
   );

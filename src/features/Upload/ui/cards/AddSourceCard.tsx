@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { FC, memo, useRef } from 'react';
 import { Box, Button, Stack, Text, Tooltip } from '@mantine/core';

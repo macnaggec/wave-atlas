@@ -128,7 +128,7 @@ function verifyWebhook(
   const parts = token.split('.');
   if (parts.length !== 3) return false;
 
-  const [header, jwtPayload, receivedSig] = parts;
+  const [header, jwtPayload, receivedSig] = parts as [string, string, string];
 
   return (
     verifyHmacSignature(`${header}.${jwtPayload}`, receivedSig)

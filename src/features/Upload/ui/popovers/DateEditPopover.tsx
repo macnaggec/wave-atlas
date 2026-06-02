@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { FC, useMemo, useCallback } from 'react';
 import { Box, Text, Stack, Tooltip } from '@mantine/core';
@@ -64,13 +64,13 @@ export const DateEditPopover: FC<DateEditPopoverProps> = ({
     return (
       <Stack gap="xs">
         {hasExifDates && (
-          <Box p="xs" bg="yellow.0" style={{ borderRadius: '4px' }}>
+          <Box p="xs" bg="yellow.0" style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
             <Text size="xs" c="orange.7" ta="center" fw={500}>
               ⚠️ This will overwrite camera-detected dates
             </Text>
           </Box>
         )}
-        <Box p="xs" bg="blue.0" style={{ borderRadius: '4px' }}>
+        <Box p="xs" bg="blue.0" style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
           <Text size="sm" c="dimmed" ta="center">
             {selectedCount > 0
               ? `Applying to ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}`
@@ -86,10 +86,15 @@ export const DateEditPopover: FC<DateEditPopoverProps> = ({
       value={value}
       onApply={onApply}
       disabled={disabled}
-      color="blue"
+      color="gray"
       showTimeRange
       maxDate={maxDate}
       renderFooter={renderFooter}
+      buttonStyle={{
+        background: 'rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        color: 'rgba(255,255,255,0.85)',
+      }}
     />
   );
 

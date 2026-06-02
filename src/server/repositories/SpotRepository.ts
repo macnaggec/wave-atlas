@@ -73,7 +73,7 @@ export interface ISpotRepository {
   findSpotDetails(id: string): Promise<SpotDetails | null>;
   findSpotCard(id: string): Promise<SpotCard | null>;
   findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
-  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number): Promise<SpotMediaPage>;
+  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number, sortOrder?: 'asc' | 'desc'): Promise<SpotMediaPage>;
 }
 
 export class SpotRepository implements ISpotRepository {
@@ -217,11 +217,12 @@ export class SpotRepository implements ISpotRepository {
     spotId: string,
     cursor: string | undefined,
     limit: number,
+    sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<SpotMediaPage> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { spotId, status: 'PUBLISHED', deletedAt: null },
-        orderBy: { capturedAt: 'desc' },
+        orderBy: { capturedAt: sortOrder },
         take: limit + 1,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         include: { photographer: { select: { id: true, name: true } } },
@@ -229,7 +230,7 @@ export class SpotRepository implements ISpotRepository {
 
       const hasMore = rows.length > limit;
       const items = hasMore ? rows.slice(0, limit) : rows;
-      const nextCursor = hasMore ? rows[limit].id : null;
+      const nextCursor = hasMore ? rows[limit]!.id : null;
 
       return { items: items.map(mapToSpotMediaItem), nextCursor };
     });

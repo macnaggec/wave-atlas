@@ -1,83 +1,104 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import {
-  Center,
-  Group,
-  Image,
-  Loader,
-  Skeleton,
-  Stack,
-  Text,
-} from '@mantine/core';
-import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
+import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
+import { IconPhoto, IconMapPin } from '@tabler/icons-react';
 import { useTRPC } from 'app/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import { formatDateRange } from 'shared/lib/dateUtils';
+import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 
-function SessionCard({ session }: { session: SurfSessionItem }) {
+// ─── Filter types & helpers (exported for AppShell) ───────────────────────────
+
+export type ActiveFilter = 'today' | 'yesterday' | 'last7' | { date: Date } | null;
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function endOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+}
+
+export function toDateRange(filter: ActiveFilter): { dateFrom?: Date; dateTo?: Date } {
+  if (!filter) return {};
+  const today = new Date();
+  if (filter === 'today') return { dateFrom: startOfDay(today), dateTo: endOfDay(today) };
+  if (filter === 'yesterday') {
+    const y = new Date(today);
+    y.setDate(y.getDate() - 1);
+    return { dateFrom: startOfDay(y), dateTo: endOfDay(y) };
+  }
+  if (filter === 'last7') {
+    const from = new Date(today);
+    from.setDate(from.getDate() - 7);
+    return { dateFrom: startOfDay(from), dateTo: endOfDay(today) };
+  }
+  return { dateFrom: startOfDay(filter.date), dateTo: endOfDay(filter.date) };
+}
+
+// ─── Session card ──────────────────────────────────────────────────────────────
+
+function SessionCard({ session, onClick }: { session: SurfSessionItem; onClick: () => void }) {
   return (
-    <Stack
-      gap={0}
-      style={{
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        cursor: 'pointer',
-      }}
-      p="sm"
-    >
-      <Group gap="sm" wrap="nowrap">
+    <div style={{ cursor: 'pointer' }} onClick={onClick}>
+      <div
+        style={{
+          position: 'relative',
+          aspectRatio: '16 / 10',
+          borderRadius: 10,
+          overflow: 'hidden',
+          background: 'rgba(255,255,255,0.06)',
+          marginBottom: 8,
+        }}
+      >
         {session.thumbnailUrl ? (
-          <Image
+          <img
             src={session.thumbnailUrl}
-            w={64}
-            h={64}
-            radius="sm"
-            style={{ flexShrink: 0, objectFit: 'cover' }}
+            alt={session.spot.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (
-          <Center
-            w={64}
-            h={64}
-            style={{
-              flexShrink: 0,
-              borderRadius: 6,
-              background: 'rgba(255,255,255,0.06)',
-            }}
-          >
-            <IconPhoto size={20} color="rgba(255,255,255,0.3)" />
+          <Center style={{ height: '100%' }}>
+            <IconPhoto size={24} color="rgba(255,255,255,0.25)" />
           </Center>
         )}
+      </div>
 
-        <Stack gap={2} style={{ minWidth: 0 }}>
-          <Group gap={4} wrap="nowrap">
-            <IconMapPin size={12} style={{ color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
-            <Text size="sm" fw={600} truncate>
-              {session.spot.name}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed" truncate>
-            {session.spot.location}
-          </Text>
-          <Group gap={4} wrap="nowrap">
-            <IconCalendar size={11} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} />
-            <Text size="xs" c="dimmed">
-              {formatDateRange(session.startsAt, session.endsAt)}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed">{session.mediaCount} photo{session.mediaCount !== 1 ? 's' : ''}</Text>
-        </Stack>
-      </Group>
-    </Stack>
+      <Stack gap={2} style={{ paddingBottom: 4 }}>
+        <Text size="sm" fw={600} truncate>
+          {session.spot.name}
+        </Text>
+        <Text size="xs" c="dimmed" truncate style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <IconMapPin size={10} style={{ flexShrink: 0 }} />
+          {session.spot.location}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {formatDateRange(session.startsAt, session.endsAt)}
+        </Text>
+      </Stack>
+    </div>
   );
 }
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
-export function SessionFeed() {
+interface SessionFeedProps {
+  expanded?: boolean;
+  activeFilter?: ActiveFilter;
+  onSessionClick?: (session: SurfSessionItem) => void;
+}
+
+export function SessionFeed({ expanded, activeFilter, onSessionClick }: SessionFeedProps) {
   const trpc = useTRPC();
+  const selectedSpotId = useMapStore((s) => s.selection?.id ?? null);
+
+  const dateRange = toDateRange(activeFilter ?? null);
+  const columns = expanded ? 3 : 1;
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
     useInfiniteQuery({
       ...trpc.sessions.list.infiniteQueryOptions(
-        { limit: 20 },
+        { limit: 20, spotId: selectedSpotId ?? undefined, ...dateRange },
         { getNextPageParam: (last) => last.nextCursor ?? undefined },
       ),
     });
@@ -85,39 +106,55 @@ export function SessionFeed() {
   const sessions = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
-    <Stack gap={0} h="100%">
-      {/* Session list */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {isLoading ? (
-          <Stack gap="xs" p="sm">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} height={80} radius="sm" />
-            ))}
-          </Stack>
-        ) : sessions.length === 0 ? (
-          <Center h={200}>
-            <Text size="sm" c="dimmed">No sessions yet</Text>
-          </Center>
-        ) : (
-          <>
+    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      {isLoading ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gap: 12,
+            padding: 12,
+          }}
+        >
+          {Array.from({ length: columns * 3 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton height={0} style={{ paddingBottom: '62.5%', borderRadius: 10, marginBottom: 8 }} />
+              <Skeleton height={14} mb={4} radius="sm" />
+              <Skeleton height={11} width="60%" radius="sm" />
+            </div>
+          ))}
+        </div>
+      ) : sessions.length === 0 ? (
+        <Center h={200}>
+          <Text size="sm" c="dimmed">No sessions found</Text>
+        </Center>
+      ) : (
+        <>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${columns}, 1fr)`,
+              gap: 12,
+              padding: 12,
+            }}
+          >
             {sessions.map((s) => (
-              <SessionCard key={s.id} session={s} />
+              <motion.div key={s.id} layout>
+                <SessionCard session={s} onClick={() => onSessionClick?.(s)} />
+              </motion.div>
             ))}
-            {hasNextPage && (
-              <Center py="md">
-                <Loader
-                  size="sm"
-                  onClick={() => fetchNextPage()}
-                  style={{ cursor: 'pointer' }}
-                />
-              </Center>
-            )}
-            {isFetchingNextPage && (
-              <Center py="md"><Loader size="sm" /></Center>
-            )}
-          </>
-        )}
-      </div>
-    </Stack>
+          </div>
+
+          {hasNextPage && !isFetchingNextPage && (
+            <Center py="md">
+              <Loader size="sm" onClick={() => fetchNextPage()} style={{ cursor: 'pointer' }} />
+            </Center>
+          )}
+          {isFetchingNextPage && (
+            <Center py="md"><Loader size="sm" /></Center>
+          )}
+        </>
+      )}
+    </div>
   );
 }

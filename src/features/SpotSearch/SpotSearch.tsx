@@ -1,5 +1,6 @@
 import { Combobox, Input, Loader, useCombobox, Text, Group, CloseButton, Divider } from '@mantine/core';
-import { IconSearch } from '@tabler/icons-react';
+import classes from './SpotSearch.module.css';
+import { IconSearch, IconMapPin } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useState, useCallback, useDeferredValue } from 'react';
@@ -14,15 +15,27 @@ export interface SpotSearchProps {
   /** Render prop: called with the current search term when no results are found. Caller owns all domain logic. */
   emptyAction?: (search: string) => ReactNode;
   placeholder?: string;
+  /** Called when the active spot filter is cleared (✕ click or typing after a selection). */
+  onClear?: () => void;
+  /** When set, drives the search input and filtering state as if the spot had been selected via search. */
+  activeSpot?: Spot | null;
+  autoFocus?: boolean;
 }
 
 export default function SpotSearch({
   onSpotSelect,
   emptyAction,
-  placeholder = "Search for a spot..."
+  placeholder = "Search for a spot...",
+  onClear,
+  activeSpot,
+  autoFocus,
 }: SpotSearchProps) {
   const trpc = useTRPC();
   const [search, setSearch] = useState('');
+
+  const isFiltering = activeSpot != null;
+  const inputValue = activeSpot ? activeSpot.name : search;
+
   const combobox = useCombobox();
 
   // useDeferredValue defers the query key update so typing feels instant
@@ -47,7 +60,6 @@ export default function SpotSearch({
     const spot = (spots ?? []).find(s => s.id === spotId);
     if (spot) {
       onSpotSelect(spot);
-      setSearch(spot.name);
       combobox.closeDropdown();
     }
   }, [spots, onSpotSelect, combobox]);
@@ -59,13 +71,19 @@ export default function SpotSearch({
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.currentTarget.value;
+    // Only clear the active spot when the user actually edits away from it.
+    // Guards against synthetic change events fired by closeDropdown() which
+    // carry the stale local `search` value while activeSpot is already set.
+    if (activeSpot && value !== activeSpot.name) {
+      onClear?.();
+    }
     setSearch(value);
     if (value.length >= 2) {
       combobox.openDropdown();
     } else {
       combobox.closeDropdown();
     }
-  }, [combobox]);
+  }, [activeSpot, onClear, combobox]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && search.length >= 2) {
@@ -78,7 +96,8 @@ export default function SpotSearch({
     e.preventDefault();
     e.stopPropagation();
     handleClear();
-  }, [handleClear]);
+    onClear?.();
+  }, [handleClear, onClear]);
 
   const hasFetched = isQueryEnabled && !isFetching && spots !== null;
   const options = (spots ?? []).map((spot) => (
@@ -87,7 +106,7 @@ export default function SpotSearch({
 
   const renderRightSection = () => {
     if (isFetching) return <Loader size={16} />;
-    if (search) return <CloseButton size="sm" onClick={handleClearClick} aria-label="Clear search" />;
+    if (inputValue) return <CloseButton size="sm" onClick={handleClearClick} aria-label="Clear search" radius="xl" className={classes.clearButton} />;
     return null;
   };
 
@@ -119,16 +138,48 @@ export default function SpotSearch({
       <Combobox.Target>
         <Input
           placeholder={placeholder}
-          value={search}
+          value={inputValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          leftSection={<IconSearch size={16} />}
+          autoFocus={autoFocus}
+          radius="md"
+          leftSection={
+            isFiltering
+              ? <IconMapPin size={16} color="#63b3ed" />
+              : <IconSearch size={16} />
+          }
           rightSection={renderRightSection()}
           rightSectionPointerEvents="auto"
+          styles={{
+            input: {
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              color: '#fff',
+              boxShadow: isFiltering ? 'inset 3px 0 0 #63b3ed' : 'none',
+              caretColor: isFiltering ? 'transparent' : undefined,
+              cursor: isFiltering ? 'default' : undefined,
+              '&::placeholder': { color: 'rgba(255,255,255,0.38)' },
+              '&:focus': { borderColor: 'rgba(255,255,255,0.4)' },
+            },
+            section: { color: 'rgba(255,255,255,0.55)' },
+          }}
         />
       </Combobox.Target>
 
-      <Combobox.Dropdown>
+      <Combobox.Dropdown
+        style={{
+          background: 'rgba(13,22,42,0.97)',
+          backdropFilter: 'blur(12px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(140%)',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+          '--mantine-color-dimmed': 'rgba(255,255,255,0.4)',
+          '--mantine-color-text': 'rgba(255,255,255,0.85)',
+          '--mantine-color-gray-0': 'rgba(255,255,255,0.06)',
+          '--mantine-color-gray-2': 'rgba(255,255,255,0.08)',
+        } as React.CSSProperties}
+      >
         <Combobox.Options>
           {renderDropdownContent()}
         </Combobox.Options>
@@ -136,4 +187,3 @@ export default function SpotSearch({
     </Combobox>
   );
 }
-

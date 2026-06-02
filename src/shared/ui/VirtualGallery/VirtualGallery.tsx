@@ -104,7 +104,7 @@ export function VirtualGallery({
   const activeHighlightIndex = useMemo(() => {
     let active = 0;
     for (let i = 0; i < highlights.length; i++) {
-      if (highlights[i].rowIndex <= firstVisibleIndex) active = i;
+      if (highlights[i]!.rowIndex <= firstVisibleIndex) active = i;
       else break;
     }
     return active;
@@ -127,7 +127,7 @@ export function VirtualGallery({
     if (!hourHighlights) return -1;
     let active = 0;
     for (let i = 0; i < hourHighlights.length; i++) {
-      if (hourHighlights[i].rowIndex <= firstVisibleIndex) active = i;
+      if (hourHighlights[i]!.rowIndex <= firstVisibleIndex) active = i;
       else break;
     }
     return active;
@@ -158,7 +158,7 @@ export function VirtualGallery({
     let active = 0;
     const activeRowIndex = highlights[activeHighlightIndex]?.rowIndex ?? 0;
     for (let i = 0; i < sidebarGroups.length; i++) {
-      if (sidebarGroups[i].rowIndex <= activeRowIndex) active = i;
+      if (sidebarGroups[i]!.rowIndex <= activeRowIndex) active = i;
       else break;
     }
     return active;
@@ -303,7 +303,7 @@ export function VirtualGallery({
         <nav className={styles.sidebar} aria-label="Jump to date">
           {sidebarGroups.map(({ date, rowIndex }, i) => {
             const isActive = i === activeSidebarIndex;
-            const prevDate = i > 0 ? sidebarGroups[i - 1].date : null;
+            const prevDate = i > 0 ? sidebarGroups[i - 1]!.date : null;
             const showYear = !prevDate || date.getFullYear() !== prevDate.getFullYear();
 
             return (

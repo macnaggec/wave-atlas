@@ -56,6 +56,7 @@ export interface IMediaRepository {
   findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number; photographerId: string }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
+  findPublishedBySession(sessionId: string): Promise<PublishedMedia[]>;
   countDraftsBySpot(photographerId: string): Promise<{ spotId: string; spotName: string; count: number }[]>;
 }
 
@@ -140,6 +141,17 @@ export class MediaRepository implements IMediaRepository {
       const rows = await prisma.mediaItem.findMany({
         where: { photographerId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
         orderBy: { capturedAt: 'desc' },
+        include: { spot: { select: { id: true, name: true } } },
+      });
+      return rows.map(mapToPublishedMedia);
+    });
+  }
+
+  findPublishedBySession(sessionId: string): Promise<PublishedMedia[]> {
+    return runQuery(async () => {
+      const rows = await prisma.mediaItem.findMany({
+        where: { sessionId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
+        orderBy: { capturedAt: 'asc' },
         include: { spot: { select: { id: true, name: true } } },
       });
       return rows.map(mapToPublishedMedia);

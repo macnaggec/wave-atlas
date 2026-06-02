@@ -1,27 +1,29 @@
-import { useRef, useCallback, useState, useMemo, ReactNode } from 'react';
+import { useRef, useCallback, useState, useMemo, useEffect } from 'react';
 import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import mapboxgl from 'mapbox-gl';
+import { useRouterState } from '@tanstack/react-router';
 
 import { Spot } from 'entities/Spot/types';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { mapCommands } from './model/mapCommands';
+import { cameraService } from './model/CameraService';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
 import { useMapImages } from './hooks/useMapImages';
-import { useSpotFlyTo } from './hooks/useSpotFlyTo';
 import { usePinPlacementMode } from './hooks/usePinPlacementMode';
 import { TempPinMarker } from './ui/TempPinMarker';
 import { clusterLayer, clusterCountLayer, getUnclusteredPointLayer, getIconLayer, globeFog, SPOT_INTERACTIVE_LAYERS } from './layerStyles';
-import { getMapControls } from './mapControls';
+
 import classes from './GlobeMap.module.css';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
 if (!MAPBOX_TOKEN) throw new Error('Missing VITE_MAPBOX_ACCESS_TOKEN');
 
-// Default view: Shows most of the world
 const DEFAULT_VIEW = {
-  longitude: 115.085, // Bali - a great surf destination as default
+  longitude: 115.085,
   latitude: -8.815,
   zoom: 1.5,
 };
@@ -29,7 +31,6 @@ const DEFAULT_VIEW = {
 export type PageMode = 'explore' | 'upload';
 
 export interface GlobeMapHandle {
-  // Define methods exposed via ref if any, or common Map usage
   flyTo: (center: [number, number], zoom?: number) => void;
 }
 
@@ -44,8 +45,6 @@ export interface GlobeMapProps {
   initialSpotId?: string;
   onUploadConfirm?: (spot: Spot) => void;
   onUploadCancel?: () => void;
-  /** Render the popup content for a selected spot. Defaults to SpotPreviewCard. */
-  renderPopupContent?: (spot: Spot) => ReactNode;
 }
 
 export function GlobeMapComponent({
@@ -55,18 +54,13 @@ export function GlobeMapComponent({
   initialSpotId,
   onUploadConfirm,
   onUploadCancel,
-  renderPopupContent,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const {
-    selectedSpotId: activeSpotId,
-    selectedSpot: activeSpot,
-    selectSpot,
-    clearSelection,
-    cameraState,
-    saveCameraState,
-  } = useMapStore();
+  const activeSpot = useMapStore((s) => s.selection);
+  const activeSpotId = activeSpot?.id ?? null;
+  const cameraState = useMapStore((s) => s.cameraState);
+  const saveCameraState = useMapStore((s) => s.saveCameraState);
 
   const interactionMode = useMapStore((s) => s.interactionMode);
   const isPinMode = interactionMode === 'pin-placement';
@@ -105,6 +99,15 @@ export function GlobeMapComponent({
     maxSpinZoom: 3,
   });
 
+  const unclusteredPointLayer = useMemo(
+    () => getUnclusteredPointLayer(activeSpotId),
+    [activeSpotId]
+  );
+  const iconLayer = useMemo(
+    () => getIconLayer(activeSpotId),
+    [activeSpotId]
+  );
+
   const spotsGeoJson = useSpotGeoJson(spots);
   const { loadImages } = useMapImages(mapRef);
 
@@ -117,29 +120,30 @@ export function GlobeMapComponent({
   } = useMapInteraction({
     mapRef,
     spots,
-    onSpotClick: (spot) => selectSpot(spot),
-    onClearSelection: clearSelection,
+    onSpotClick: (spot) => mapCommands.selectFromPin(spot),
+    onClearSelection: () => mapCommands.clearAll(),
     onUserInteractionStart
   });
 
-  const { resetPreviewOffset } = useSpotFlyTo({
-    mapRef,
-    spots,
-    isLoaded,
-    onUserInteractionStart,
+  // Close popup when the drawer opens (URL has a $spotId param).
+  const panelOpen = useRouterState({
+    select: (s) => s.matches.some((m) => 'spotId' in (m.params ?? {})),
   });
+  useEffect(() => {
+    if (panelOpen) mapCommands.onPanelOpen();
+  }, [panelOpen]);
 
-  const handlePopupClose = useCallback(() => {
-    resetPreviewOffset();
-    clearSelection();
-  }, [resetPreviewOffset, clearSelection]);
+  useEffect(() => {
+    return () => cameraService.unregister();
+  }, []);
 
   const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
     const { longitude, latitude, zoom, pitch, bearing } = e.viewState;
     saveCameraState({ longitude, latitude, zoom, pitch, bearing });
   }, [saveCameraState]);
 
-  const handleLoad = useCallback(() => {
+  const handleLoad = useCallback((e: mapboxgl.MapboxEvent) => {
+    cameraService.register(e.target);
     setIsLoaded(true);
     loadImages();
     startSpinning();
@@ -179,7 +183,6 @@ export function GlobeMapComponent({
         onMouseLeave={isPinMode ? undefined : onMouseLeave}
         maxZoom={18}
         minZoom={1}
-        {...getMapControls(activeSpotId, mode)}
         trackResize={true}
         cooperativeGestures={false}
       >
@@ -188,13 +191,13 @@ export function GlobeMapComponent({
           type="geojson"
           data={spotsGeoJson}
           cluster={true}
-          clusterMaxZoom={14}
+          clusterMaxZoom={11}
           clusterRadius={50}
         >
           <Layer {...clusterLayer} />
           <Layer {...clusterCountLayer} />
-          <Layer {...getUnclusteredPointLayer(activeSpotId)} />
-          <Layer {...getIconLayer(activeSpotId)} />
+          <Layer {...unclusteredPointLayer} />
+          <Layer {...iconLayer} />
         </Source>
         {/* Tooltip Popup (Only when not selected) */}
         {hoveredSpot && hoveredSpot.id !== activeSpotId && (
@@ -212,24 +215,6 @@ export function GlobeMapComponent({
             </Paper>
           </Popup>
         )}
-
-        {/* Spot Preview Popup (Interactive) — hidden in spot-select mode */}
-        {activeSpotId && interactionMode !== 'spot-select' && (
-          <Popup
-            longitude={spots.find(s => s.id === activeSpotId)?.coords[1] || 0}
-            latitude={spots.find(s => s.id === activeSpotId)?.coords[0] || 0}
-            offset={25}
-            closeButton={true}
-            closeOnClick={false}
-            onClose={handlePopupClose}
-            anchor="bottom"
-            className={classes.popupGallery}
-            maxWidth="320px"
-          >
-            {activeSpot && renderPopupContent?.(activeSpot)}
-          </Popup>
-        )}
-
 
         <TempPinMarker />
 
