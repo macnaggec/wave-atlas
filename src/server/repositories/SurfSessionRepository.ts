@@ -171,6 +171,37 @@ export class SurfSessionRepository {
     );
   }
 
+  findById(sessionId: string): Promise<SurfSessionItem | null> {
+    return runQuery(async () => {
+      const row = await prisma.surfSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          spot: { select: { id: true, name: true, location: true } },
+          mediaItems: {
+            where: { status: MediaStatus.PUBLISHED, deletedAt: null },
+            orderBy: { capturedAt: 'asc' },
+            take: 1,
+            select: { thumbnailUrl: true, cloudinaryPublicId: true },
+          },
+          _count: { select: { mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } } } },
+        },
+      });
+      if (!row) return null;
+      return {
+        id: row.id,
+        spotId: row.spotId,
+        photographerId: row.photographerId,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        status: row.status,
+        createdAt: row.createdAt,
+        spot: row.spot,
+        thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
+        mediaCount: row._count.mediaItems,
+      };
+    });
+  }
+
   /** Atomically publishes all DRAFT media in the session and marks it PUBLISHED. */
   publish(sessionId: string, photographerId: string): Promise<{ mediaIds: string[] }> {
     return runQuery(() =>

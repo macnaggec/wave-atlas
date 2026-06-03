@@ -75,6 +75,11 @@ export const sessionsRouter = router({
     surfSessionRepository.findByPhotographer(ctx.user.id),
   ),
 
+  /** Single session by ID. */
+  byId: publicProcedure
+    .input(z.uuid())
+    .query(({ input: sessionId }) => surfSessionRepository.findById(sessionId)),
+
   /** Published media items for a session. */
   media: publicProcedure
     .input(z.uuid())
