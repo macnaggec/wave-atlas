@@ -7,8 +7,11 @@ import { useGallerySelection } from 'shared/hooks/gallery';
 import { useSpotMediaFeed } from 'entities/Spot/model/useSpotMediaFeed';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery } from 'shared/ui/VirtualGallery/VirtualGallery';
+import { useCartStore } from 'features/Cart/model/cartStore';
+import { toCartItem } from 'features/Cart/model/useCartItem';
+import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
-import MediaLightbox from './ui/MediaLightbox';
+import MediaLightbox, { LightboxMedia } from './ui/MediaLightbox';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
 
 const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
@@ -17,38 +20,30 @@ const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
 };
 
 export interface PublicGalleryProps {
-  /** Spot ID — used to fetch paginated media */
   spotId: string;
-
-  /** Set of media IDs currently in the cart — drives active state on cards */
-  cartItemIds?: Set<string>;
-
-  /** Called when a card's cart button is clicked (add if not in cart, remove if in cart) */
-  onCartToggle?: (item: MediaItem) => void;
-
-  /** Called when user bulk-adds selected items to cart */
-  onCartBulkAdd?: (items: MediaItem[]) => void;
-
-  /** Callback when user shares items */
   onShare?: (items: MediaItem[]) => void;
-
-  /**
-   * Message to display when gallery is empty
-   * @default "No media available."
-   */
   emptyMessage?: string;
 }
 
 const PublicGallery: FC<PublicGalleryProps> = memo(({
   spotId,
-  cartItemIds = new Set<string>(),
-  onCartToggle,
-  onCartBulkAdd,
   onShare,
   emptyMessage = 'No media available.',
 }) => {
   const { flatItems, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSpotMediaFeed(spotId);
+
+  const { data: spot } = useSpotPreview(spotId);
+  const spotName = spot?.name ?? '';
+
+  const cartStoreItems = useCartStore((s) => s.items);
+  const addToCart = useCartStore((s) => s.add);
+  const removeFromCart = useCartStore((s) => s.remove);
+
+  const cartItemIds = useMemo(
+    () => new Set(cartStoreItems.map((i) => i.id)),
+    [cartStoreItems],
+  );
 
   const { getCardActions, getCartBulkState, userId } = usePublicGalleryActions({
     cartItemIds,
@@ -106,14 +101,26 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
     [flatItems],
   );
 
+  const handleCartToggle = useCallback(
+    (lightboxItem: LightboxMedia) => {
+      if (cartItemIds.has(lightboxItem.id)) {
+        removeFromCart(lightboxItem.id);
+      } else {
+        const full = flatItems.find((i) => i.id === lightboxItem.id);
+        if (full) addToCart(toCartItem(full, spotName));
+      }
+    },
+    [cartItemIds, removeFromCart, addToCart, flatItems, spotName],
+  );
+
   const handleCardAction = useCallback(
     (action: PublicCardAction, itemId: string) => {
       const item = flatItems.find((i) => i.id === itemId);
       if (!item) return;
-      if (action === 'cart') onCartToggle?.(item);
+      if (action === 'cart') handleCartToggle(item);
       if (action === 'share') onShare?.([item]);
     },
-    [flatItems, onCartToggle, onShare],
+    [flatItems, handleCartToggle, onShare],
   );
 
   const renderMenuActions = useCallback(
@@ -128,7 +135,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
                 key={key}
                 leftSection={<Icon size={14} />}
                 onClick={() => {
-                  if (key === 'cart') onCartBulkAdd?.(payload);
+                  if (key === 'cart') payload.forEach((item) => addToCart(toCartItem(item, spotName)));
                   if (key === 'share') onShare?.(payload);
                   selection.disableSelectionMode();
                 }}
@@ -141,7 +148,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         </>
       );
     },
-    [getCartBulkState, onCartBulkAdd, onShare, selection],
+    [getCartBulkState, addToCart, spotName, onShare, selection],
   );
 
   // ========================================================================
@@ -200,7 +207,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         opened={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
         cartItemIds={cartItemIds}
-        onCartToggle={onCartToggle}
+        onCartToggle={handleCartToggle}
         ownedItemIds={ownedItemIds}
       />
     </>

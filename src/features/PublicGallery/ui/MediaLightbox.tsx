@@ -1,29 +1,35 @@
 import { FC, memo } from 'react';
 import { Group, Text, Badge, Button } from '@mantine/core';
 import { IconShoppingCartPlus, IconShoppingCartMinus } from '@tabler/icons-react';
-import { MediaItem } from 'entities/Media/types';
 import { formatPrice } from 'shared/lib/currency';
 import { CarouselLightbox } from 'shared/ui/CarouselLightbox';
 
+/** Minimal shape MediaLightbox needs — satisfied by both MediaItem and PublishedMedia. */
+export interface LightboxMedia {
+  id: string;
+  lightboxUrl: string;
+  thumbnailUrl: string;
+  /** Present on MediaItem */
+  resource?: { resource_type: string };
+  /** Present on PublishedMedia */
+  type?: 'PHOTO' | 'VIDEO';
+  price: number;
+  capturedAt: Date;
+  photographerId: string;
+}
+
 export interface MediaLightboxProps {
-  /** All items navigable within this lightbox session */
-  items: MediaItem[];
-  /** Index of the item to show on open */
+  items: LightboxMedia[];
   initialIndex: number;
-  /** Whether the modal is open */
   opened: boolean;
-  /** Close callback */
   onClose: () => void;
-  /** IDs currently in the cart — drives cart button active state */
   cartItemIds?: Set<string>;
-  /** Called when the cart button is clicked for an item */
-  onCartToggle?: (item: MediaItem) => void;
-  /** IDs of media items owned by the current user — cart button hidden for these */
+  onCartToggle?: (item: LightboxMedia) => void;
   ownedItemIds?: Set<string>;
 }
 
 /**
- * MediaLightbox - Full-size watermarked preview modal for PublicGallery.
+ * MediaLightbox - Full-size watermarked preview modal.
  * Footer: price + date on the left, add/remove cart button on the right.
  */
 const MediaLightbox: FC<MediaLightboxProps> = memo(({
@@ -35,11 +41,10 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
   onCartToggle,
   ownedItemIds = new Set<string>(),
 }) => {
-  const lightboxItems = items.map((item) => ({
-    id: item.id,
-    url: item.lightboxUrl,
-    type: item.resource.resource_type as 'image' | 'video',
-  }));
+  const lightboxItems = items.map((item) => {
+    const isVideo = item.resource?.resource_type === 'video' || item.type === 'VIDEO';
+    return { id: item.id, url: item.lightboxUrl, type: (isVideo ? 'video' : 'image') as 'image' | 'video' };
+  });
 
   return (
     <CarouselLightbox
