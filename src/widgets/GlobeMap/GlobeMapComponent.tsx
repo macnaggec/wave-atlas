@@ -120,7 +120,6 @@ export function GlobeMapComponent({
     mapRef,
     spots,
     onSpotClick: (spot) => mapCommands.selectFromPin(spot),
-    onClearSelection: () => mapCommands.clearAll(),
     onUserInteractionStart
   });
 

@@ -3,23 +3,22 @@ import { SessionFeed } from 'widgets/SidePanel/SessionFeed';
 import { usePanelFilter, usePanelExpanded } from './_panel';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 
-export const Route = createFileRoute('/_panel/$spotId/')({
-  component: SpotFeed,
+export const Route = createFileRoute('/_panel/')({
+  staticData: { panelHeader: 'Recent Sessions' },
+  component: DefaultFeed,
 });
 
-function SpotFeed() {
-  const { spotId } = Route.useParams();
+function DefaultFeed() {
   const { activeFilter } = usePanelFilter();
   const expanded = usePanelExpanded();
   const navigate = useNavigate();
 
   return (
     <SessionFeed
-      spotId={spotId}
       activeFilter={activeFilter}
       expanded={expanded}
       onSessionClick={(session: SurfSessionItem) =>
-        void navigate({ to: '/$spotId/session/$sessionId', params: { spotId, sessionId: session.id } })
+        void navigate({ to: '/$spotId/session/$sessionId', params: { spotId: session.spotId, sessionId: session.id } })
       }
     />
   );

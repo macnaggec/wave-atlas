@@ -86,11 +86,14 @@ interface SessionFeedProps {
   expanded?: boolean;
   activeFilter?: ActiveFilter;
   onSessionClick?: (session: SurfSessionItem) => void;
+  /** Route-driven spot filter — takes precedence over mapStore.selection. */
+  spotId?: string;
 }
 
-export function SessionFeed({ expanded, activeFilter, onSessionClick }: SessionFeedProps) {
+export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: spotIdProp }: SessionFeedProps) {
   const trpc = useTRPC();
-  const selectedSpotId = useMapStore((s) => s.selection?.id ?? null);
+  const storeSpotId = useMapStore((s) => s.selection?.id ?? null);
+  const selectedSpotId = spotIdProp ?? storeSpotId;
 
   const dateRange = toDateRange(activeFilter ?? null);
   const columns = expanded ? 3 : 1;
