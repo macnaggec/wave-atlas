@@ -208,3 +208,4 @@
 58. bug: no centering and filtering when select spot from search result for the first try, works ok if to search and select one more time.
 59. Need to disable cursor when spot is selected in search bar. clearing selected spot with x button enables it back
 60. add location to selected spot name because there are like echo beach on bali and echo beach on banyak islands.
+70. if clear chip in gallery state stay there with empty state don't go to recents? or drop state entirely to Recent session mode?
