@@ -1,16 +1,35 @@
-import { trpcClient } from 'app/lib/trpcClient';
 import { uploadToCloudinary } from './cloudinaryTransport';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { extractExifData } from 'shared/lib/exifExtractor';
 import { MediaItem } from 'entities/Media/types';
 import { CloudinaryResult, ExifMetadata, UploadItem } from './types';
 
-type SignatureData = Awaited<ReturnType<typeof trpcClient.media.signCloudinary.mutate>>;
+type SignatureData = {
+  signature: string;
+  timestamp: number;
+  apiKey: string;
+  cloudName: string;
+  folder: string;
+  eager: string;
+};
+
+type PipelineClient = {
+  media: {
+    signCloudinary: { mutate: () => Promise<SignatureData> };
+    create: { mutate: (input: {
+      spotId: string;
+      sessionId?: string;
+      cloudinaryResult: CloudinaryResult;
+      capturedAt?: Date;
+    }) => Promise<MediaItem> };
+  };
+};
 
 export function createUploadPipeline(
   spotId: string,
   sessionId: string | null,
   updateStatus: (updates: Partial<UploadItem>) => void,
+  client: PipelineClient,
 ) {
   async function extractMetadata(file: File): Promise<ExifMetadata> {
     const exifData = await extractExifData(file);
@@ -23,7 +42,7 @@ export function createUploadPipeline(
   async function getSignature(): Promise<SignatureData> {
     updateStatus({ status: 'signing' });
 
-    return await trpcClient.media.signCloudinary.mutate();
+    return await client.media.signCloudinary.mutate();
   }
 
   function uploadToCloud(
@@ -49,7 +68,7 @@ export function createUploadPipeline(
     exifData: ExifMetadata,
   ): Promise<MediaItem> {
     updateStatus({ status: 'saving', progress: 100 });
-    const mediaItem = await trpcClient.media.create.mutate({
+    const mediaItem = await client.media.create.mutate({
       spotId,
       ...(sessionId !== null ? { sessionId } : {}),
       cloudinaryResult: cloudResult,

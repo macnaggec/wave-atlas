@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { MediaItem } from 'entities/Media/types';
 import { notify } from 'shared/lib/notifications';
 import { MEDIA_UPLOAD_LIMITS } from 'entities/Media/constants';
+import { useTRPCClient } from 'app/lib/trpc';
 import { UploadError } from './UploadError';
 import { UploadItem } from './types';
 import { createUploadPipeline } from './UploadPipeline';
@@ -33,6 +34,7 @@ export const useUploadManager = (
   sessionId: string | null,
   spotName: string | null = null
 ) => {
+  const trpcClient = useTRPCClient();
   const draftCache = useDraftMediaMutate(sessionId);
   const { mutateAsync: deleteMedia } = useDeleteMedia();
 
@@ -66,7 +68,7 @@ export const useUploadManager = (
   ) => {
     if (!file) return;
 
-    const pipeline = createPipeline(id, spotId, sessionId);
+    const pipeline = createPipeline(id, spotId, sessionId, trpcClient);
     let mediaItem: MediaItem;
 
     try {
@@ -107,7 +109,7 @@ export const useUploadManager = (
     // for MediaItem data. Writing to TQ here makes the result immediately visible
     // in useUploadQueue without any promotion logic.
     void draftCache.append(mediaItem);
-  }, [spotId, draftCache]);
+  }, [spotId, sessionId, draftCache, trpcClient]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -255,7 +257,12 @@ export const useUploadManager = (
 // MODULE-LEVEL HELPERS - No hook deps; accept all inputs as explicit params
 // ===========================================================================
 
-function createPipeline(id: string, spotId: string, sessionId: string | null) {
+function createPipeline(
+  id: string,
+  spotId: string,
+  sessionId: string | null,
+  client: Parameters<typeof createUploadPipeline>[3],
+) {
   return createUploadPipeline(
     spotId,
     sessionId,
@@ -263,6 +270,7 @@ function createPipeline(id: string, spotId: string, sessionId: string | null) {
       // Update store even if component unmounted (background uploads).
       useUploadStore.getState().updateItem(id, updates);
     },
+    client,
   );
 }
 
