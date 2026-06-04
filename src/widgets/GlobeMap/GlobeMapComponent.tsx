@@ -86,7 +86,7 @@ export function GlobeMapComponent({
       }
     }
     return cameraState;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial value only
+  }, []); // intentional: captured once as initial camera state
 
   const {
     startSpinning,

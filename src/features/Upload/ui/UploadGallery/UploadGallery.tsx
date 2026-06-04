@@ -280,7 +280,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     if (!onProceed) return;
     if (items.length > 0) handleModalChange(true);
     else handleModalChange(false);
-  }, [items.length, onProceed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, onProceed]);
 
   // Use raw status check (not completedItems which requires item.result) to avoid timing gaps
   const hasImporting = items.some(item => item.status === 'importing');
