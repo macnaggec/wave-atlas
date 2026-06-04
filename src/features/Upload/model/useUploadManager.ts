@@ -46,7 +46,6 @@ export const useUploadManager = (
     const store = useUploadStore.getState();
 
     // Only set upload context if no other spot is actively uploading.
-    // Completed items are removed from Zustand once SWR confirms them (see processUpload).
     const hasActiveUploadsForOtherSpot = store.uploadQueue.some(
       item => item.spotId !== spotId
     );
@@ -104,11 +103,6 @@ export const useUploadManager = (
       return;
     }
 
-    // Upload succeeded — write the confirmed MediaItem directly into SWR's cache.
-    // This bypasses the 'use cache' layer which may still serve stale data due to
-    // revalidateTag propagation delay. SWR's cache update triggers a re-render in
-    // useDraftMedia → useUploadQueue dedup hides the Zustand copy in the same cycle.
-    //
     // The Zustand item carries only mediaId now. TQ is the single source of truth
     // for MediaItem data. Writing to TQ here makes the result immediately visible
     // in useUploadQueue without any promotion logic.

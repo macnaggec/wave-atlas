@@ -11,7 +11,7 @@
 // MODEL - Business Logic & State
 // ============================================================================
 export { useUploadManager } from './model';
-export { useDraftMedia, useDraftMediaMutate, draftMediaKey } from './model';
+export { useDraftMedia, useDraftMediaMutate } from './model';
 export type { UploadItem, QueueItem, UploadStatus, UploadItemAction } from './model';
 
 // ============================================================================

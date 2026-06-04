@@ -52,8 +52,6 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   // Actions
   setSpotContext: (spotId: string, spotName: string | null) => {
     // Set the upload context without clearing queue.
-    // Completed items are cleared after router.refresh() in useUploadManager
-    // to avoid losing visibility before RSC draftMedia is updated.
     set({ uploadingSpotId: spotId, uploadingSpotName: spotName });
   },
 

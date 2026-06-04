@@ -17,7 +17,6 @@ export { usePublish } from './usePublish';
 export type { PublishStats } from './usePublish';
 export { useGooglePicker } from './useGooglePicker';
 export { useDraftEditing } from './useDraftEditing';
-export { draftMediaKey } from './draftMediaKey';
 
 // Types
 export type { UploadItem, QueueItem, UploadStatus, UploadItemAction, CloudinaryResult, ExifMetadata } from './types';

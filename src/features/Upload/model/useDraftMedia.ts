@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 import type { MediaItem } from 'entities/Media/types';
 
-export { draftMediaKey } from './draftMediaKey';
-
 /**
  * Client-side draft media hook, backed by TanStack Query via tRPC.
  * Fetches draft media for a specific surf session.
