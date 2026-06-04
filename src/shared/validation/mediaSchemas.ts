@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
 
 const cloudName =
   typeof process !== 'undefined'
@@ -29,7 +29,7 @@ export const mediaCreateSchema = z.object({
 
 export const mediaUpdateSchema = z.object({
   id: z.uuid(),
-  price: z.number().min(MIN_MEDIA_PRICE_CENTS).optional(),
+  price: z.number().min(0).optional(),
   capturedAt: z.coerce.date().optional(),
 });
 

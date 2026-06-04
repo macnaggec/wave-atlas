@@ -7,6 +7,12 @@ import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
+function assertPriceFloor(price: number | undefined): void {
+  if (price !== undefined && price < MIN_MEDIA_PRICE_CENTS) {
+    throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
+  }
+}
+
 export type CreateMediaInput = {
   spotId: string;
   sessionId?: string;
@@ -121,9 +127,7 @@ export class MediaService {
   }
 
   async updatePublishedBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<void> {
-    if (data.price !== undefined && data.price < MIN_MEDIA_PRICE_CENTS) {
-      throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
-    }
+    assertPriceFloor(data.price);
     const items = await this.fetchOwnedBatch(userId, mediaIds);
     for (const item of items) {
       if (item.status !== MEDIA_STATUS.PUBLISHED) {
@@ -154,10 +158,7 @@ export class MediaService {
       if (item.status !== MEDIA_STATUS.DRAFT) {
         throw new BadRequestError(`Media ${item.id} is not a draft`);
       }
-      const finalPrice = data.price ?? item.price;
-      if (finalPrice < MIN_MEDIA_PRICE_CENTS) {
-        throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
-      }
+      assertPriceFloor(data.price ?? item.price);
     }
 
     const updateData: { status: typeof MEDIA_STATUS.PUBLISHED; price?: number; capturedAt?: Date } = {
