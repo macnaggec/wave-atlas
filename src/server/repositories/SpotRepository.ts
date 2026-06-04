@@ -15,7 +15,7 @@ function mapToSpot(spot: PrismaSpot): Spot {
     id: spot.id,
     name: spot.name,
     location: spot.location,
-    coords: [Number(spot.lat), Number(spot.lng)] as [number, number],
+    coords: { lat: Number(spot.lat), lng: Number(spot.lng) },
     status: (spot.status as SpotStatus) || SPOT_STATUS.VERIFIED,
   };
 }

@@ -77,8 +77,8 @@ export function GlobeMapComponent({
       const spot = spots.find((s) => s.id === initialSpotId);
       if (spot) {
         return {
-          longitude: spot.coords[1],
-          latitude: spot.coords[0],
+          longitude: spot.coords.lng,
+          latitude: spot.coords.lat,
           zoom: 12,
           pitch: 0,
           bearing: 0,
@@ -192,8 +192,8 @@ export function GlobeMapComponent({
         {/* Tooltip Popup (Only when not selected) */}
         {hoveredSpot && hoveredSpot.id !== activeSpotId && (
           <Popup
-            longitude={hoveredSpot.coords[1]}
-            latitude={hoveredSpot.coords[0]}
+            longitude={hoveredSpot.coords.lng}
+            latitude={hoveredSpot.coords.lat}
             offset={15}
             closeButton={false}
             closeOnClick={false}

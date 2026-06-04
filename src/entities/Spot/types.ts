@@ -1,4 +1,5 @@
 import { SpotStatus } from './constants';
+import type { Position } from 'shared/types/coordinates';
 
 /** Minimal spot data needed to render the panel header. */
 export type SpotHeaderData = {
@@ -11,6 +12,6 @@ export type Spot = {
   id: string;
   name: string;
   location: string;
-  coords: [number, number];
+  coords: Position;
   status?: SpotStatus;
 };

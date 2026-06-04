@@ -15,7 +15,7 @@ export const useSpotGeoJson = (spots: Spot[]): FeatureCollection => {
         },
         geometry: {
           type: 'Point',
-          coordinates: [spot.coords[1], spot.coords[0]] // [lng, lat]
+          coordinates: [spot.coords.lng, spot.coords.lat]
         }
       }))
     };

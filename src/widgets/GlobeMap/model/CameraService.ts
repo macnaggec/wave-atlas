@@ -46,7 +46,7 @@ class CameraService {
       // flyTo changes zoom during animation which causes clusters to
       // collapse and re-expand mid-flight, creating a flicker artifact.
       this.map!.easeTo({
-        center: [spot.coords[1], spot.coords[0]],
+        center: [spot.coords.lng, spot.coords.lat],
         padding,
         duration: 600,
         essential: true,
@@ -54,7 +54,7 @@ class CameraService {
     } else {
       // Zoomed out — fly in to coastal context level.
       this.map!.flyTo({
-        center: [spot.coords[1], spot.coords[0]],
+        center: [spot.coords.lng, spot.coords.lat],
         zoom: 12,
         padding,
         duration: 1000,
