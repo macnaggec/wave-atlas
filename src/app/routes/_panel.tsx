@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
+import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Skeleton, Text } from '@mantine/core';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
@@ -74,6 +75,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
 
   const { spotId } = useParams({ strict: false });
 
+  const { spot: activeSpot } = useSelectedSpot();
   const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '');
 
   const forceExpanded = matches.some(
@@ -149,7 +151,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <FeedSearch
-              activeSpot={isDefaultIndex ? null : undefined}
+              activeSpot={isDefaultIndex ? null : (activeSpot ?? null)}
               onSpotSelect={isExpanded && isDefaultIndex
                 ? (spot) => void navigate({ to: '/$spotId', params: { spotId: spot.id } })
                 : undefined}

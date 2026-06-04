@@ -5,6 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
 import { Spot } from 'entities/Spot/types';
+import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { mapCommands } from './model/mapCommands';
 import { cameraService } from './model/CameraService';
@@ -41,7 +42,6 @@ export interface GlobeMapProps {
     zoom: number;
   };
   mode?: PageMode;
-  initialSpotId?: string;
   onUploadConfirm?: (spot: Spot) => void;
   onUploadCancel?: () => void;
 }
@@ -50,14 +50,12 @@ export function GlobeMapComponent({
   spots = [],
   initialViewState = DEFAULT_VIEW,
   mode = 'explore',
-  initialSpotId,
   onUploadConfirm,
   onUploadCancel,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const activeSpot = useMapStore((s) => s.selection);
-  const activeSpotId = activeSpot?.id ?? null;
+  const { spotId: activeSpotId = null } = useSelectedSpot();
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
 
@@ -73,8 +71,8 @@ export function GlobeMapComponent({
     const isDefaultCamera =
       cameraState.longitude === DEFAULT_VIEW.longitude &&
       cameraState.latitude === DEFAULT_VIEW.latitude;
-    if (isDefaultCamera && initialSpotId) {
-      const spot = spots.find((s) => s.id === initialSpotId);
+    if (isDefaultCamera && activeSpotId) {
+      const spot = spots.find((s) => s.id === activeSpotId);
       if (spot) {
         return {
           longitude: spot.coords.lng,

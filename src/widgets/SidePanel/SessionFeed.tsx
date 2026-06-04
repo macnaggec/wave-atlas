@@ -5,7 +5,6 @@ import { IconPhoto, IconMapPin } from '@tabler/icons-react';
 import { useTRPC } from 'app/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import { formatDateRange } from 'shared/lib/dateUtils';
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 
 // ─── Filter types & helpers (exported for AppShell) ───────────────────────────
 
@@ -92,8 +91,7 @@ interface SessionFeedProps {
 
 export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: spotIdProp }: SessionFeedProps) {
   const trpc = useTRPC();
-  const storeSpotId = useMapStore((s) => s.selection?.id ?? null);
-  const selectedSpotId = spotIdProp ?? storeSpotId;
+  const selectedSpotId = spotIdProp ?? null;
 
   const dateRange = toDateRange(activeFilter ?? null);
   const columns = expanded ? 3 : 1;

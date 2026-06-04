@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Text } from '@mantine/core';
 import SpotSearch from 'features/SpotSearch/SpotSearch';
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
 import { useAddSpot } from 'features/AddSpot';
 import { useUser } from 'shared/hooks/useUser';
@@ -20,8 +19,7 @@ interface FeedSearchProps {
 }
 
 export function FeedSearch({ placeholder, onSpotSelect, activeSpot: activeSpotOverride, onClear, autoFocus }: FeedSearchProps = {}) {
-  const storeSelection = useMapStore((s) => s.selection);
-  const selection = activeSpotOverride !== undefined ? activeSpotOverride : storeSelection;
+  const selection = activeSpotOverride ?? null;
   const { startAddSpot } = useAddSpot();
   const { isAuthenticated } = useUser();
   const { open: openAuthModal } = useAuthModal();

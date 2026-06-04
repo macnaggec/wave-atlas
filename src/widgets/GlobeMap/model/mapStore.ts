@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Spot } from 'entities/Spot/types';
 import type { LngLat } from 'shared/types/coordinates';
 
 export interface CameraState {
@@ -22,7 +21,6 @@ const DEFAULT_CAMERA: CameraState = {
 export type InteractionMode = 'explore' | 'pin-placement';
 
 interface MapState {
-  selection: Spot | null;
   cameraState: CameraState;
   interactionMode: InteractionMode;
   /** Temporary pin position while in pin-placement mode. */
@@ -32,8 +30,6 @@ interface MapState {
 }
 
 interface MapActions {
-  setSelection: (spot: Spot) => void;
-  clearSelection: () => void;
   saveCameraState: (camera: CameraState) => void;
   enterPinPlacement: (initialName?: string) => void;
   exitPinPlacement: () => void;
@@ -46,14 +42,11 @@ interface MapStore extends MapState, MapActions { }
 export const useMapStore = create<MapStore>()(
   persist(
     (set) => ({
-      selection: null,
       cameraState: DEFAULT_CAMERA,
       interactionMode: 'explore',
       tempPin: null,
       pendingSpotName: '',
 
-      setSelection: (spot) => set({ selection: spot }),
-      clearSelection: () => set({ selection: null }),
       saveCameraState: (camera) => set({ cameraState: camera }),
       enterPinPlacement: (initialName = '') =>
         set({ interactionMode: 'pin-placement', tempPin: null, pendingSpotName: initialName }),
@@ -65,7 +58,6 @@ export const useMapStore = create<MapStore>()(
     {
       name: 'wave-atlas-map',
       storage: createJSONStorage(() => sessionStorage),
-      // Only persist camera position — selection and mode reset on every page load
       partialize: (state) => ({ cameraState: state.cameraState }),
     }
   )
