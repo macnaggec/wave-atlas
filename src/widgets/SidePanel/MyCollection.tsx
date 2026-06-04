@@ -13,10 +13,10 @@ import {
   Tabs,
   Text,
 } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useMemo } from 'react';
-import { useTRPC } from 'app/lib/trpc';
+import { useMySessions } from 'entities/SurfSession/model/useMySessions';
+import { useMyPurchases } from 'entities/Commerce/model/useMyPurchases';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import { formatDateRange } from 'shared/lib/dateUtils';
 import { usePurchaseDownload } from 'features/Cart/model/usePurchaseDownload';
@@ -66,8 +66,7 @@ function SessionCard({ session }: { session: SurfSessionItem }) {
 }
 
 function UploadsContent() {
-  const trpc = useTRPC();
-  const { data: sessions = [], isLoading } = useQuery(trpc.sessions.mine.queryOptions());
+  const { data: sessions = [], isLoading } = useMySessions();
   const [spotFilter, setSpotFilter] = useState<string | null>(null);
 
   const spotOptions = useMemo(() => {
@@ -122,8 +121,7 @@ function UploadsContent() {
 // ─── Purchases tab ───────────────────────────────────────────────────────────
 
 function PurchasesContent() {
-  const trpc = useTRPC();
-  const { data: purchases = [], isLoading } = useQuery(trpc.checkout.myPurchases.queryOptions());
+  const { data: purchases = [], isLoading } = useMyPurchases();
   const { download, isDownloading, isAnyDownloading } = usePurchaseDownload();
   const [lightboxMediaItemId, setLightboxMediaItemId] = useState<string | null>(null);
   const lightboxPurchase = purchases.find((p) => p.mediaItem.id === lightboxMediaItemId) ?? null;

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from 'app/lib/trpc';
 
-/** Fetches all spots for the globe map. Optionally filtered by search string. */
-export function useSpots(search?: string) {
+/** Fetches spots, optionally filtered by search string. Pass enabled:false to suppress until ready. */
+export function useSpots(search?: string, options?: { enabled?: boolean }) {
   const trpc = useTRPC();
-  return useQuery(trpc.spots.list.queryOptions(search));
+  return useQuery({ ...trpc.spots.list.queryOptions(search), ...options });
 }

@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Center, Skeleton, Text } from '@mantine/core';
-import { useTRPC } from 'app/lib/trpc';
+import { useSessionMedia } from 'entities/SurfSession/model/useSessionMedia';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import type { MediaItem } from 'entities/Media/types';
 import { useCartStore } from 'features/Cart/model/cartStore';
@@ -14,10 +13,7 @@ interface SessionDetailProps {
 }
 
 export function SessionDetail({ session }: SessionDetailProps) {
-  const trpc = useTRPC();
-  const { data: media, isLoading } = useQuery(
-    trpc.sessions.media.queryOptions(session.id),
-  );
+  const { data: media, isLoading } = useSessionMedia(session.id);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 

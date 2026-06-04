@@ -4,8 +4,7 @@ import { IconSearch, IconMapPin } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useState, useCallback, useDeferredValue } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useSpots } from 'entities/Spot/model/useSpots';
 import { Spot } from 'entities/Spot/types';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { SpotResultOption } from './ui/SpotResultOption';
@@ -30,7 +29,6 @@ export default function SpotSearch({
   activeSpot,
   autoFocus,
 }: SpotSearchProps) {
-  const trpc = useTRPC();
   const [search, setSearch] = useState('');
 
   const isFiltering = activeSpot != null;
@@ -43,10 +41,7 @@ export default function SpotSearch({
   const deferredSearch = useDeferredValue(search);
   const isQueryEnabled = deferredSearch.length >= 2;
 
-  const { data: spots = null, isFetching } = useQuery({
-    ...trpc.spots.list.queryOptions(deferredSearch),
-    enabled: isQueryEnabled,
-  });
+  const { data: spots = null, isFetching } = useSpots(deferredSearch, { enabled: isQueryEnabled });
 
   const handleAliasError = useCallback((error: unknown) => {
     notifications.show({

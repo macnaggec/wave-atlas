@@ -1,8 +1,7 @@
 import { Combobox, Text, Group, TextInput, ActionIcon } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { useState, useCallback } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useAddSpotAlias } from 'entities/Spot/model/useAddSpotAlias';
 import { Spot } from 'entities/Spot/types';
 import { spotAliasSchema } from 'shared/validation/spotSchemas';
 import classes from './SpotResultOption.module.css';
@@ -13,19 +12,10 @@ interface SpotResultOptionProps {
 }
 
 export function SpotResultOption({ spot, onAliasError }: SpotResultOptionProps) {
-  const trpc = useTRPC();
+  const addAlias = useAddSpotAlias();
   const [aliasOpen, setAliasOpen] = useState(false);
   const [aliasValue, setAliasValue] = useState('');
   const [aliasError, setAliasError] = useState<string | null>(null);
-
-  const aliasMutation = useMutation({
-    ...trpc.spots.addAlias.mutationOptions(),
-    onSuccess: () => {
-      setAliasValue('');
-      setAliasOpen(false);
-    },
-    onError: onAliasError,
-  });
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,7 +25,13 @@ export function SpotResultOption({ spot, onAliasError }: SpotResultOptionProps) 
       setAliasError(result.error.issues[0]!.message);
       return;
     }
-    await aliasMutation.mutateAsync({ spotId: spot.id, alias: trimmed });
+    try {
+      await addAlias.mutateAsync({ spotId: spot.id, alias: trimmed });
+      setAliasValue('');
+      setAliasOpen(false);
+    } catch (err) {
+      onAliasError(err);
+    }
   };
 
   const handleCancel = (e: React.MouseEvent) => {
@@ -93,7 +89,7 @@ export function SpotResultOption({ spot, onAliasError }: SpotResultOptionProps) 
             size="sm"
             variant="filled"
             color="blue"
-            loading={aliasMutation.isPending}
+            loading={addAlias.isPending}
             disabled={!aliasValue.trim()}
             onClick={(e) => void handleSave(e)}
             aria-label="Save alias"
