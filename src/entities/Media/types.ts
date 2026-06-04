@@ -4,6 +4,7 @@
  */
 
 import { MediaResourceType, MediaStatus } from './constants';
+import type { Cents } from 'shared/types/coordinates';
 
 export interface MediaItem {
   id: string;
@@ -12,7 +13,7 @@ export interface MediaItem {
   capturedAt: Date;
   dateSource?: 'exif' | 'fallback'; // Track if date came from EXIF metadata
   /** Price in cents (e.g. 300 = $3.00) */
-  price: number;
+  price: Cents;
   lightboxUrl: string;
   thumbnailUrl: string;
   cloudinaryPublicId: string;
@@ -38,7 +39,7 @@ export type PublishedMedia = {
   type: MediaType;
   lightboxUrl: string;
   thumbnailUrl: string;
-  price: number;
+  price: Cents;
   capturedAt: Date;
   spotId: string;
   photographerId: string;

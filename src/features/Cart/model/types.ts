@@ -1,3 +1,5 @@
+import type { Cents } from 'shared/types/coordinates';
+
 export interface CartItem {
   /** Opaque item identifier — the purchasing layer resolves what it points to */
   id: string;
@@ -11,5 +13,5 @@ export interface CartItem {
   /** Watermarked full-size URL for lightbox preview */
   lightboxUrl: string;
   /** Price in cents (e.g. 300 = $3.00). Integer to avoid floating-point errors. */
-  priceCents: number;
+  priceCents: Cents;
 }
