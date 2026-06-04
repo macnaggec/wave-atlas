@@ -49,7 +49,9 @@ export default tseslint.config(
     rules: {
       // Baseline mode: 'warn' so existing violations don't block builds.
       // F4 will fix the two named upward imports (mapCommands → app/router,
-      // UploadPipeline → app/trpcClient) and flip these to 'error'.
+      // useUploadManager → app/lib/trpc) and flip these to 'error'.
+      // Note: UploadPipeline → app/trpcClient was resolved by F1 (client injected via
+      // useTRPCClient); the remaining useUploadManager → app violation is eliminated by CE1.
       'boundaries/dependencies': ['warn', {
         default: 'disallow',
         rules: [
@@ -72,8 +74,20 @@ export default tseslint.config(
               ],
             },
           },
-          // entities may only import shared
-          { from: { type: 'entities' }, allow: { to: { type: ['shared', 'types'] } } },
+          // entities may import shared — plus useTRPC/useTRPCClient from app/lib/trpc.ts.
+          // Those hooks are born from one createTRPCContext() call that must live alongside
+          // TRPCProvider in app/; splitting them across layers would require a circular
+          // re-export. This is a narrow infrastructure exception, not a general app import.
+          {
+            from: { type: 'entities' },
+            allow: {
+              to: [
+                { type: 'shared' },
+                { type: 'types' },
+                { type: 'app', path: 'src/app/lib/trpc.ts' },
+              ],
+            },
+          },
           // shared: no local layer imports (violations here are real bugs — buildGalleryRows importing entities)
           // server: imports from server, shared (kernel types), and entities (domain types used server-side)
           { from: { type: 'server' },  allow: { to: { type: ['server', 'shared', 'entities'] } } },
