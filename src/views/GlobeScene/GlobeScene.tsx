@@ -7,7 +7,6 @@ import classes from './GlobeScene.module.css';
 /**
  * GlobeScene — persistent globe view with floating UI.
  *
- * Fetches spots via TanStack Query (replaces RSC GlobeSceneLoader).
  * Lives at layout level — never remounts on panel open/close navigations.
  */
 export function GlobeScene() {

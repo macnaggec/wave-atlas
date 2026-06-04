@@ -8,10 +8,10 @@ import { useEffect } from 'react';
  *   - Hard refresh (F5 / Ctrl+R)
  *   - Navigating to an external URL
  *
- * It does NOT fire on Next.js client-side navigation (router.push/replace/back)
- * because those use the History API (pushState) internally, which never triggers
- * `beforeunload`. SidePanel.handleClose therefore uses router.push('/') to ensure
- * closing the panel is always a safe SPA transition.
+ * It does NOT fire on client-side navigation (router.navigate) because TanStack
+ * Router uses the History API (pushState), which never triggers `beforeunload`.
+ * SidePanel.handleClose therefore uses router.navigate to ensure closing the panel
+ * is always a safe SPA transition.
  */
 export function useUploadWarning(hasActiveUploads: boolean): void {
   useEffect(() => {
