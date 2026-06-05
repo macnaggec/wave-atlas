@@ -7,6 +7,7 @@ import { useCartStore } from 'features/Cart/model/cartStore';
 import { formatShortDate } from 'shared/lib/dateUtils';
 import { MediaLightbox, PublicCard, type LightboxMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
+import { BaseGallery } from 'shared/ui/BaseGallery';
 
 interface SessionDetailProps {
   session: SurfSessionItem;
@@ -58,46 +59,49 @@ export function SessionDetail({ session }: SessionDetailProps) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-      {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '0 12px' }}>
-          {Array.from({ length: session.mediaCount || 6 }).map((_, i) => (
-            <Skeleton key={i} height={0} style={{ paddingBottom: '62.5%', borderRadius: 8 }} />
-          ))}
-        </div>
-      ) : !media || media.length === 0 ? (
-        <Center h={200}>
-          <Text size="sm" c="dimmed">No media</Text>
-        </Center>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '0 12px' }}>
-          {media.map((item, index) => {
-            const isOwn = ownedItemIds.has(item.id);
-            const isInCart = cartItemIds.has(item.id);
-            const mediaItem: MediaItem = {
-              ...item,
-              resource: {
-                resource_type: item.type === 'VIDEO' ? 'video' : 'image',
-                url: item.thumbnailUrl,
-                asset_id: item.id,
-              },
-              cloudinaryPublicId: '',
-              status: 'PUBLISHED',
-              createdAt: item.capturedAt,
-            };
-            return (
-              <PublicCard
-                key={item.id}
-                mediaItem={mediaItem}
-                actions={item.price > 0 && !isOwn ? ['cart'] : []}
-                activeActions={isInCart ? ['cart'] : []}
-                onAction={() => handleCartToggle(item)}
-                onCardClick={() => setLightboxIndex(index)}
-                showOwnerBadge={isOwn}
-              />
-            );
-          })}
-        </div>
-      )}
+        {isLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '0 12px' }}>
+            {Array.from({ length: session.mediaCount || 6 }).map((_, i) => (
+              <Skeleton key={i} height={0} style={{ paddingBottom: '62.5%', borderRadius: 8 }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: '0 12px' }}>
+            <BaseGallery
+              items={media ?? []}
+              renderCard={(item, { index }) => {
+                const isOwn = ownedItemIds.has(item.id);
+                const isInCart = cartItemIds.has(item.id);
+                const mediaItem: MediaItem = {
+                  ...item,
+                  resource: {
+                    resource_type: item.type === 'VIDEO' ? 'video' : 'image',
+                    url: item.thumbnailUrl,
+                    asset_id: item.id,
+                  },
+                  cloudinaryPublicId: '',
+                  status: 'PUBLISHED',
+                  createdAt: item.capturedAt,
+                };
+                return (
+                  <PublicCard
+                    mediaItem={mediaItem}
+                    actions={item.price > 0 && !isOwn ? ['cart'] : []}
+                    activeActions={isInCart ? ['cart'] : []}
+                    onAction={() => handleCartToggle(item)}
+                    onCardClick={() => setLightboxIndex(index)}
+                    showOwnerBadge={isOwn}
+                  />
+                );
+              }}
+              emptyState={
+                <Center h={200}>
+                  <Text size="sm" c="dimmed">No media</Text>
+                </Center>
+              }
+            />
+          </div>
+        )}
       </div>
 
       {media && media.length > 0 && (
