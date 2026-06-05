@@ -1,4 +1,4 @@
-import React, { FC, memo, useCallback, useMemo, useState } from 'react';
+import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
 import { IconShoppingBag, IconShare } from '@tabler/icons-react';
 import { SelectionToolbar } from 'shared/ui/BaseGallery';
@@ -6,7 +6,7 @@ import { MediaItem, SpotMediaItem } from 'entities/Media/types';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { useSpotMediaFeed } from 'entities/Spot/model/useSpotMediaFeed';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
-import { VirtualGallery } from 'shared/ui/VirtualGallery/VirtualGallery';
+import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
 // eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
 import { useCartStore } from 'features/Cart/model/cartStore';
 // eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
@@ -14,6 +14,7 @@ import { toCartItem } from 'features/Cart/model/useCartItem';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox, { LightboxMedia } from './ui/MediaLightbox';
+import { GalleryDateSidebar } from './ui/GalleryDateSidebar';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
 
 const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
@@ -73,15 +74,10 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   );
 
   // ========================================================================
-  // VIRTUAL ROWS + FAST-SCROLL HIGHLIGHTS
+  // VIRTUAL ROWS + SIDEBAR
   // ========================================================================
 
-  const [expandedDate, setExpandedDate] = useState<Date | null>(null);
-
-  const rows = useMemo(
-    () => buildGalleryRows(flatItems, 3, expandedDate),
-    [flatItems, expandedDate],
-  );
+  const rows = useMemo(() => buildGalleryRows(flatItems, 3), [flatItems]);
 
   const highlights = useMemo(
     () =>
@@ -90,6 +86,9 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         .filter((h): h is { date: Date; rowIndex: number } => h !== null),
     [rows],
   );
+
+  const galleryRef = useRef<VirtualGalleryHandle>(null);
+  const [firstVisibleIndex, setFirstVisibleIndex] = useState(0);
 
   // ========================================================================
   // ACTION HANDLERS
@@ -173,8 +172,9 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
 
   return (
     <>
-      <div style={{ flex: 1, minHeight: 0, height: '100%' }}>
+      <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', gap: 4 }}>
         <VirtualGallery
+          ref={galleryRef}
           rows={rows}
           selection={selection}
           toolbar={
@@ -195,11 +195,14 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
               />
             );
           }}
-          highlights={highlights}
-          expandedDate={expandedDate}
-          onDateExpand={setExpandedDate}
+          onFirstVisibleIndexChange={setFirstVisibleIndex}
           onEndReached={hasNextPage ? fetchNextPage : undefined}
           isFetchingMore={isFetchingNextPage}
+        />
+        <GalleryDateSidebar
+          highlights={highlights}
+          firstVisibleIndex={firstVisibleIndex}
+          galleryRef={galleryRef}
         />
       </div>
 
