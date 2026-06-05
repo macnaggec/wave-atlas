@@ -52,7 +52,7 @@ export default tseslint.config(
       // useUploadManager → app/lib/trpc) and flip these to 'error'.
       // Note: UploadPipeline → app/trpcClient was resolved by F1 (client injected via
       // useTRPCClient); the remaining useUploadManager → app violation is eliminated by CE1.
-      'boundaries/dependencies': ['warn', {
+      'boundaries/dependencies': ['error', {
         default: 'disallow',
         rules: [
           // app may import any layer (including server: tRPC requires the router type for e2e typesafety)
