@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mediaCloudinaryResultSchema } from 'shared/validation/mediaSchemas';
+import { mediaCloudinaryResultSchema } from 'entities/Media/lib/mediaSchemas';
 
 const BASE = 'https://res.cloudinary.com/test-cloud/';
 

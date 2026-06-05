@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MEDIA_STATUS, MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
+import { MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
 
 const cloudName =
   typeof process !== 'undefined'
@@ -56,3 +56,4 @@ export const registerDriveImportSchema = z.object({
   mimeType: z.string().min(1),
   accessToken: z.string().min(1),
 });
+

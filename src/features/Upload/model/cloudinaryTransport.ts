@@ -1,5 +1,5 @@
 import { logger } from 'shared/lib/logger';
-import { mediaCloudinaryResultSchema } from 'shared/validation/mediaSchemas';
+import { mediaCloudinaryResultSchema } from 'entities/Media/lib/mediaSchemas';
 import { UploadError } from './UploadError';
 import type { CloudinaryResult } from './types';
 
