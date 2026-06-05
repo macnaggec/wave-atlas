@@ -7,7 +7,9 @@ import { useGallerySelection } from 'shared/hooks/gallery';
 import { useSpotMediaFeed } from 'entities/Spot/model/useSpotMediaFeed';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery } from 'shared/ui/VirtualGallery/VirtualGallery';
+// eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
 import { useCartStore } from 'features/Cart/model/cartStore';
+// eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
 import { toCartItem } from 'features/Cart/model/useCartItem';
 import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';

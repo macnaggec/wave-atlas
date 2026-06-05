@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { MediaItem } from 'entities/Media/types';
 import { notify } from 'shared/lib/notifications';
 import { MEDIA_UPLOAD_LIMITS } from 'entities/Media/constants';
+// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
 import { useTRPCClient } from 'app/lib/trpc';
 import { UploadError } from './UploadError';
 import { UploadItem } from './types';

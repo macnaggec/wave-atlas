@@ -1,6 +1,7 @@
 // src/features/Upload/model/useGooglePicker.ts
 import { useCallback, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
 import { useTRPC } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
 import { useDraftMediaMutate } from './useDraftMedia';

@@ -3,6 +3,7 @@ import {
   useContext,
   useMemo,
 } from 'react';
+// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will expose pin-placement below widget layer
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 
 interface AddSpotContextValue {

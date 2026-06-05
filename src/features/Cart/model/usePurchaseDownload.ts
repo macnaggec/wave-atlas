@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+// eslint-disable-next-line boundaries/dependencies -- CE4: Commerce entity hooks will own download access
 import { useTRPCClient } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';

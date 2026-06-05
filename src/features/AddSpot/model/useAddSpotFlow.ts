@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will also move tRPC call to entity hook
 import { useTRPC } from 'app/lib/trpc';
+// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will expose pin-placement below widget layer
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { spotNameSchema, spotLocationSchema } from 'shared/validation/spotSchemas';
 import { notify } from 'shared/lib/notifications';

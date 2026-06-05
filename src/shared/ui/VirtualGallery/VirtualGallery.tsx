@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader, Text } from '@mantine/core';
 import { IconChevronLeft, IconClock } from '@tabler/icons-react';
 import type { GalleryRow } from 'shared/lib/buildGalleryRows';
+// eslint-disable-next-line boundaries/dependencies -- F3: Gallery primitive work will remove domain type dependency
 import type { MediaItem } from 'entities/Media/types';
 import type { CardContext } from 'shared/ui/BaseGallery/BaseGallery';
 import SelectionCheckbox from 'shared/ui/BaseGallery/SelectionCheckbox';

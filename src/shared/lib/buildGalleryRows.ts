@@ -1,3 +1,4 @@
+// eslint-disable-next-line boundaries/dependencies -- F3: Gallery primitive work will move this to entities/Media
 import type { MediaItem } from 'entities/Media/types';
 import { isSameCalendarDay } from './dateUtils';
 

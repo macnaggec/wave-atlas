@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildGalleryRows } from './buildGalleryRows';
 import type { GalleryRow } from './buildGalleryRows';
+// eslint-disable-next-line boundaries/dependencies -- F3: Gallery primitive work will move this to entities/Media
 import type { MediaItem } from 'entities/Media/types';
 
 function makeItem(id: string, capturedAt: Date): MediaItem {

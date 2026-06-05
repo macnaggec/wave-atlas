@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
+// eslint-disable-next-line boundaries/dependencies -- CE4: Commerce entity hooks will own checkout mutation
 import { useTRPC } from 'app/lib/trpc';
 import { useCartStore } from 'features/Cart/model/cartStore';
 import { notify } from 'shared/lib/notifications';

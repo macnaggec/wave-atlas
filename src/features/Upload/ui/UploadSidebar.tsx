@@ -2,8 +2,10 @@ import { useState, useCallback, useMemo } from 'react';
 import { Box, Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
 import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
+// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
 import { useTRPC } from 'app/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
+// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will establish Auth contract for cross-feature use
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
 import { useUploadStore } from '../model/uploadStore';
 import type { Spot } from 'entities/Spot/types';

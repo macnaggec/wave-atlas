@@ -1,6 +1,7 @@
 
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
 import { useTRPC } from 'app/lib/trpc';
 import type { MediaItem } from 'entities/Media/types';
 
