@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -53,6 +54,7 @@ export function GlobeMapComponent({
   onUploadConfirm,
   onUploadCancel,
 }: GlobeMapProps) {
+  const navigate = useNavigate();
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const { spotId: activeSpotId = null } = useSelectedSpot();
@@ -120,6 +122,10 @@ export function GlobeMapComponent({
     onSpotClick: (spot) => mapCommands.selectFromPin(spot),
     onUserInteractionStart
   });
+
+  useEffect(() => {
+    mapCommands.setNavigate((opts) => void navigate(opts));
+  }, [navigate]);
 
   useEffect(() => {
     return () => cameraService.unregister();
