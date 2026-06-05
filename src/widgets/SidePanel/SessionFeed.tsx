@@ -1,9 +1,8 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
 import { IconPhoto, IconMapPin } from '@tabler/icons-react';
-import { useTRPC } from 'app/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
+import { useSessionFeed } from 'entities/SurfSession/model/useSessionFeed';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
 // ─── Filter types & helpers (exported for AppShell) ───────────────────────────
@@ -90,19 +89,12 @@ interface SessionFeedProps {
 }
 
 export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: spotIdProp }: SessionFeedProps) {
-  const trpc = useTRPC();
   const selectedSpotId = spotIdProp ?? null;
-
   const dateRange = toDateRange(activeFilter ?? null);
   const columns = expanded ? 3 : 1;
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
-    useInfiniteQuery({
-      ...trpc.sessions.list.infiniteQueryOptions(
-        { limit: 20, spotId: selectedSpotId ?? undefined, ...dateRange },
-        { getNextPageParam: (last) => last.nextCursor ?? undefined },
-      ),
-    });
+    useSessionFeed({ spotId: selectedSpotId, ...dateRange });
 
   const sessions = data?.pages.flatMap((p) => p.items) ?? [];
 
