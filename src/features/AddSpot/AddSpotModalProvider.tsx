@@ -3,8 +3,7 @@ import {
   useContext,
   useMemo,
 } from 'react';
-// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will expose pin-placement below widget layer
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { usePinPlacementStore } from './model/pinPlacementStore';
 
 interface AddSpotContextValue {
   /** Enter pin-placement mode, optionally pre-filling the spot name. */
@@ -14,11 +13,11 @@ interface AddSpotContextValue {
 const AddSpotContext = createContext<AddSpotContextValue | null>(null);
 
 export function AddSpotProvider({ children }: { children: React.ReactNode }) {
-  const enterPinPlacement = useMapStore((s) => s.enterPinPlacement);
+  const enter = usePinPlacementStore((s) => s.enter);
 
   const value = useMemo(
-    () => ({ startAddSpot: (name = '') => enterPinPlacement(name) }),
-    [enterPinPlacement],
+    () => ({ startAddSpot: (name = '') => enter(name) }),
+    [enter],
   );
 
   return (

@@ -7,6 +7,7 @@ import mapboxgl from 'mapbox-gl';
 
 import { Spot } from 'entities/Spot/types';
 import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
+import { usePinPlacementStore } from 'features/AddSpot';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { mapCommands } from './model/mapCommands';
 import { cameraService } from './model/CameraService';
@@ -61,8 +62,7 @@ export function GlobeMapComponent({
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
 
-  const interactionMode = useMapStore((s) => s.interactionMode);
-  const isPinMode = interactionMode === 'pin-placement';
+  const isPinMode = usePinPlacementStore((s) => s.isActive);
   const { onClick: handlePinClick, cursor: pinCursor } = usePinPlacementMode();
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),

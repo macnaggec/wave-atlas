@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { LngLat } from 'shared/types/coordinates';
 
 export interface CameraState {
   longitude: number;
@@ -18,47 +17,20 @@ const DEFAULT_CAMERA: CameraState = {
   bearing: 0,
 };
 
-export type InteractionMode = 'explore' | 'pin-placement';
-
-interface MapState {
+interface MapStore {
   cameraState: CameraState;
-  interactionMode: InteractionMode;
-  /** Temporary pin position while in pin-placement mode. */
-  tempPin: LngLat | null;
-  /** Name pre-filled from the search query that triggered pin-placement. */
-  pendingSpotName: string;
-}
-
-interface MapActions {
   saveCameraState: (camera: CameraState) => void;
-  enterPinPlacement: (initialName?: string) => void;
-  exitPinPlacement: () => void;
-  setTempPin: (pos: LngLat) => void;
-  clearTempPin: () => void;
 }
-
-interface MapStore extends MapState, MapActions { }
 
 export const useMapStore = create<MapStore>()(
   persist(
     (set) => ({
       cameraState: DEFAULT_CAMERA,
-      interactionMode: 'explore',
-      tempPin: null,
-      pendingSpotName: '',
-
       saveCameraState: (camera) => set({ cameraState: camera }),
-      enterPinPlacement: (initialName = '') =>
-        set({ interactionMode: 'pin-placement', tempPin: null, pendingSpotName: initialName }),
-      exitPinPlacement: () =>
-        set({ interactionMode: 'explore', tempPin: null, pendingSpotName: '' }),
-      setTempPin: (pos) => set({ tempPin: pos }),
-      clearTempPin: () => set({ tempPin: null }),
     }),
     {
       name: 'wave-atlas-map',
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ cameraState: state.cameraState }),
     }
   )
 );

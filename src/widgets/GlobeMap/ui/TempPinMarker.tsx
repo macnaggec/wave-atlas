@@ -1,12 +1,12 @@
 import { Marker } from 'react-map-gl';
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { usePinPlacementStore } from 'features/AddSpot';
 import classes from '../GlobeMap.module.css';
 
 export function TempPinMarker() {
-  const tempPin = useMapStore((s) => s.tempPin);
-  const isPinMode = useMapStore((s) => s.interactionMode === 'pin-placement');
+  const tempPin = usePinPlacementStore((s) => s.tempPin);
+  const isActive = usePinPlacementStore((s) => s.isActive);
 
-  if (!tempPin || !isPinMode) return null;
+  if (!tempPin || !isActive) return null;
 
   return (
     <Marker longitude={tempPin[0]} latitude={tempPin[1]} anchor="center">

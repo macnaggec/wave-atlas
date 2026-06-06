@@ -1,7 +1,6 @@
 import { GlobeMap } from 'widgets/GlobeMap';
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { useSpots } from 'entities/Spot/model/useSpots';
-import { AddSpotPanel } from 'features/AddSpot';
+import { AddSpotPanel, usePinPlacementStore } from 'features/AddSpot';
 import classes from './GlobeScene.module.css';
 
 /**
@@ -11,7 +10,7 @@ import classes from './GlobeScene.module.css';
  */
 export function GlobeScene() {
   const { data: spots = [] } = useSpots();
-  const isPinMode = useMapStore((s) => s.interactionMode === 'pin-placement');
+  const isPinMode = usePinPlacementStore((s) => s.isActive);
 
   return (
     <div className={classes.root}>

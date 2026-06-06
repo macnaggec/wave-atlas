@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will also move tRPC call to entity hook
-import { useTRPC } from 'app/lib/trpc';
-// eslint-disable-next-line boundaries/dependencies -- CE2: mapStore decomposition will expose pin-placement below widget layer
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { usePinPlacementStore } from './pinPlacementStore';
+import { useCreateSpot } from 'entities/Spot/model/useCreateSpot';
+import { useNearbySpots } from 'entities/Spot/model/useNearbySpots';
 import { spotNameSchema, spotLocationSchema } from 'shared/validation/spotSchemas';
 import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
@@ -36,16 +34,14 @@ export interface AddSpotFlowState {
 }
 
 export function useAddSpotFlow(): AddSpotFlowState {
-  const trpc = useTRPC();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const {
     tempPin,
     pendingSpotName,
-    exitPinPlacement,
+    exit: exitPinPlacement,
     clearTempPin
-  } = useMapStore();
+  } = usePinPlacementStore();
 
   const [step, setStep] = useState<AddSpotStep>('hint');
   const [name, setName] = useState(pendingSpotName);
@@ -61,7 +57,8 @@ export function useAddSpotFlow(): AddSpotFlowState {
     setLocation
   } = useReverseGeocode();
 
-  const createMutation = useMutation(trpc.spots.create.mutationOptions());
+  const createMutation = useCreateSpot();
+  const fetchNearbySpots = useNearbySpots();
 
   useEffect(() => {
     if (tempPin && step === 'hint') {
@@ -90,11 +87,6 @@ export function useAddSpotFlow(): AddSpotFlowState {
       lng: tempPin[0],
     });
 
-    queryClient.setQueryData(
-      trpc.spots.list.queryKey(),
-      (prev: Spot[] = []) => [...prev, spot],
-    );
-
     exitPinPlacement();
 
     void navigate({ to: '/$spotId', params: { spotId: spot.id } });
@@ -103,8 +95,6 @@ export function useAddSpotFlow(): AddSpotFlowState {
     name,
     location,
     createMutation,
-    queryClient,
-    trpc,
     exitPinPlacement,
     navigate
   ]);
@@ -128,9 +118,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
     if (!nameResult.success || !locationResult.success) return;
     setIsCheckingNearby(true);
     try {
-      const nearby = await queryClient.fetchQuery(
-        trpc.spots.nearby.queryOptions({ lat: tempPin[1], lng: tempPin[0] }),
-      );
+      const nearby = await fetchNearbySpots(tempPin[1], tempPin[0]);
       if (nearby.length > 0) {
         setNearbySpots(nearby);
         setStep('proximity');
@@ -142,7 +130,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
     } finally {
       setIsCheckingNearby(false);
     }
-  }, [tempPin, name, location, queryClient, trpc, create]);
+  }, [tempPin, name, location, fetchNearbySpots, create]);
 
   const goToExisting = useCallback((spot: Spot) => {
     exitPinPlacement();

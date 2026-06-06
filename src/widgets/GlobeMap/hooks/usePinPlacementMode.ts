@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { MapMouseEvent } from 'react-map-gl';
-import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
+import { usePinPlacementStore } from 'features/AddSpot';
 
 export interface PinPlacementModeResult {
   onClick: (e: MapMouseEvent) => void;
@@ -8,7 +8,7 @@ export interface PinPlacementModeResult {
 }
 
 export function usePinPlacementMode(): PinPlacementModeResult {
-  const setTempPin = useMapStore((s) => s.setTempPin);
+  const setTempPin = usePinPlacementStore((s) => s.setTempPin);
 
   const onClick = useCallback(
     (e: MapMouseEvent) => setTempPin([e.lngLat.lng, e.lngLat.lat]),
