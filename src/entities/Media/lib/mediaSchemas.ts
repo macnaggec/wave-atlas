@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MEDIA_RESOURCE_TYPE } from 'entities/Media/constants';
+import { MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
 
 const cloudName =
   typeof process !== 'undefined'
@@ -36,16 +36,17 @@ export const mediaUpdateSchema = z.object({
 export const mediaBatchUpdateSchema = z
   .object({
     mediaIds: z.array(z.uuid()).min(1),
-    price: z.number().min(0).optional(),
+    price: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
     capturedAt: z.coerce.date().optional(),
+    spotId: z.uuid().optional(),
   })
-  .refine((d) => d.price !== undefined || d.capturedAt !== undefined, {
-    error: 'Must provide at least price or capturedAt',
+  .refine((d) => d.price !== undefined || d.capturedAt !== undefined || d.spotId !== undefined, {
+    error: 'Must provide at least one of: price, capturedAt, spotId',
   });
 
 export const mediaPublishSchema = z.object({
   mediaIds: z.array(z.uuid()).min(1),
-  price: z.number().min(0).optional(),
+  price: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
   capturedAt: z.coerce.date().optional(),
 });
 

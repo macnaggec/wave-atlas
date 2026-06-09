@@ -37,7 +37,7 @@ export type CreateMediaData = {
   status: DomainMediaStatus;
 };
 
-export type UpdateMediaData = { price?: number; status?: DomainMediaStatus; capturedAt?: Date };
+export type UpdateMediaData = { price?: number; status?: DomainMediaStatus; capturedAt?: Date; spotId?: string };
 
 export type MediaFulfillmentItem = {
   id: string;
@@ -58,6 +58,7 @@ export interface IMediaRepository {
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
   findPublishedBySession(sessionId: string): Promise<PublishedMedia[]>;
   countDraftsBySpot(photographerId: string): Promise<{ spotId: string; spotName: string; count: number }[]>;
+  findSessionlessDraftsBySpot(photographerId: string, spotId: string): Promise<MediaItem[]>;
 }
 
 export class MediaRepository implements IMediaRepository {
@@ -180,6 +181,22 @@ export class MediaRepository implements IMediaRepository {
         spotName: spotMap.get(g.spotId) ?? 'Unknown spot',
         count: g._count.id,
       }));
+    });
+  }
+
+  findSessionlessDraftsBySpot(photographerId: string, spotId: string): Promise<MediaItem[]> {
+    return runQuery(async () => {
+      const rows = await prisma.mediaItem.findMany({
+        where: {
+          photographerId,
+          spotId,
+          sessionId: null,
+          status: MEDIA_STATUS.DRAFT,
+          deletedAt: null,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      return rows.map(mapToMediaItem);
     });
   }
 

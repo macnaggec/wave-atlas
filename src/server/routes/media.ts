@@ -40,7 +40,7 @@ export const mediaRouter = router({
   updateBatch: protectedProcedure
     .input(mediaBatchUpdateSchema)
     .mutation(({ input, ctx }) =>
-      mediaService.updateBatch(ctx.user.id, input.mediaIds, { price: input.price, capturedAt: input.capturedAt })
+      mediaService.updateBatch(ctx.user.id, input.mediaIds, { price: input.price, capturedAt: input.capturedAt, spotId: input.spotId })
     ),
 
   updatePublishedBatch: protectedProcedure
@@ -64,4 +64,8 @@ export const mediaRouter = router({
   registerDriveImport: protectedProcedure
     .input(registerDriveImportSchema)
     .mutation(({ input, ctx }) => mediaService.registerDriveImport(ctx.user.id, input)),
+
+  sessionlessDrafts: protectedProcedure
+    .input(z.object({ spotId: z.uuid() }))
+    .query(({ input, ctx }) => mediaService.getSessionlessDrafts(ctx.user.id, input.spotId)),
 });

@@ -34,6 +34,7 @@ export type UpdateMediaInput = {
 export type UpdateBatchInput = {
   price?: number;
   capturedAt?: Date;
+  spotId?: string;
 };
 
 export type RegisterDriveImportInput = {
@@ -110,13 +111,18 @@ export class MediaService {
     const media = await this.assertOwns(userId, mediaId);
     if (media.status === MEDIA_STATUS.DRAFT) {
       await this.media.hardDelete(mediaId);
+      this.cloudinary.deleteAsset(
+        media.cloudinaryPublicId,
+        media.resource.resource_type as 'image' | 'video',
+      ).catch((err) =>
+        console.error('[MediaService] Failed to clean up Cloudinary asset after hardDelete', media.cloudinaryPublicId, err),
+      );
     } else {
       await this.media.softDelete(mediaId);
     }
   }
 
   async updateBatch(userId: string, mediaIds: string[], data: UpdateBatchInput): Promise<void> {
-    // Draft updates intentionally have no price floor — validated at publish time.
     const items = await this.fetchOwnedBatch(userId, mediaIds);
     for (const item of items) {
       if (item.status !== MEDIA_STATUS.DRAFT) {
@@ -175,6 +181,10 @@ export class MediaService {
    * and returns the lightweight batch records. Replaces N individual findById
    * calls in batch operations.
    */
+  async getSessionlessDrafts(userId: string, spotId: string): Promise<MediaItem[]> {
+    return this.media.findSessionlessDraftsBySpot(userId, spotId);
+  }
+
   private async fetchOwnedBatch(
     userId: string,
     mediaIds: string[],
