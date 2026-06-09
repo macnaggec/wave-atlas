@@ -20,6 +20,7 @@ export function useDeleteMedia() {
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.media.sessionlessDrafts.queryKey() });
       },
       onError: (err) => {
         notify.error(getErrorMessage(err), 'Delete Failed');
