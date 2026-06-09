@@ -32,11 +32,20 @@ export default tseslint.config(
           pattern: 'src/features/*/**',
           capture: ['featureName'],
         },
-        { type: 'entities', pattern: 'src/entities/**' },
-        { type: 'shared',   pattern: 'src/shared/**' },
-        { type: 'server',   pattern: 'src/server/**' },
-        { type: 'test',     pattern: 'src/test/**' },
-        { type: 'types',    pattern: 'src/types/**' },
+        // Each entity slice is its own element; entityName is captured for the
+        // same-entity allow rule (internal imports stay legal; external must use the index).
+        {
+          type: 'entity',
+          pattern: 'src/entities/*/**',
+          capture: ['entityName'],
+        },
+        { type: 'shared',  pattern: 'src/shared/**' },
+        // test must come before server so that *.test.ts files inside src/server/ and
+        // src/entities/ are classified as test (and allowed full access) rather than
+        // as their containing layer (which would block src/test/** helper imports).
+        { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'] },
+        { type: 'server',  pattern: 'src/server/**' },
+        { type: 'types',   pattern: 'src/types/**' },
       ],
       // eslint-import-resolver-typescript resolves the '*' → './src/*' tsconfig alias so
       // boundaries can match resolved paths against element patterns.
@@ -47,52 +56,76 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Baseline mode: 'warn' so existing violations don't block builds.
-      // F4 will fix the two named upward imports (mapCommands → app/router,
-      // useUploadManager → app/lib/trpc) and flip these to 'error'.
-      // Note: UploadPipeline → app/trpcClient was resolved by F1 (client injected via
-      // useTRPCClient); the remaining useUploadManager → app violation is eliminated by CE1.
       'boundaries/dependencies': ['error', {
         default: 'disallow',
         rules: [
           // app may import any layer (including server: tRPC requires the router type for e2e typesafety)
-          { from: { type: 'app' },     allow: { to: { type: ['views', 'widgets', 'feature', 'entities', 'shared', 'server', 'types'] } } },
+          // Entity imports are index-only: app code may not reach into entity internals.
+          {
+            from: { type: 'app' },
+            allow: {
+              to: [
+                { type: 'views' }, { type: 'widgets' }, { type: 'feature' },
+                { type: 'entity', path: 'src/entities/*/index.ts' },
+                { type: 'shared' }, { type: 'server' }, { type: 'types' },
+              ],
+            },
+          },
           // views may import widgets and below
-          { from: { type: 'views' },   allow: { to: { type: ['widgets', 'feature', 'entities', 'shared', 'types'] } } },
+          {
+            from: { type: 'views' },
+            allow: {
+              to: [
+                { type: 'widgets' }, { type: 'feature' },
+                { type: 'entity', path: 'src/entities/*/index.ts' },
+                { type: 'shared' }, { type: 'types' },
+              ],
+            },
+          },
           // widgets may import features and below
-          { from: { type: 'widgets' }, allow: { to: { type: ['feature', 'entities', 'shared', 'types'] } } },
-          // C2 guard: a feature may only import entities, shared, and its OWN feature folder.
-          // {{featureName}} resolves to the featureName captured from the source (from) element.
+          {
+            from: { type: 'widgets' },
+            allow: {
+              to: [
+                { type: 'feature' },
+                { type: 'entity', path: 'src/entities/*/index.ts' },
+                { type: 'shared' }, { type: 'types' },
+              ],
+            },
+          },
+          // C2 guard: a feature may only import shared, its OWN feature folder, and entity
+          // indexes (the published contract surface — never entity internals directly).
           {
             from: { type: 'feature' },
             allow: {
               to: [
-                { type: 'entities' },
+                { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' },
                 { type: 'types' },
                 { type: 'feature', captured: { featureName: '{{featureName}}' } },
               ],
             },
           },
-          // entities may import shared — plus useTRPC/useTRPCClient from app/lib/trpc.ts.
-          // Those hooks are born from one createTRPCContext() call that must live alongside
-          // TRPCProvider in app/; splitting them across layers would require a circular
-          // re-export. This is a narrow infrastructure exception, not a general app import.
+          // entity: a slice may import its own internals freely; cross-entity imports must
+          // go through the target entity's public index only (same contract rule as features).
+          // useTRPC/useTRPCClient from app/lib/trpc.ts is a narrow infrastructure exception.
           {
-            from: { type: 'entities' },
+            from: { type: 'entity' },
             allow: {
               to: [
+                { type: 'entity', captured: { entityName: '{{entityName}}' } },
+                { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' },
                 { type: 'types' },
                 { type: 'app', path: 'src/app/lib/trpc.ts' },
               ],
             },
           },
-          // shared: no local layer imports (violations here are real bugs — buildGalleryRows importing entities)
-          // server: imports from server, shared (kernel types), and entities (domain types used server-side)
-          { from: { type: 'server' },  allow: { to: { type: ['server', 'shared', 'entities'] } } },
+          // server: routes/services/repositories may use entity indexes (for domain types/schemas)
+          // plus server-internal modules and shared kernel.
+          { from: { type: 'server' },  allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }, { type: 'entity', path: 'src/entities/*/index.ts' }] } },
           // test helpers may import anything
-          { from: { type: 'test' },    allow: { to: { type: ['app', 'views', 'widgets', 'feature', 'entities', 'shared', 'server', 'types'] } } },
+          { from: { type: 'test' },    allow: { to: { type: ['app', 'views', 'widgets', 'feature', 'entity', 'shared', 'server', 'types'] } } },
         ],
       }],
     },
