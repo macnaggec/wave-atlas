@@ -1,13 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Modal } from '@mantine/core';
+import { AuthModalContext } from 'entities/Identity';
 import { AuthPage } from './ui/AuthPage';
-
-interface AuthModalContextValue {
-  open: () => void;
-  close: () => void;
-}
-
-const AuthModalContext = createContext<AuthModalContextValue | null>(null);
 
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [opened, setOpened] = useState(false);
@@ -36,8 +30,4 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuthModal(): AuthModalContextValue {
-  const ctx = useContext(AuthModalContext);
-  if (!ctx) throw new Error('useAuthModal must be used within AuthModalProvider');
-  return ctx;
-}
+export { useAuthModal } from 'entities/Identity';

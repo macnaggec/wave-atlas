@@ -1,9 +1,7 @@
 // src/features/Upload/model/useGooglePicker.ts
 import { useCallback, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
-import { useTRPC } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
+import { useRegisterDriveImport } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
 import { QueueItem } from './types';
 
@@ -94,14 +92,11 @@ function buildPicker(
 }
 
 export function useGooglePicker(spotId: string, sessionId: string | null) {
-  const trpc = useTRPC();
   const [isPickerInitializing, setIsPickerInitializing] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [importingItems, setImportingItems] = useState<QueueItem[]>([]);
 
-  const { mutateAsync: registerDriveImport } = useMutation(
-    trpc.media.registerDriveImport.mutationOptions(),
-  );
+  const { mutateAsync: registerDriveImport } = useRegisterDriveImport();
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {

@@ -1,14 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Box, Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
 import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
-import { useTRPC } from 'app/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
-// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will establish Auth contract for cross-feature use
-import { useAuthModal } from 'features/Auth/AuthModalProvider';
+import { useAuthModal } from 'entities/Identity';
+import { usePublishSession } from 'entities/SurfSession';
 import { useUploadStore } from '../model/uploadStore';
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 import { UploadStep } from './steps/UploadStep';
 import { TimeStep } from './steps/TimeStep';
 import { combineDateAndTime, minutesToTime } from './steps/helpers';
@@ -91,8 +88,6 @@ function AuthGate() {
 
 export function UploadSidebar({ active = true, spot, onCancel }: { active?: boolean; spot: Spot; onCancel: () => void }) {
   const { isAuthenticated, isLoading } = useUser();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const clearQueue = useUploadStore((s) => s.clearQueue);
   const uploadQueue = useUploadStore((s) => s.uploadQueue);
   const wizardStep = useUploadStore((s) => s.wizardStep);
@@ -110,13 +105,7 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
       .map((item) => item.mediaId!);
   }, [uploadQueue, spot.id]);
 
-  const { mutateAsync: createAndPublish, isPending } = useMutation(
-    trpc.sessions.createAndPublish.mutationOptions({
-      onSuccess: () => {
-        void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
-      },
-    }),
-  );
+  const { mutateAsync: createAndPublish, isPending } = usePublishSession();
 
   const canPublish = wizardStep === 'time' && !!sessionDate && sessionRange[0] < sessionRange[1];
 

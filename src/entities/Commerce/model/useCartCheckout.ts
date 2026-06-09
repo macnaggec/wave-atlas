@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
-// eslint-disable-next-line boundaries/dependencies -- CE4: Commerce entity hooks will own checkout mutation
 import { useTRPC } from 'app/lib/trpc';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useCartStore } from 'entities/Commerce/model/cartStore';
 import { notify } from 'shared/lib/notifications';
 
 export interface CartCheckout {
@@ -11,10 +10,6 @@ export interface CartCheckout {
   totalCents: number;
 }
 
-/**
- * Encapsulates checkout mutation and submission logic.
- * Checkout is authenticated-only — guest flow was removed.
- */
 export function useCartCheckout(): CartCheckout {
   const trpc = useTRPC();
   const items = useCartStore((s) => s.items);

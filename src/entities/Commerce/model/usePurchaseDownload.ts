@@ -1,14 +1,8 @@
 import { useCallback, useState } from 'react';
-// eslint-disable-next-line boundaries/dependencies -- CE4: Commerce entity hooks will own download access
 import { useTRPCClient } from 'app/lib/trpc';
 import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 
-/**
- * Manages signed download access for a purchased media item.
- * Calls checkout.getSignedMediaAccess and opens the URL in a new tab.
- * Only one download can be in-flight at a time.
- */
 export function usePurchaseDownload() {
   const trpcClient = useTRPCClient();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
