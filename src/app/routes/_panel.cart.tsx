@@ -1,13 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Text } from '@mantine/core';
 import { useCallback, useState } from 'react';
-import { useCartStore } from 'features/Cart/model/cartStore';
-import { useCartCheckout } from 'features/Cart/model/useCartCheckout';
+import { useCartStore, useCartCheckout } from 'entities/Commerce';
+import type { CartItem } from 'entities/Commerce';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 import CartCard from 'features/Cart/ui/CartCard';
 import CartLightbox from 'features/Cart/ui/CartLightbox';
 import { CheckoutButton } from 'features/Cart/ui/CheckoutButton';
-import type { CartItem } from 'features/Cart/model/types';
 
 export const Route = createFileRoute('/_panel/cart')({
   validateSearch: (search): { from?: string } => ({

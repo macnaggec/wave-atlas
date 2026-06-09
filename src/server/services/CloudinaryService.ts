@@ -8,7 +8,7 @@
 
 import cloudinary from 'server/lib/cloudinary';
 import { InternalServerError } from 'shared/errors';
-import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
+import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
 
 export interface CloudinarySignatureData {
   signature: string;

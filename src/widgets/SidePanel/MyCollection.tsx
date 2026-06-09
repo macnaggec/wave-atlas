@@ -15,11 +15,11 @@ import {
 } from '@mantine/core';
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useMemo } from 'react';
-import { useMySessions } from 'entities/SurfSession/model/useMySessions';
-import { useMyPurchases } from 'entities/Commerce/model/useMyPurchases';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
+import { useMySessions } from 'entities/SurfSession';
+import { useMyPurchases } from 'entities/Commerce';
+import type { SurfSessionItem } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
-import { usePurchaseDownload } from 'features/Cart/model/usePurchaseDownload';
+import { usePurchaseDownload } from 'entities/Commerce';
 import DownloadButton from 'features/Cart/ui/DownloadButton';
 import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
 import { formatPrice } from 'shared/lib/currency';

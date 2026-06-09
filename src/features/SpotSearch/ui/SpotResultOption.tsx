@@ -1,8 +1,7 @@
 import { Combobox, Text, Group, TextInput, ActionIcon } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { useState, useCallback } from 'react';
-import { useAddSpotAlias } from 'entities/Spot/model/useAddSpotAlias';
-import { Spot } from 'entities/Spot/types';
+import { useAddSpotAlias, Spot } from 'entities/Spot';
 import { spotAliasSchema } from 'shared/validation/spotSchemas';
 import classes from './SpotResultOption.module.css';
 

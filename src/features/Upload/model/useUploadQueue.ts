@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { QueueItem } from './types';
 

@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react';
 import { ActionIcon, Indicator } from '@mantine/core';
 import { IconShoppingCart } from '@tabler/icons-react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useCartStore } from 'entities/Commerce';
 import { useUser } from 'shared/hooks/useUser';
 
 /**

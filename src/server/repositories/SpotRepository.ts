@@ -1,10 +1,8 @@
 import { MediaItem as PrismaMediaItem, Spot as PrismaSpot } from '@prisma/client';
-import type { MediaType } from 'entities/Media/types';
-import { MEDIA_STATUS } from 'entities/Media/constants';
-import type { MediaItem, SpotMediaItem } from 'entities/Media/types';
-import type { Spot } from 'entities/Spot/types';
-import { SPOT_STATUS } from 'entities/Spot/constants';
-import type { SpotStatus } from 'entities/Spot/constants';
+import type { MediaType, MediaItem, SpotMediaItem } from 'entities/Media';
+import { MEDIA_STATUS } from 'entities/Media';
+import type { Spot, SpotStatus } from 'entities/Spot';
+import { SPOT_STATUS } from 'entities/Spot';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
 import { mapToMediaItem } from './mappers';

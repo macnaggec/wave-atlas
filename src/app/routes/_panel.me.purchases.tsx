@@ -3,7 +3,7 @@ import { Card, Center, Group, Image, Loader, SimpleGrid, Text } from '@mantine/c
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTRPC } from 'app/lib/trpc';
-import { usePurchaseDownload } from 'features/Cart/model/usePurchaseDownload';
+import { usePurchaseDownload } from 'entities/Commerce';
 import DownloadButton from 'features/Cart/ui/DownloadButton';
 import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
 import { formatPrice } from 'shared/lib/currency';

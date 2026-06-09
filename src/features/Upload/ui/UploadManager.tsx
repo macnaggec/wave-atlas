@@ -5,7 +5,7 @@ import { useGallerySelection } from 'shared/hooks/gallery';
 import { QueueItem } from '../model';
 import UploadGallery from './UploadGallery/UploadGallery';
 import { UploadItemAction } from '../model';
-import { useSessionlessDrafts } from 'entities/Media/model/useSessionlessDrafts';
+import { useSessionlessDrafts } from 'entities/Media';
 
 export interface UploadManagerProps {
   spotId: string;

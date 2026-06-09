@@ -7,7 +7,7 @@ import {
   mediaBatchUpdateSchema,
   mediaPublishSchema,
   registerDriveImportSchema,
-} from 'entities/Media/lib/mediaSchemas';
+} from 'entities/Media';
 import { z } from 'zod';
 
 // 10 upload signature requests per user per minute

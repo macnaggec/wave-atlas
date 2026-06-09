@@ -4,7 +4,7 @@ import React, { FC, memo, useRef } from 'react';
 import { ActionIcon, Box, Stack, Text, Tooltip } from '@mantine/core';
 import { IconPhotoPlus } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { validateFileBatch } from 'entities/Media/lib/uploadValidation';
+import { validateFileBatch } from 'entities/Media';
 import classes from './AddFileCard.module.css';
 
 /**

@@ -6,7 +6,7 @@ import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
 import { useAddSpot } from 'features/AddSpot';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth/AuthModalProvider';
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 
 interface FeedSearchProps {
   placeholder?: string;

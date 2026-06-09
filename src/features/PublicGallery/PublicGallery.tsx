@@ -2,16 +2,12 @@ import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
 import { IconShoppingBag, IconShare } from '@tabler/icons-react';
 import { SelectionToolbar } from 'shared/ui/BaseGallery';
-import { MediaItem, SpotMediaItem } from 'entities/Media/types';
+import { MediaItem, SpotMediaItem } from 'entities/Media';
 import { useGallerySelection } from 'shared/hooks/gallery';
-import { useSpotMediaFeed } from 'entities/Spot/model/useSpotMediaFeed';
+import { useSpotMediaFeed, useSpotPreview } from 'entities/Spot';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
-// eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
-import { useCartStore } from 'features/Cart/model/cartStore';
-// eslint-disable-next-line boundaries/dependencies -- CE4: replace with Commerce cart contract
-import { toCartItem } from 'features/Cart/model/useCartItem';
-import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
+import { useCartStore, toCartItem } from 'entities/Commerce';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox, { LightboxMedia } from './ui/MediaLightbox';
 import { GalleryDateSidebar } from './ui/GalleryDateSidebar';

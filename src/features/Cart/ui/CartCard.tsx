@@ -1,7 +1,7 @@
 import { FC, memo, useCallback } from 'react';
 import { ActionIcon, Text, Stack } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
-import { CartItem } from 'features/Cart/model/types';
+import type { CartItem } from 'entities/Commerce';
 import { formatPrice } from 'shared/lib/currency';
 import { formatShortDate } from 'shared/lib/dateUtils';
 import { BaseCard } from 'shared/ui/BaseGallery';

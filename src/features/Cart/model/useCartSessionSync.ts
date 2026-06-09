@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useUser } from 'shared/hooks/useUser';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useCartStore } from 'entities/Commerce';
 
 /**
  * Clears the cart whenever the session transitions from authenticated → unauthenticated.

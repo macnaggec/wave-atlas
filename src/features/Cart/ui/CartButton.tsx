@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@mantine/core';
 import { IconShoppingCart } from '@tabler/icons-react';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useCartStore } from 'entities/Commerce';
 import { FloatingAction } from 'shared/ui/DrawerLayout';
 
 export interface CartButtonProps {

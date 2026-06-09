@@ -1,5 +1,5 @@
 import mapboxgl from 'mapbox-gl';
-import { Spot } from 'entities/Spot/types';
+import { Spot } from 'entities/Spot';
 
 interface FlyToCmd {
   spot: Spot;

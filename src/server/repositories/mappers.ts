@@ -1,6 +1,6 @@
 import { MediaItem as PrismaMediaItem, MediaType } from '@prisma/client';
-import { MEDIA_RESOURCE_TYPE, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
-import type { MediaItem } from 'entities/Media/types';
+import { MEDIA_RESOURCE_TYPE, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
+import type { MediaItem } from 'entities/Media';
 import cloudinary from 'server/lib/cloudinary';
 
 export function toSignedUrl(cloudinaryPublicId: string, transform: string): string {

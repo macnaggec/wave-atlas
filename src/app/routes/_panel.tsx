@@ -1,13 +1,12 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
+import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
-import { useMyDraftCounts } from 'entities/Media/model/useMyDraftCounts';
+import { useMyDraftCounts } from 'entities/Media';
 import { Skeleton, Text } from '@mantine/core';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
+import type { SurfSessionItem } from 'entities/SurfSession';
 import { SidePanel } from 'widgets/SidePanel';
-import { useCartStore } from 'features/Cart/model/cartStore';
-import { useSpotPreview } from 'entities/Spot/model/useSpotPreview';
+import { useCartStore } from 'entities/Commerce';
 import { CartDrawerHeader } from 'features/Cart/ui/CartDrawerHeader';
 import { ScopeSwitcher } from 'widgets/SidePanel/ScopeSwitcher';
 import { FeedSearch } from 'widgets/FeedDrawer';

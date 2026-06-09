@@ -1,7 +1,6 @@
 import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
-import { MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media/constants';
-import type { MediaItem, PublishedMedia } from 'entities/Media/types';
-import type { MediaStatus as DomainMediaStatus } from 'entities/Media/constants';
+import { MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
+import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus } from 'entities/Media';
 import { prisma } from 'server/db';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 import { mapToMediaItem, toSignedUrl } from './mappers';

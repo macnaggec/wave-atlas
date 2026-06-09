@@ -1,6 +1,6 @@
 import { useState, useCallback, RefObject, useRef, useEffect } from 'react';
 import { MapRef, MapMouseEvent, GeoJSONSource } from 'react-map-gl';
-import { Spot } from 'entities/Spot/types';
+import { Spot } from 'entities/Spot';
 
 interface UseMapInteractionProps {
   mapRef: RefObject<MapRef | null>;

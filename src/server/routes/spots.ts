@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { spotRepository } from 'server/repositories/SpotRepository';
-import { SPOT_STATUS } from 'entities/Spot/constants';
-import type { Spot } from 'entities/Spot/types';
+import { SPOT_STATUS } from 'entities/Spot';
+import type { Spot } from 'entities/Spot';
 import { spotNameSchema, spotLocationSchema, spotAliasSchema } from 'shared/validation/spotSchemas';
 import { NotFoundError } from 'shared/errors';
 

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 import { useUser } from 'shared/hooks/useUser';
 import type { PublicCardAction } from './types';
 

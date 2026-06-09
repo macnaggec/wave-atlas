@@ -4,7 +4,7 @@ import type { IPurchaseRepository } from 'server/repositories/PurchaseRepository
 import { orderRepository } from 'server/repositories/OrderRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { purchaseRepository } from 'server/repositories/PurchaseRepository';
-import { MEDIA_STATUS } from 'entities/Media/constants';
+import { MEDIA_STATUS } from 'entities/Media';
 import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter';
 import { paymentAdapter } from 'server/lib/payment/activeAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';

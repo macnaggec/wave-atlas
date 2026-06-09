@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from 'react';
 import { Popover, Button, Stack, NumberInput, Text, Box, Group, Tooltip } from '@mantine/core';
 import { IconCurrencyDollar, IconChevronDown } from '@tabler/icons-react';
-import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
 
 const MIN_PRICE = MIN_MEDIA_PRICE_CENTS / 100;
 

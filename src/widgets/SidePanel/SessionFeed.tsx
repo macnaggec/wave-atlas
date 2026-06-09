@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
 import { IconPhoto, IconMapPin } from '@tabler/icons-react';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
-import { useSessionFeed } from 'entities/SurfSession/model/useSessionFeed';
+import type { SurfSessionItem } from 'entities/SurfSession';
+import { useSessionFeed } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
 // ─── Filter types & helpers (exported for AppShell) ───────────────────────────

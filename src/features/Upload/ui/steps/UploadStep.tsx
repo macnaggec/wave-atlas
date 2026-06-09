@@ -1,5 +1,5 @@
 import { Box, Stack, Text } from '@mantine/core';
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 import { useUploadStore } from '../../model/uploadStore';
 import { UploadManager } from '../UploadManager';
 

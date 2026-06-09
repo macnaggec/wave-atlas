@@ -1,4 +1,4 @@
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 import { cameraService } from './CameraService';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;

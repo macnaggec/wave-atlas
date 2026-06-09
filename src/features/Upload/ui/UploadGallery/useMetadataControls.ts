@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { QueueItem } from '../../model';
-import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
+import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
 
 interface Selection {
   hasSelection: boolean;

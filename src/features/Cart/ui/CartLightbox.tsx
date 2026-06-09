@@ -4,7 +4,7 @@ import { IconTrash } from '@tabler/icons-react';
 import { formatPrice } from 'shared/lib/currency';
 import { formatShortDate } from 'shared/lib/dateUtils';
 import { BaseLightbox } from 'shared/ui/BaseLightbox';
-import { CartItem } from '../model/types';
+import type { CartItem } from 'entities/Commerce';
 
 export interface CartLightboxProps {
   item: CartItem | null;

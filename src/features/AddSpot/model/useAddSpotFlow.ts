@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { usePinPlacementStore } from './pinPlacementStore';
-import { useCreateSpot } from 'entities/Spot/model/useCreateSpot';
-import { useNearbySpots } from 'entities/Spot/model/useNearbySpots';
+import { useCreateSpot, useNearbySpots } from 'entities/Spot';
 import { spotNameSchema, spotLocationSchema } from 'shared/validation/spotSchemas';
 import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { useReverseGeocode } from './useReverseGeocode';
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 
 export type AddSpotStep = 'hint' | 'form' | 'proximity';
 

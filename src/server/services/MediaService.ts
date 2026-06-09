@@ -1,8 +1,7 @@
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
-import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media/constants';
-import type { MediaStatus } from 'entities/Media/constants';
-import type { MediaItem } from 'entities/Media/types';
+import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
+import type { MediaStatus, MediaItem } from 'entities/Media';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';

@@ -1,7 +1,7 @@
 
 
 import { useCallback } from 'react';
-import { useUpdateBatchMedia } from 'entities/Media/model/useUpdateBatchMedia';
+import { useUpdateBatchMedia } from 'entities/Media';
 import { notify } from 'shared/lib/notifications';
 import { QueueItem } from './types';
 

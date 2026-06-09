@@ -14,7 +14,7 @@ import {
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useTRPC } from 'app/lib/trpc';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
+import type { SurfSessionItem } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
 export const Route = createFileRoute('/_panel/me/')({

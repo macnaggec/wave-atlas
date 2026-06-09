@@ -6,8 +6,8 @@ import { useTRPC } from 'app/lib/trpc';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { UploadSidebar } from 'features/Upload/ui/UploadSidebar';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
-import { useUpdateBatchMedia } from 'entities/Media/model/useUpdateBatchMedia';
-import type { Spot } from 'entities/Spot/types';
+import { useUpdateBatchMedia } from 'entities/Media';
+import type { Spot } from 'entities/Spot';
 
 export const Route = createFileRoute('/_panel/upload')({
   validateSearch: (search): { spotId?: string } => ({

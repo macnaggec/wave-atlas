@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { SessionFeed } from 'widgets/SidePanel/SessionFeed';
 import { usePanelFilter, usePanelExpanded } from './_panel';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
+import type { SurfSessionItem } from 'entities/SurfSession';
 
 export const Route = createFileRoute('/_panel/')({
   staticData: { panelHeader: 'Recent Sessions' },

@@ -3,7 +3,7 @@
 import React, { FC, memo, useCallback } from 'react';
 import { ActionIcon, Badge, Group } from '@mantine/core';
 import { IconShoppingCartPlus, IconShoppingCartMinus, IconHeart, IconShare, IconFlag } from '@tabler/icons-react';
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 import { BaseCard } from 'shared/ui/BaseGallery';
 import type { PublicCardAction } from '../../model/types';
 

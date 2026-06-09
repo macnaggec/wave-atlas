@@ -8,7 +8,7 @@ import AddSourceCard from '../cards/AddSourceCard';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
 import { useMetadataControls } from './useMetadataControls';
-import { validateFileBatch } from 'entities/Media/lib/uploadValidation';
+import { validateFileBatch } from 'entities/Media';
 import { notifications } from '@mantine/notifications';
 import { UploadZone } from './UploadZone';
 

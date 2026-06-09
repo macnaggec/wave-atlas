@@ -1,4 +1,4 @@
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 
 /**
  * Upload status lifecycle:

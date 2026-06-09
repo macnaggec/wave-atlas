@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Center, Skeleton, Text } from '@mantine/core';
-import { useSessionMedia } from 'entities/SurfSession/model/useSessionMedia';
-import type { SurfSessionItem } from 'entities/SurfSession/types';
-import type { MediaItem } from 'entities/Media/types';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useSessionMedia } from 'entities/SurfSession';
+import type { SurfSessionItem } from 'entities/SurfSession';
+import type { MediaItem } from 'entities/Media';
+import { useCartStore } from 'entities/Commerce';
 import { formatShortDate } from 'shared/lib/dateUtils';
 import { MediaLightbox, PublicCard, type LightboxMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';

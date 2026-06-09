@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen, IconUpload } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { validateFileBatch } from 'entities/Media/lib/uploadValidation';
+import { validateFileBatch } from 'entities/Media';
 
 interface UploadZoneProps {
   onFilesSelected: (files: File[]) => void;

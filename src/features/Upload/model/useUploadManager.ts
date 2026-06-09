@@ -1,13 +1,8 @@
 import { useCallback } from 'react';
-import { useDeleteMedia } from 'entities/Media/model/useDeleteMedia';
-import { useSignCloudinary } from 'entities/Media/model/useSignCloudinary';
-import { useCreateMedia } from 'entities/Media/model/useCreateMedia';
-import { useInvalidateSessionlessDrafts } from 'entities/Media/model/useInvalidateSessionlessDrafts';
+import { useDeleteMedia, useSignCloudinary, useCreateMedia, useInvalidateSessionlessDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
-import { MediaItem } from 'entities/Media/types';
 import { notify } from 'shared/lib/notifications';
-import { MEDIA_UPLOAD_LIMITS } from 'entities/Media/constants';
 import { UploadError } from './UploadError';
 import { UploadItem } from './types';
 import { createUploadPipeline } from './UploadPipeline';

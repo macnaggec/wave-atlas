@@ -1,7 +1,7 @@
 import { uploadToCloudinary } from './cloudinaryTransport';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { extractExifData } from 'shared/lib/exifExtractor';
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 import { CloudinaryResult, ExifMetadata, UploadItem } from './types';
 
 type SignatureData = {

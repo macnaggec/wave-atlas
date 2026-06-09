@@ -5,8 +5,7 @@ import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
-import { Spot } from 'entities/Spot/types';
-import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
+import { Spot, useSelectedSpot } from 'entities/Spot';
 import { usePinPlacementStore } from 'features/AddSpot';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { mapCommands } from './model/mapCommands';

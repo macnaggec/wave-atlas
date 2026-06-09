@@ -4,8 +4,7 @@ import { IconSearch, IconMapPin } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useState, useCallback, useDeferredValue } from 'react';
-import { useSpots } from 'entities/Spot/model/useSpots';
-import { Spot } from 'entities/Spot/types';
+import { useSpots, Spot } from 'entities/Spot';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { SpotResultOption } from './ui/SpotResultOption';
 

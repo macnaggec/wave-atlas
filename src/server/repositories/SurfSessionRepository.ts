@@ -2,8 +2,8 @@ import { MediaStatus, SurfSessionStatus } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 import { mapToMediaItem } from './mappers';
-import type { MediaItem } from 'entities/Media/types';
-import type { SurfSessionItem, SurfSessionPage } from 'entities/SurfSession/types';
+import type { MediaItem } from 'entities/Media';
+import type { SurfSessionItem, SurfSessionPage } from 'entities/SurfSession';
 
 export type CreateSurfSessionData = {
   spotId: string;

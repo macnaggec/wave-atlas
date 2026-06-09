@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, memo } from 'react';
 import { Box } from '@mantine/core';
-import { MediaItem } from 'entities/Media/types';
+import { MediaItem } from 'entities/Media';
 import { BaseCard } from 'shared/ui/BaseGallery';
 import classes from './DraftCard.module.css';
 

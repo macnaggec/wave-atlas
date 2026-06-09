@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Stack, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import type { Spot } from 'entities/Spot/types';
+import type { Spot } from 'entities/Spot';
 
 interface ProximityStepProps {
   nearbySpots: Spot[];

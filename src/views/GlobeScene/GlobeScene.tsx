@@ -1,5 +1,5 @@
 import { GlobeMap } from 'widgets/GlobeMap';
-import { useSpots } from 'entities/Spot/model/useSpots';
+import { useSpots } from 'entities/Spot';
 import { AddSpotPanel, usePinPlacementStore } from 'features/AddSpot';
 import classes from './GlobeScene.module.css';
 

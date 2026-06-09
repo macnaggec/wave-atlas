@@ -1,6 +1,6 @@
 import styles from './LeftStrip.module.css';
 import { useUser } from 'shared/hooks/useUser';
-import { useCartStore } from 'features/Cart/model/cartStore';
+import { useCartStore } from 'entities/Commerce';
 import { CartControl } from './CartControl';
 import { UserControl } from './UserControl';
 
