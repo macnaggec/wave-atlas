@@ -13,23 +13,23 @@ type SignatureData = {
   eager: string;
 };
 
-type PipelineClient = {
-  media: {
-    signCloudinary: { mutate: () => Promise<SignatureData> };
-    create: { mutate: (input: {
-      spotId: string;
-      sessionId?: string;
-      cloudinaryResult: CloudinaryResult;
-      capturedAt?: Date;
-    }) => Promise<MediaItem> };
-  };
+type CreateMediaInput = {
+  spotId: string;
+  sessionId?: string;
+  cloudinaryResult: CloudinaryResult;
+  capturedAt?: Date;
+};
+
+type PipelineDeps = {
+  signCloudinary: () => Promise<SignatureData>;
+  createMedia: (input: CreateMediaInput) => Promise<MediaItem>;
 };
 
 export function createUploadPipeline(
   spotId: string,
   sessionId: string | null,
   updateStatus: (updates: Partial<UploadItem>) => void,
-  client: PipelineClient,
+  deps: PipelineDeps,
 ) {
   async function extractMetadata(file: File): Promise<ExifMetadata> {
     const exifData = await extractExifData(file);
@@ -41,8 +41,7 @@ export function createUploadPipeline(
 
   async function getSignature(): Promise<SignatureData> {
     updateStatus({ status: 'signing' });
-
-    return await client.media.signCloudinary.mutate();
+    return await deps.signCloudinary();
   }
 
   function uploadToCloud(
@@ -68,14 +67,12 @@ export function createUploadPipeline(
     exifData: ExifMetadata,
   ): Promise<MediaItem> {
     updateStatus({ status: 'saving', progress: 100 });
-    const mediaItem = await client.media.create.mutate({
+    const mediaItem = await deps.createMedia({
       spotId,
       ...(sessionId !== null ? { sessionId } : {}),
       cloudinaryResult: cloudResult,
       capturedAt: exifData.capturedAt ?? undefined,
     });
-    // Only set dateSource if EXIF data was found
-    // 'none' and 'manual' shouldn't set dateSource on MediaItem
     return exifData.source === 'exif'
       ? { ...mediaItem, dateSource: 'exif' as const }
       : mediaItem;
@@ -85,16 +82,12 @@ export function createUploadPipeline(
     updateStatus({ status: 'completed', mediaId, capturedAt });
   }
 
-  // Returns the error message to show, or null if the error is a silent user cancellation.
   function handleError(error: unknown): string | null {
     const message = getErrorMessage(error);
-    if (
-      message.includes('cancelled')
-      || message.includes('abort')) {
+    if (message.includes('cancelled') || message.includes('abort')) {
       return null;
     }
     updateStatus({ status: 'error', error: message });
-
     return message;
   }
 
@@ -104,6 +97,6 @@ export function createUploadPipeline(
     uploadToCloud,
     saveToDatabase,
     complete,
-    handleError
+    handleError,
   };
 }

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Box, Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
 import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icons-react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 // eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
 import { useTRPC } from 'app/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
@@ -92,10 +92,12 @@ function AuthGate() {
 export function UploadSidebar({ active = true, spot, onCancel }: { active?: boolean; spot: Spot; onCancel: () => void }) {
   const { isAuthenticated, isLoading } = useUser();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const clearQueue = useUploadStore((s) => s.clearQueue);
   const uploadQueue = useUploadStore((s) => s.uploadQueue);
+  const wizardStep = useUploadStore((s) => s.wizardStep);
+  const setWizardStep = useUploadStore((s) => s.setWizardStep);
 
-  const [uploadConfirmed, setUploadConfirmed] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [photoPrice, setPhotoPrice] = useState<number | null>(3);
   const [videoPrice, setVideoPrice] = useState<number | null>(3);
@@ -109,12 +111,16 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
   }, [uploadQueue, spot.id]);
 
   const { mutateAsync: createAndPublish, isPending } = useMutation(
-    trpc.sessions.createAndPublish.mutationOptions(),
+    trpc.sessions.createAndPublish.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
+      },
+    }),
   );
 
-  const canPublish = uploadConfirmed && !!sessionDate && sessionRange[0] < sessionRange[1];
+  const canPublish = wizardStep === 'time' && !!sessionDate && sessionRange[0] < sessionRange[1];
 
-  const handleUploadConfirm = useCallback(() => setUploadConfirmed(true), []);
+  const handleUploadConfirm = useCallback(() => setWizardStep('time'), [setWizardStep]);
 
   const handlePricesChange = useCallback((pp?: number, vp?: number) => {
     if (pp !== undefined) setPhotoPrice(pp);
@@ -123,7 +129,6 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
 
   const handleClearSpot = useCallback(() => {
     clearQueue();
-    setUploadConfirmed(false);
     setUploadModalOpen(false);
     setPhotoPrice(3);
     setVideoPrice(3);
@@ -132,7 +137,7 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
   }, [clearQueue]);
 
   const handleCancelUpload = useCallback(() => {
-    setUploadConfirmed(false);
+    setWizardStep('files');
     setUploadModalOpen(false);
     setPhotoPrice(3);
     setVideoPrice(3);
@@ -158,7 +163,7 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
   return (
     <Stack gap={0} style={{ flex: 1 }}>
       {/* File selection */}
-      {uploadConfirmed && (
+      {wizardStep === 'time' && (
         <FilesPill
           spotId={spot.id}
           onOpen={() => setUploadModalOpen(true)}
@@ -170,19 +175,19 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
         spot={spot}
         onConfirm={handleUploadConfirm}
         onCancel={handleCancelUpload}
-        hideZone={uploadConfirmed}
-        externalModalOpen={uploadConfirmed ? uploadModalOpen : undefined}
-        onModalOpenChange={uploadConfirmed ? setUploadModalOpen : undefined}
+        hideZone={wizardStep === 'time'}
+        externalModalOpen={wizardStep === 'time' ? uploadModalOpen : undefined}
+        onModalOpenChange={wizardStep === 'time' ? setUploadModalOpen : undefined}
         onPricesChange={handlePricesChange}
       />
 
       {/* Time */}
-      {uploadConfirmed && (
+      {wizardStep === 'time' && (
         <TimeStep spot={spot} onChange={handleTimeChange} />
       )}
 
       {/* Publish footer */}
-      {uploadConfirmed && (
+      {wizardStep === 'time' && (
         <Box>
           <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
           <Group px="md" py="lg" justify="center">
@@ -207,7 +212,7 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
       {/* Cancel */}
       <Group px="md" py="md" justify="center" style={{ marginTop: 'auto' }}>
         <button
-          onClick={() => { handleClearSpot(); onCancel(); }}
+          onClick={onCancel}
           style={{
             background: 'none',
             border: 'none',
@@ -219,7 +224,7 @@ export function UploadSidebar({ active = true, spot, onCancel }: { active?: bool
             textShadow: '0 0 8px rgba(255,170,222,1), 0 0 24px rgba(255,120,200,0.7)',
           }}
         >
-          Cancel
+          Close
         </button>
       </Group>
     </Stack>

@@ -11,7 +11,6 @@
 // MODEL - Business Logic & State
 // ============================================================================
 export { useUploadManager } from './model';
-export { useDraftMedia, useDraftMediaMutate } from './model';
 export type { UploadItem, QueueItem, UploadStatus, UploadItemAction } from './model';
 
 // ============================================================================
@@ -20,13 +19,8 @@ export type { UploadItem, QueueItem, UploadStatus, UploadItemAction } from './mo
 export { UploadManager } from './ui/UploadManager';
 export type { UploadManagerProps } from './ui/UploadManager';
 
-export { UploadIndicatorAffix, UploadIndicatorCompact } from './ui/UploadIndicator';
-
 export { UploadGallery } from './ui/UploadGallery';
 export type { UploadGalleryProps } from './ui/UploadGallery/UploadGallery';
-
-export { PublishButton } from './ui/UploadGallery/PublishButton';
-export type { PublishButtonProps } from './ui/UploadGallery/PublishButton';
 
 // ============================================================================
 // UI - Subcomponents (Cards, Overlays, Popovers)
@@ -35,4 +29,3 @@ export { default as DraftCard } from './ui/cards/DraftCard';
 export type { DraftCardProps, ValidationState } from './ui/cards/DraftCard';
 
 export { DateEditPopover, PriceEditPopover } from './ui/popovers';
-

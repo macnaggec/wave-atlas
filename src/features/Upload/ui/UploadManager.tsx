@@ -1,22 +1,16 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react';
-import { MediaItem } from 'entities/Media/types';
-import { useUploadManager, useUploadQueue, useUploadBlocking, usePublish, useDraftEditing, useDraftMediaMutate } from '../model';
+import { useUploadManager, useUploadQueue, useDraftEditing, useUploadWarning } from '../model';
 import { useGooglePicker } from '../model/useGooglePicker';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { QueueItem } from '../model';
 import UploadGallery from './UploadGallery/UploadGallery';
-import { PublishButton } from './UploadGallery/PublishButton';
 import { UploadItemAction } from '../model';
+import { useSessionlessDrafts } from 'entities/Media/model/useSessionlessDrafts';
 
 export interface UploadManagerProps {
   spotId: string;
   sessionId: string | null;
-  spotName?: string | null;
-  draftMedia: MediaItem[];
-  onPublishSuccess?: (mediaIds: string[]) => void;
   onQueueChange?: (count: number) => void;
-  /** Hide the Publish button — used when publish is handled externally (e.g. accordion step 3). */
-  showPublish?: boolean;
   /** When provided, replaces Cancel button with Proceed once uploads complete (upload wizard mode). */
   onProceed?: (count: number) => void;
   /** Called when the user cancels all uploads and wants to start over. */
@@ -30,11 +24,7 @@ export interface UploadManagerProps {
 export function UploadManager({
   spotId,
   sessionId,
-  spotName,
-  draftMedia,
-  onPublishSuccess,
   onQueueChange,
-  showPublish = true,
   onProceed,
   onCancelAll,
   hideZone,
@@ -42,8 +32,9 @@ export function UploadManager({
   onModalOpenChange,
   onPricesChange,
 }: UploadManagerProps) {
-  const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId, draftMedia);
-  const { refetch: refetchDraftMedia, update: updateDraftItem } = useDraftMediaMutate(sessionId);
+  const { data: sessionlessDrafts = [] } = useSessionlessDrafts(spotId, { enabled: sessionId === null });
+  const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId, sessionlessDrafts);
+  useUploadWarning(hasActiveUploads);
 
   const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId, sessionId);
 
@@ -62,60 +53,34 @@ export function UploadManager({
   );
   const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
 
-  const { addFiles, remove, cancelUpload, removeByMediaIds, retry } = useUploadManager(spotId, sessionId, spotName);
+  const { addFiles, remove, cancelUpload, retry } = useUploadManager(spotId, sessionId);
 
-  const { publishStats, isPublishing, publishingIds, handlePublish } = usePublish(
-    sessionId,
-    queue,
-    refetchDraftMedia,
-    (mediaIds) => {
-      removeByMediaIds(mediaIds);
-      onPublishSuccess?.(mediaIds);
-    }
-  );
-
-  const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue, updateDraftItem);
-
-  const { isBlocked } = useUploadBlocking(spotId);
+  const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue);
 
   const handleItemAction = useCallback((_action: UploadItemAction, itemId: string) => {
     void remove(itemId);
   }, [remove]);
 
   return (
-    <>
-      <UploadGallery
-        items={[...importingItems, ...queue]}
-        hasActiveUploads={hasActiveUploads}
-        isBlocked={isBlocked}
-        onRemove={remove}
-        onCancelUpload={cancelUpload}
-        onAddFiles={addFiles}
-        onDriveImport={openDrivePicker}
-        driveLoading={isPickerLoading}
-        publishingIds={publishingIds}
-        onRetry={retry}
-        onBulkDateEdit={handleBulkDateEdit}
-        onBulkPriceEdit={handleBulkPriceEdit}
-        onAction={handleItemAction}
-        selection={selection}
-        onProceed={onProceed}
-        onCancelAll={onCancelAll}
-        hideZone={hideZone}
-        externalModalOpen={externalModalOpen}
-        onModalOpenChange={onModalOpenChange}
-        onPricesChange={onPricesChange}
-      />
-      {showPublish && (
-        <PublishButton
-          total={publishStats.total}
-          allReady={publishStats.allReady}
-          hasActiveUploads={hasActiveUploads}
-          isPublishing={isPublishing}
-          selectedCount={selection.selectedCount}
-          onPublish={handlePublish}
-        />
-      )}
-    </>
+    <UploadGallery
+      items={[...importingItems, ...queue]}
+      hasActiveUploads={hasActiveUploads}
+      onRemove={remove}
+      onCancelUpload={cancelUpload}
+      onAddFiles={addFiles}
+      onDriveImport={openDrivePicker}
+      driveLoading={isPickerLoading}
+      onRetry={retry}
+      onBulkDateEdit={handleBulkDateEdit}
+      onBulkPriceEdit={handleBulkPriceEdit}
+      onAction={handleItemAction}
+      selection={selection}
+      onProceed={onProceed}
+      onCancelAll={onCancelAll}
+      hideZone={hideZone}
+      externalModalOpen={externalModalOpen}
+      onModalOpenChange={onModalOpenChange}
+      onPricesChange={onPricesChange}
+    />
   );
 }

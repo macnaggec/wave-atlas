@@ -4,9 +4,6 @@ import { IconArrowRight, IconCheck, IconPhoto, IconTrash, IconVideo } from '@tab
 import { UploadItem, QueueItem, UploadItemAction } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
-import { useUploadStore } from '../../model/uploadStore';
-import { UploadIndicatorCompact } from '../UploadIndicator';
-import { BlockedUploadPopover } from '../BlockedUploadPopover';
 import AddSourceCard from '../cards/AddSourceCard';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { MetadataControls } from './MetadataControls';
@@ -18,7 +15,6 @@ import { UploadZone } from './UploadZone';
 export interface UploadGalleryProps {
   items: QueueItem[];
   hasActiveUploads: boolean;
-  isBlocked?: boolean;
   onRemove: (id: string) => Promise<void>;
   onCancelUpload: (id: string) => Promise<void>;
   onAddFiles?: (files: File[]) => void;
@@ -27,7 +23,6 @@ export interface UploadGalleryProps {
   onRetry?: (id: string) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
-  publishingIds?: Set<string>;
   onAction?: (action: UploadItemAction, itemId: string) => void;
   selection: UseGallerySelectionReturn<QueueItem>;
   onProceed?: (count: number) => void;
@@ -63,13 +58,11 @@ export interface UploadGalleryProps {
 const UploadGallery: FC<UploadGalleryProps> = memo(({
   items,
   hasActiveUploads,
-  isBlocked = false,
   onRemove,
   onCancelUpload,
   onAddFiles,
   onDriveImport,
   driveLoading,
-  publishingIds,
   onBulkDateEdit,
   onBulkPriceEdit,
   onRetry,
@@ -135,6 +128,25 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   const [photoDisplayPrice, setPhotoDisplayPrice] = useState<number | string>(3);
   const [videoDisplayPrice, setVideoDisplayPrice] = useState<number | string>(3);
 
+  // Sync display prices from server on first load (step 4 wires real result data).
+  // One-shot: avoids clobbering user edits on subsequent server refreshes.
+  const photoSynced = useRef(false);
+  const videoSynced = useRef(false);
+  const serverPhotoPrice = photoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
+  const serverVideoPrice = videoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
+  useEffect(() => {
+    if (!photoSynced.current && serverPhotoPrice !== undefined) {
+      setPhotoDisplayPrice(serverPhotoPrice / 100);
+      photoSynced.current = true;
+    }
+  }, [serverPhotoPrice]);
+  useEffect(() => {
+    if (!videoSynced.current && serverVideoPrice !== undefined) {
+      setVideoDisplayPrice(serverVideoPrice / 100);
+      videoSynced.current = true;
+    }
+  }, [serverVideoPrice]);
+
   const handlePhotoDisplayPriceChange = useCallback((val: number | string) => {
     setPhotoDisplayPrice(val);
     const p = typeof val === 'number' ? val : parseFloat(String(val));
@@ -150,9 +162,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   // ========================================================================
   // BULK ACTIONS
   // ========================================================================
-
-  // Get uploadingSpotId for navigation link in blocked tooltip
-  const uploadingSpotId = useUploadStore(state => state.uploadingSpotId);
 
   // Handle file addition - disable selection mode when adding new files
   const handleAddFiles = useCallback((files: File[]) => {
@@ -206,18 +215,20 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     onCancelAll?.();
   }, [items, onCancelUpload, onRemove, onCancelAll]);
 
-  // Intercept price apply to notify parent of per-type prices
+  // Intercept price apply to notify parent and keep modal price inputs in sync
   const handlePriceApplyWrapped = useCallback((price: number) => {
     metadataState.handlePriceApply(price);
-    if (onPricesChange) {
-      const affected = selection.hasSelection
-        ? (selection.selectedItems as QueueItem[])
-        : completedItems;
-      onPricesChange(
-        affected.some(i => !isVideoItem(i)) ? price : undefined,
-        affected.some(i => isVideoItem(i)) ? price : undefined,
-      );
-    }
+    const affected = selection.hasSelection
+      ? (selection.selectedItems as QueueItem[])
+      : completedItems;
+    const affectsPhotos = affected.some(i => !isVideoItem(i));
+    const affectsVideos = affected.some(i => isVideoItem(i));
+    if (affectsPhotos) setPhotoDisplayPrice(price);
+    if (affectsVideos) setVideoDisplayPrice(price);
+    onPricesChange?.(
+      affectsPhotos ? price : undefined,
+      affectsVideos ? price : undefined,
+    );
   }, [metadataState.handlePriceApply, onPricesChange, selection.hasSelection, selection.selectedItems, completedItems, isVideoItem]);
 
   // Delete selected items
@@ -259,11 +270,10 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
           actions={itemActions}
           onAction={onAction}
           hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
-          isPublishing={publishingIds?.has(mediaId)}
         />
       );
     },
-    [onAction, onRetry, publishingIds]
+    [onAction, onRetry]
   );
 
   // Step-mode modal visibility: auto-open when items appear, auto-close when queue empties.
@@ -424,7 +434,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
             onClick={handleCancelAll}
           >
-            Cancel
+            Discard
           </Button>
           <Group gap="xs">
             {onAddFiles && (
@@ -467,7 +477,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
         onFilesSelected={handleAddFiles}
         onDriveImport={onDriveImport}
         driveLoading={driveLoading}
-        disabled={isBlocked}
       />
     );
 
@@ -495,7 +504,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     return (
       <>
         {indicator}
-        {isBlocked ? <BlockedUploadPopover>{zone}</BlockedUploadPopover> : zone}
+        {zone}
         {modal}
       </>
     );
@@ -503,15 +512,13 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
 
   // Empty queue (non-step mode): show full-width upload zone
   if (items.length === 0) {
-    const zone = (
+    return (
       <UploadZone
         onFilesSelected={handleAddFiles}
         onDriveImport={onDriveImport}
         driveLoading={driveLoading}
-        disabled={isBlocked}
       />
     );
-    return isBlocked ? <BlockedUploadPopover>{zone}</BlockedUploadPopover> : zone;
   }
 
   return (
@@ -520,22 +527,11 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
       getId={getItemId}
       selection={selection}
       prepend={!onProceed && onAddFiles && (
-        isBlocked ? (
-          <BlockedUploadPopover>
-            <AddSourceCard
-              onFilesSelected={handleAddFiles}
-              onDriveImport={onDriveImport}
-              driveLoading={driveLoading}
-              disabled
-            />
-          </BlockedUploadPopover>
-        ) : (
-          <AddSourceCard
-            onFilesSelected={handleAddFiles}
-            onDriveImport={onDriveImport}
-            driveLoading={driveLoading}
-          />
-        )
+        <AddSourceCard
+          onFilesSelected={handleAddFiles}
+          onDriveImport={onDriveImport}
+          driveLoading={driveLoading}
+        />
       )}
       toolbar={
         hasActiveUploads ? (
@@ -556,7 +552,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
             renderActions={renderActions}
             renderContent={() => (
               <Group gap="xs">
-                {isBlocked && <UploadIndicatorCompact />}
                 {metadataState.totalCount > 0 && (
                   <MetadataControls
                     showDateEdit={!!onBulkDateEdit}

@@ -1,16 +1,16 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useDeleteMedia } from 'entities/Media/model/useDeleteMedia';
+import { useSignCloudinary } from 'entities/Media/model/useSignCloudinary';
+import { useCreateMedia } from 'entities/Media/model/useCreateMedia';
+import { useInvalidateSessionlessDrafts } from 'entities/Media/model/useInvalidateSessionlessDrafts';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { MediaItem } from 'entities/Media/types';
 import { notify } from 'shared/lib/notifications';
 import { MEDIA_UPLOAD_LIMITS } from 'entities/Media/constants';
-// eslint-disable-next-line boundaries/dependencies -- CE1: Upload rework will move tRPC calls to entity hooks
-import { useTRPCClient } from 'app/lib/trpc';
 import { UploadError } from './UploadError';
 import { UploadItem } from './types';
 import { createUploadPipeline } from './UploadPipeline';
-import { useDraftMediaMutate } from './useDraftMedia';
 
 /**
  * Revoke blob URL to prevent memory leaks
@@ -33,30 +33,11 @@ function revokeBlobUrl(url?: string): void {
 export const useUploadManager = (
   spotId: string,
   sessionId: string | null,
-  spotName: string | null = null
 ) => {
-  const trpcClient = useTRPCClient();
-  const draftCache = useDraftMediaMutate(sessionId);
   const { mutateAsync: deleteMedia } = useDeleteMedia();
-
-  // ========================================================================
-  // SETUP - Initialize context for this spot
-  //========================================================================
-
-  // Set spot context when manager is active
-  // why in useEffect? We want to set the context when the component mounts, but we also want to avoid setting it if another spot is actively uploading. By checking the Zustand store for active uploads, we can conditionally set the context only if it's safe to do so. This prevents conflicts between multiple instances of UploadManager across different spots.
-  useEffect(() => {
-    const store = useUploadStore.getState();
-
-    // Only set upload context if no other spot is actively uploading.
-    const hasActiveUploadsForOtherSpot = store.uploadQueue.some(
-      item => item.spotId !== spotId
-    );
-
-    if (!hasActiveUploadsForOtherSpot) {
-      store.setSpotContext(spotId, spotName);
-    }
-  }, [spotId, spotName]);
+  const { mutateAsync: signCloudinary } = useSignCloudinary();
+  const { mutateAsync: createMedia } = useCreateMedia();
+  const invalidateSessionlessDrafts = useInvalidateSessionlessDrafts(spotId);
 
   // ========================================================================
   // UPLOAD ORCHESTRATION - How uploads happen (implementation)
@@ -69,7 +50,7 @@ export const useUploadManager = (
   ) => {
     if (!file) return;
 
-    const pipeline = createPipeline(id, spotId, sessionId, trpcClient);
+    const pipeline = createPipeline(id, spotId, sessionId, { signCloudinary, createMedia });
     let mediaItem: MediaItem;
 
     try {
@@ -94,8 +75,7 @@ export const useUploadManager = (
 
       mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
       pipeline.complete(mediaItem.id, mediaItem.capturedAt ?? undefined);
-      useUploadStore.getState().incrementSessionCompleted();
-
+      void invalidateSessionlessDrafts();
     } catch (error: unknown) {
       const errorMessage = pipeline.handleError(error);
 
@@ -103,14 +83,8 @@ export const useUploadManager = (
         notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
       }
 
-      return;
     }
-
-    // The Zustand item carries only mediaId now. TQ is the single source of truth
-    // for MediaItem data. Writing to TQ here makes the result immediately visible
-    // in useUploadQueue without any promotion logic.
-    void draftCache.append(mediaItem);
-  }, [spotId, sessionId, draftCache, trpcClient]);
+  }, [spotId, sessionId, signCloudinary, createMedia, invalidateSessionlessDrafts]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -121,26 +95,10 @@ export const useUploadManager = (
    */
   const addFiles = useCallback((files: File[]) => {
     const store = useUploadStore.getState();
-
-    // Guard: Prevent upload if another spot is actively uploading
-    const globalHasActiveUploads = store.uploadQueue.some(
-      item => item.status !== 'completed' && item.status !== 'error'
-    );
-    const uploadingSpotId = store.uploadingSpotId;
-    const isBlocked = globalHasActiveUploads && uploadingSpotId !== spotId;
-
-    if (isBlocked) {
-      // Early return - UI already shows disabled state with tooltip
-      return;
-    }
-
-    // Set upload context when actually starting uploads
-    store.setSpotContext(spotId, spotName);
-
     const newItems = createPendingItems(files, spotId, sessionId);
     store.addToQueue(newItems);
     newItems.forEach(item => processUpload(item.id, item.file));
-  }, [spotId, spotName, sessionId, processUpload]);
+  }, [spotId, sessionId, processUpload]);
 
   /**
    * User cancels an upload (only aborts, doesn't delete from DB)
@@ -174,7 +132,6 @@ export const useUploadManager = (
           revokeBlobUrl(lingering.previewUrl);
           store.removeItem(lingering.id);
         }
-        void draftCache.remove(id);
       } catch {
         // notification handled by useDeleteMedia onError
       }
@@ -188,7 +145,6 @@ export const useUploadManager = (
     if (item.status === 'completed' && item.mediaId) {
       try {
         await deleteMedia({ id: item.mediaId });
-        void draftCache.remove(item.mediaId);
       } catch {
         return;
       }
@@ -196,7 +152,7 @@ export const useUploadManager = (
 
     revokeBlobUrl(item.previewUrl);
     store.removeItem(item.id);
-  }, [draftCache, deleteMedia]);
+  }, [deleteMedia]);
 
   /**
    * User retries a failed upload

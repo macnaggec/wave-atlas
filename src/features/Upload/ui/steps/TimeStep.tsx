@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
@@ -34,6 +34,11 @@ export function TimeStep({ spot, onChange }: TimeStepProps) {
     const end = Math.max(...exifDates.map(dateToMinutes));
     return [start, Math.max(start + 15, end)];
   });
+
+  // Sync initial values to parent on mount so sessionDate is never null after TimeStep appears.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; });
+  useEffect(() => { onChangeRef.current(date, range); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDateChange = useCallback((val: Date | string | null) => {
     const newDate = !val ? null : typeof val === 'string' ? new Date(val) : val;

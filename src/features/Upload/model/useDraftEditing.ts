@@ -5,27 +5,15 @@ import { useUpdateBatchMedia } from 'entities/Media/model/useUpdateBatchMedia';
 import { notify } from 'shared/lib/notifications';
 import { QueueItem } from './types';
 
-type UpdateDraftItemFn = (
-  ids: string[],
-  updates: { price?: number; capturedAt?: Date }
-) => void;
-
 /**
  * Encapsulates bulk metadata editing for draft queue items.
  *
  * Responsibilities:
  * - Map queue item IDs → mediaIds (falls back to all completed if none selected)
  * - Call server mutation
- * - Apply optimistic TanStack Query cache update via updateDraftItem
  * - Show success/error notifications
- *
- * @param queue - Current queue for mediaId resolution
- * @param updateDraftItem - TanStack Query cache patch (source of truth for completed-item result data)
  */
-export function useDraftEditing(
-  queue: QueueItem[],
-  updateDraftItem: UpdateDraftItemFn
-) {
+export function useDraftEditing(queue: QueueItem[]) {
   const { mutateAsync: updateBatch } = useUpdateBatchMedia();
   // selectedIds from useGallerySelection are keyed by getItemId = mediaId ?? id.
   // For completed items this equals mediaId, so selectedIds ARE the media IDs.
@@ -54,11 +42,10 @@ export function useDraftEditing(
 
     try {
       await updateBatch({ mediaIds, price: Math.round(price * 100) });
-      updateDraftItem(mediaIds, { price: Math.round(price * 100) });
     } catch {
       // notification handled by useUpdateBatchMedia onError
     }
-  }, [getMediaIds, updateDraftItem, updateBatch]);
+  }, [getMediaIds, updateBatch]);
 
   const handleBulkDateEdit = useCallback(async (
     selectedIds: string[],
@@ -69,12 +56,11 @@ export function useDraftEditing(
 
     try {
       await updateBatch({ mediaIds, capturedAt: date });
-      updateDraftItem(mediaIds, { capturedAt: date });
       notify.success(`Updated date for ${mediaIds.length} item(s)`, 'Date Updated');
     } catch {
       // notification handled by useUpdateBatchMedia onError
     }
-  }, [getMediaIds, updateDraftItem, updateBatch]);
+  }, [getMediaIds, updateBatch]);
 
   return { handleBulkPriceEdit, handleBulkDateEdit };
 }

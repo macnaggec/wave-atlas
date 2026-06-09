@@ -28,9 +28,6 @@ export function UploadStep({ spot, onConfirm, onCancel, hideZone, externalModalO
       <UploadManager
         spotId={spot.id}
         sessionId={null}
-        spotName={spot.name}
-        draftMedia={[]}
-        showPublish={false}
         onProceed={onConfirm}
         onCancelAll={onCancel}
         hideZone={hideZone}
