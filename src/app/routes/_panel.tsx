@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useSelectedSpot } from 'entities/Spot/model/useSelectedSpot';
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useUploadStore } from 'features/Upload/model/uploadStore';
+import { useMyDraftCounts } from 'entities/Media/model/useMyDraftCounts';
 import { Skeleton, Text } from '@mantine/core';
 import type { SurfSessionItem } from 'entities/SurfSession/types';
 import { SidePanel } from 'widgets/SidePanel';
@@ -61,6 +63,11 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const { activeFilter, setActiveFilter } = usePanelFilter();
 
   const cartItems = useCartStore((state) => state.items);
+  const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.length > 0);
+  const uploadSpotId = useUploadStore((s) => s.uploadSpotId);
+  const { data: draftCounts } = useMyDraftCounts();
+  const hasDrafts = hasQueuedUploads || (draftCounts?.some((d) => d.count > 0) ?? false);
+  const resumeSpotId = uploadSpotId ?? draftCounts?.[0]?.spotId;
 
   const cartMatch = matches.find((match) => match.routeId === '/_panel/cart');
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
@@ -158,11 +165,15 @@ function PanelFrame({ children }: { children: ReactNode }) {
             />
           </div>
           <button
-            onClick={() => void navigate(spotId
-              ? { to: '/upload', search: { spotId } }
-              : { to: '/upload' }
+            onClick={() => void navigate(
+              hasDrafts && resumeSpotId
+                ? { to: '/upload', search: { spotId: resumeSpotId } }
+                : spotId
+                  ? { to: '/upload', search: { spotId } }
+                  : { to: '/upload' }
             )}
             style={{
+              position: 'relative',
               background: 'rgba(255,255,255,0.1)',
               border: '1px solid rgba(255,255,255,0.15)',
               borderRadius: 20,
@@ -175,6 +186,18 @@ function PanelFrame({ children }: { children: ReactNode }) {
             }}
           >
             Upload
+            {hasDrafts && (
+              <span style={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#ffaade',
+                boxShadow: '0 0 6px rgba(255,170,222,0.8)',
+              }} />
+            )}
           </button>
         </div>
         {isExpanded && (
