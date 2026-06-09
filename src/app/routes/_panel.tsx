@@ -188,8 +188,8 @@ function PanelFrame({ children }: { children: ReactNode }) {
             {hasDrafts && (
               <span style={{
                 position: 'absolute',
-                top: 2,
-                right: 2,
+                top: -3,
+                right: -3,
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
