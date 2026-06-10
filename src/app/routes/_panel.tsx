@@ -82,7 +82,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const { spotId } = useParams({ strict: false });
 
   const { spot: activeSpot } = useSelectedSpot();
-  const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '');
+  const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '', { enabled: !!cartFrom });
 
   const forceExpanded = matches.some(
     (match) => !!(match.staticData as { forceExpanded?: boolean }).forceExpanded,

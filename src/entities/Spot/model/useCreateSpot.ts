@@ -13,6 +13,7 @@ export function useCreateSpot() {
           trpc.spots.list.queryKey(),
           (prev: Spot[] = []) => [...prev, spot],
         );
+        void queryClient.invalidateQueries({ queryKey: trpc.spots.withinBounds.queryKey() });
       },
     }),
   );
