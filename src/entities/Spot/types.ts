@@ -1,17 +1,8 @@
-import { SpotStatus } from './constants';
-import type { Position } from 'shared/types/coordinates';
+export type { Spot } from 'shared/types';
 
-/** Minimal spot data needed to render the panel header. */
-export type SpotHeaderData = {
-  name: string;
-  location: string;
-  status?: string;
-};
-
-export type Spot = {
-  id: string;
-  name: string;
-  location: string;
-  coords: Position;
-  status?: SpotStatus;
-};
+export interface MapBounds {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+}

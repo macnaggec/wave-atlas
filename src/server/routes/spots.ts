@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { spotRepository } from 'server/repositories/SpotRepository';
-import { SPOT_STATUS } from 'entities/Spot';
-import type { Spot } from 'entities/Spot';
+import { SPOT_STATUS } from 'shared/types';
+import type { Spot } from 'shared/types';
 import { spotNameSchema, spotLocationSchema, spotAliasSchema } from 'shared/validation/spotSchemas';
 import { NotFoundError } from 'shared/errors';
 
@@ -10,6 +10,26 @@ export const spotsRouter = router({
   list: publicProcedure
     .input(z.string().optional())
     .query(({ input: search }): Promise<Spot[]> => spotRepository.findSpotList({ search })),
+
+  byId: publicProcedure
+    .input(z.string().min(1))
+    .query(async ({ input: id }): Promise<Spot | null> => {
+      const row = await spotRepository.findSpotById(id);
+      if (!row) return null;
+      const { aliases: _aliases, ...spot } = row;
+      return spot;
+    }),
+
+  withinBounds: publicProcedure
+    .input(z.object({
+      swLat: z.number(),
+      swLng: z.number(),
+      neLat: z.number(),
+      neLng: z.number(),
+    }))
+    .query(({ input }): Promise<Spot[]> =>
+      spotRepository.findSpotsByBounds(input.swLat, input.swLng, input.neLat, input.neLng)
+    ),
 
   /** Returns spots within 300 m of the given coordinates. Used for proximity deduplication. */
   nearby: publicProcedure

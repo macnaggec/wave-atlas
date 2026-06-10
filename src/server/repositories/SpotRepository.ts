@@ -1,8 +1,8 @@
 import { MediaItem as PrismaMediaItem, Spot as PrismaSpot } from '@prisma/client';
 import type { MediaType, MediaItem, SpotMediaItem } from 'entities/Media';
 import { MEDIA_STATUS } from 'entities/Media';
-import type { Spot, SpotStatus } from 'entities/Spot';
-import { SPOT_STATUS } from 'entities/Spot';
+import type { Spot, SpotStatus } from 'shared/types';
+import { SPOT_STATUS } from 'shared/types';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
 import { mapToMediaItem } from './mappers';
@@ -64,6 +64,7 @@ export type SpotMediaPage = {
 
 export interface ISpotRepository {
   findSpotList(filter: SpotSearchFilter): Promise<Spot[]>;
+  findSpotsByBounds(swLat: number, swLng: number, neLat: number, neLng: number): Promise<Spot[]>;
   findSpotsNearby(lat: number, lng: number, radiusM: number): Promise<Spot[]>;
   findSpotById(id: string): Promise<SpotRow | null>;
   createSpot(data: SpotCreateInput): Promise<Spot>;
@@ -118,6 +119,25 @@ export class SpotRepository implements ISpotRepository {
         return dist <= radiusM;
       })
       .map(mapToSpot);
+  }
+
+  // Note: does not handle antimeridian-crossing viewports (swLng > neLng). Safe while WORLD_BOUNDS
+  // is the only caller; needs a split query once real viewport bounds are wired (CE3 mechanism).
+  findSpotsByBounds(swLat: number, swLng: number, neLat: number, neLng: number): Promise<Spot[]> {
+    return runQuery(async () => {
+      const rows = await prisma.spot.findMany({
+        where: {
+          AND: [
+            { lat: { not: null } },
+            { lng: { not: null } },
+            { lat: { gte: swLat, lte: neLat } },
+            { lng: { gte: swLng, lte: neLng } },
+          ],
+        },
+        orderBy: { name: 'asc' },
+      });
+      return rows.map(mapToSpot);
+    });
   }
 
   findSpotById(id: string): Promise<SpotRow | null> {

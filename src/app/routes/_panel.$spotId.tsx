@@ -1,9 +1,10 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { trpcProxy } from 'app/lib/trpcClient';
 
 export const Route = createFileRoute('/_panel/$spotId')({
-  loader: async ({ context: { queryClient } }) => {
-    await queryClient.ensureQueryData(trpcProxy.spots.list.queryOptions());
+  loader: async ({ params: { spotId }, context: { queryClient } }) => {
+    const spot = await queryClient.ensureQueryData(trpcProxy.spots.byId.queryOptions(spotId));
+    if (!spot) throw redirect({ to: '/' });
   },
   component: () => <Outlet />,
 });

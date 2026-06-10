@@ -1,6 +1,2 @@
-export const SPOT_STATUS = {
-  VERIFIED: 'verified',
-  UNVERIFIED: 'unverified',
-} as const;
-
-export type SpotStatus = typeof SPOT_STATUS[keyof typeof SPOT_STATUS];
+export { SPOT_STATUS } from 'shared/types';
+export type { SpotStatus } from 'shared/types';

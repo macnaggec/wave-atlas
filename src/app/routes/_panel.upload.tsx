@@ -16,8 +16,12 @@ export const Route = createFileRoute('/_panel/upload')({
   loaderDeps: ({ search }) => ({ spotId: search.spotId }),
   loader: async ({ context: { queryClient }, deps }) => {
     if (!deps.spotId) return { spot: null };
-    const spots = await queryClient.ensureQueryData(trpcProxy.spots.list.queryOptions());
-    return { spot: spots.find((s) => s.id === deps.spotId) ?? null };
+    try {
+      const spot = await queryClient.ensureQueryData(trpcProxy.spots.byId.queryOptions(deps.spotId));
+      return { spot: spot ?? null };
+    } catch {
+      return { spot: null };
+    }
   },
   staticData: { panelHeader: 'Upload' },
   component: UploadPanel,

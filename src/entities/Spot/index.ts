@@ -1,4 +1,4 @@
-export type { Spot, SpotHeaderData } from './types';
+export type { Spot } from './types';
 
 export { SPOT_STATUS } from './constants';
 export type { SpotStatus } from './constants';
@@ -11,6 +11,7 @@ export { useSpotCard } from './model/useSpotCard';
 export { useSpotDetails } from './model/useSpotDetails';
 export { useSpotMediaFeed } from './model/useSpotMediaFeed';
 export { useSpotPreview } from './model/useSpotPreview';
+export { useMapSpots } from './model/useMapSpots';
+export type { MapBounds } from './types';
 export { useSpots } from './model/useSpots';
 
-export { SpotHeader, HeaderSkeleton } from './ui/SpotHeader';
