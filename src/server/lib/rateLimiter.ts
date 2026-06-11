@@ -1,10 +1,13 @@
 import { TooManyRequestsError } from 'shared/errors';
 
+// Opaque rate-limiter interface — swappable behind this type when moving to distributed state.
+export type RateLimiter = (key: string) => void;
+
 // In-memory sliding-window rate limiter. Not suitable for multi-instance deployments.
 export function createRateLimiter(options: {
   windowMs: number;
   max: number
-}) {
+}): RateLimiter {
   const store = new Map<string, number[]>();
 
   return function check(key: string): void {
@@ -17,7 +20,6 @@ export function createRateLimiter(options: {
     }
 
     hits.push(now);
-    if (hits.length > 0) store.set(key, hits);
-    else store.delete(key);
+    store.set(key, hits);
   };
 }
