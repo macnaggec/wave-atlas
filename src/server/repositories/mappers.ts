@@ -1,15 +1,10 @@
 import { MediaItem as PrismaMediaItem, MediaType } from '@prisma/client';
 import { MEDIA_RESOURCE_TYPE, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
 import type { MediaItem } from 'entities/Media';
-import cloudinary from 'server/lib/cloudinary';
+import { generateDeliveryUrl } from 'server/lib/cloudinary';
 
 export function toSignedUrl(cloudinaryPublicId: string, transform: string): string {
-  return cloudinary.url(cloudinaryPublicId, {
-    sign_url: true,
-    type: 'authenticated',
-    secure: true,
-    raw_transformation: transform,
-  });
+  return generateDeliveryUrl(cloudinaryPublicId, transform);
 }
 
 export function mapToMediaItem(row: PrismaMediaItem): MediaItem {

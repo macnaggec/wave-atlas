@@ -6,7 +6,7 @@
  * - Dependency Inversion: Server actions depend on this abstraction, not cloudinary SDK
  */
 
-import cloudinary from 'server/lib/cloudinary';
+import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl } from 'server/lib/cloudinary';
 import { InternalServerError } from 'shared/errors';
 import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
 
@@ -38,6 +38,7 @@ export interface ICloudinaryService {
   generateUploadSignature(folder?: string): CloudinarySignatureData;
   uploadFromUrl(sourceUrl: string, authHeaders: Record<string, string>, folder: string, resourceType?: 'image' | 'video'): Promise<RemoteUploadResult>;
   deleteAsset(publicId: string, resourceType?: 'image' | 'video'): Promise<void>;
+  generateDeliveryUrl(cloudinaryPublicId: string, transform: string): string;
   generateSignedDownload(cloudinaryPublicId: string): { downloadUrl: string; expiresAt: number };
   generatePermanentPreviewUrl(cloudinaryPublicId: string): string;
   tryGeneratePermanentPreviewUrl(cloudinaryPublicId: string): string | null;
@@ -144,18 +145,8 @@ export class CloudinaryService implements ICloudinaryService {
 
     // Regenerate signed URLs from publicId — mapToMediaItem() does the same on every read,
     // so these stored values are never actually served but satisfy the DB schema.
-    const thumbnailUrl = cloudinary.url(publicId, {
-      sign_url: true,
-      type: 'authenticated',
-      secure: true,
-      raw_transformation: MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-    });
-    const lightboxUrl = cloudinary.url(publicId, {
-      sign_url: true,
-      type: 'authenticated',
-      secure: true,
-      raw_transformation: MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-    });
+    const thumbnailUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL);
+    const lightboxUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK);
 
     return {
       publicId,
@@ -171,6 +162,16 @@ export class CloudinaryService implements ICloudinaryService {
    */
   async deleteAsset(publicId: string, resourceType: 'image' | 'video' = 'image'): Promise<void> {
     await cloudinary.uploader.destroy(publicId, { type: 'authenticated', resource_type: resourceType });
+  }
+
+  /**
+   * Generates a permanent signed delivery URL for an authenticated Cloudinary asset.
+   * Single owner of permanent (no-TTL) delivery URL signing — thumbnails, lightbox previews.
+   * Short-lived download URLs (TTL + fl_attachment) are a separate concern handled by
+   * generateSignedDownload, which calls cloudinary.url() directly with expires_at.
+   */
+  generateDeliveryUrl(cloudinaryPublicId: string, transform: string): string {
+    return libGenerateDeliveryUrl(cloudinaryPublicId, transform);
   }
 
   /**
@@ -210,17 +211,11 @@ export class CloudinaryService implements ICloudinaryService {
     if (!cloudinaryPublicId) {
       throw new InternalServerError('cloudinaryPublicId is required to generate permanent preview URL');
     }
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    if (!apiSecret) {
+    if (!process.env.CLOUDINARY_API_SECRET) {
       throw new InternalServerError('Cloudinary misconfigured: missing CLOUDINARY_API_SECRET');
     }
 
-    return cloudinary.url(cloudinaryPublicId, {
-      sign_url: true,
-      type: 'authenticated',
-      secure: true,
-      raw_transformation: MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX,
-    });
+    return this.generateDeliveryUrl(cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX);
   }
 
   /**

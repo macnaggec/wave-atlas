@@ -8,3 +8,12 @@ cloudinary.config({
 });
 
 export default cloudinary;
+
+export function generateDeliveryUrl(cloudinaryPublicId: string, transform: string): string {
+  return cloudinary.url(cloudinaryPublicId, {
+    sign_url: true,
+    type: 'authenticated',
+    secure: true,
+    raw_transformation: transform,
+  });
+}
