@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useDeleteMedia, useSignCloudinary, useCreateMedia, useInvalidateSessionlessDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
+import { useDeleteMedia, useDeleteOrphanAsset, useSignCloudinary, useCreateMedia, useInvalidateSessionlessDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
@@ -30,6 +30,7 @@ export const useUploadManager = (
   sessionId: string | null,
 ) => {
   const { mutateAsync: deleteMedia } = useDeleteMedia();
+  const { mutateAsync: deleteOrphanAsset } = useDeleteOrphanAsset();
   const { mutateAsync: signCloudinary } = useSignCloudinary();
   const { mutateAsync: createMedia } = useCreateMedia();
   const invalidateSessionlessDrafts = useInvalidateSessionlessDrafts(spotId);
@@ -136,6 +137,11 @@ export const useUploadManager = (
     // For items in uploadQueue (actively uploaded or in progress)
     await abortIfUploading(item);
 
+    // Cloudinary upload succeeded but DB save never reached the server — orphaned asset
+    if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+      void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+    }
+
     // If completed, delete from DB and mark as deleted
     if (item.status === 'completed' && item.mediaId) {
       try {
@@ -147,7 +153,7 @@ export const useUploadManager = (
 
     revokeBlobUrl(item.previewUrl);
     store.removeItem(item.id);
-  }, [deleteMedia]);
+  }, [deleteMedia, deleteOrphanAsset]);
 
   /**
    * User retries a failed upload
@@ -166,30 +172,37 @@ export const useUploadManager = (
   }, [processUpload]);
 
   /**
-   * System removes published items from queue
+   * User discards everything (Discard button in upload modal).
+   * Two-pass: immediate Zustand clear, then background server cleanup.
+   * allItems is the full merged list so DB-only drafts are also deleted.
    */
-  const removeByMediaIds = useCallback((mediaIds: string[]) => {
+  const discardAll = useCallback((allItems: Array<{ id: string; mediaId?: string }>) => {
     const store = useUploadStore.getState();
-    const toRemove = store.uploadQueue.filter(item =>
-      item.mediaId && mediaIds.includes(item.mediaId)
-    );
-    toRemove.forEach(item => {
-      revokeBlobUrl(item.previewUrl);
-      store.removeItem(item.id);
+    const queue = store.uploadQueue;
+
+    const toDeleteDb: string[] = [];
+    const toDeleteOrphan: Array<{ publicId: string; resourceType: 'image' | 'video' }> = [];
+
+    queue.forEach(item => {
+      if (item.status === 'completed' && item.mediaId) {
+        toDeleteDb.push(item.mediaId);
+      } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+        toDeleteOrphan.push({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+      }
     });
-  }, []);
 
-  /**
-   * User clears all completed uploads
-   */
-  const clearCompleted = useCallback(() => {
-    const store = useUploadStore.getState();
-    store.uploadQueue
-      .filter(i => i.status === 'completed')
-      .forEach(i => revokeBlobUrl(i.previewUrl));
-    store.clearCompleted();
-  }, []);
+    const queueIds = new Set(queue.map(i => i.id));
+    allItems.forEach(item => {
+      if (!queueIds.has(item.id) && item.mediaId) {
+        toDeleteDb.push(item.mediaId);
+      }
+    });
 
+    store.clearQueue();
+
+    toDeleteDb.forEach(mediaId => void deleteMedia({ id: mediaId }));
+    toDeleteOrphan.forEach(o => void deleteOrphanAsset(o));
+  }, [deleteMedia, deleteOrphanAsset]);
 
   // ========================================================================
   // PUBLIC API
@@ -199,8 +212,7 @@ export const useUploadManager = (
     addFiles,
     remove,
     cancelUpload,
-    removeByMediaIds,
-    clearCompleted,
+    discardAll,
     retry,
   };
 };

@@ -54,6 +54,14 @@ export class MediaService {
     return this.cloudinary.generateUploadSignature(`wave-atlas/users/${userId}`);
   }
 
+  async deleteOrphanAsset(userId: string, publicId: string, resourceType: 'image' | 'video'): Promise<void> {
+    const expectedPrefix = `wave-atlas/users/${userId}/`;
+    if (publicId.includes('..') || !publicId.startsWith(expectedPrefix)) {
+      throw new ForbiddenError('Cannot delete asset: ownership could not be verified');
+    }
+    await this.cloudinary.deleteAsset(publicId, resourceType);
+  }
+
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
     return this.media.createMedia({
       spotId: input.spotId,
@@ -175,15 +183,15 @@ export class MediaService {
     await this.media.updateManyMedia(mediaIds, updateData);
   }
 
+  async getSessionlessDrafts(userId: string, spotId: string): Promise<MediaItem[]> {
+    return this.media.findSessionlessDraftsBySpot(userId, spotId);
+  }
+
   /**
    * Fetches all items in a single query, verifies each is owned by `userId`,
    * and returns the lightweight batch records. Replaces N individual findById
    * calls in batch operations.
    */
-  async getSessionlessDrafts(userId: string, spotId: string): Promise<MediaItem[]> {
-    return this.media.findSessionlessDraftsBySpot(userId, spotId);
-  }
-
   private async fetchOwnedBatch(
     userId: string,
     mediaIds: string[],

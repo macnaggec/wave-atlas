@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react';
-import { useUploadManager, useUploadQueue, useDraftEditing, useUploadWarning } from '../model';
+import { useUploadManager, useUploadQueue, useDraftEditing, useUploadWarning, QueueItem, UploadItemAction } from '../model';
 import { useGooglePicker } from '../model/useGooglePicker';
 import { useGallerySelection } from 'shared/hooks/gallery';
-import { QueueItem } from '../model';
 import UploadGallery from './UploadGallery/UploadGallery';
-import { UploadItemAction } from '../model';
 import { useSessionlessDrafts } from 'entities/Media';
 
 export interface UploadManagerProps {
@@ -53,13 +51,9 @@ export function UploadManager({
   );
   const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
 
-  const { addFiles, remove, cancelUpload, retry } = useUploadManager(spotId, sessionId);
+  const { addFiles, remove, cancelUpload, retry, discardAll } = useUploadManager(spotId, sessionId);
 
   const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue);
-
-  const handleItemAction = useCallback((_action: UploadItemAction, itemId: string) => {
-    void remove(itemId);
-  }, [remove]);
 
   return (
     <UploadGallery
@@ -73,9 +67,10 @@ export function UploadManager({
       onRetry={retry}
       onBulkDateEdit={handleBulkDateEdit}
       onBulkPriceEdit={handleBulkPriceEdit}
-      onAction={handleItemAction}
+      onAction={useCallback((_action: UploadItemAction, itemId: string) => void remove(itemId), [remove])}
       selection={selection}
       onProceed={onProceed}
+      onDiscardAll={discardAll}
       onCancelAll={onCancelAll}
       hideZone={hideZone}
       externalModalOpen={externalModalOpen}

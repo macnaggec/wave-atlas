@@ -25,6 +25,7 @@ export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValida
 
 export { useCreateMedia } from './model/useCreateMedia';
 export { useDeleteMedia } from './model/useDeleteMedia';
+export { useDeleteOrphanAsset } from './model/useDeleteOrphanAsset';
 export { useInvalidateSessionlessDrafts } from './model/useInvalidateSessionlessDrafts';
 export { useMyDraftCounts } from './model/useMyDraftCounts';
 export { usePublishMedia } from './model/usePublishMedia';

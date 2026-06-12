@@ -28,6 +28,8 @@ export interface UploadGalleryProps {
   onProceed?: (count: number) => void;
   /** Called when the user cancels all uploads and wants to start over. */
   onCancelAll?: () => void;
+  /** Clears all items immediately (Zustand) and fires background server cleanup. */
+  onDiscardAll?: (items: QueueItem[]) => void;
   /** When true, suppresses the zone/indicator in the sidebar (modal still functional). */
   hideZone?: boolean;
   /** Controlled modal open state — overrides internal state when provided. */
@@ -70,6 +72,7 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
   selection,
   onProceed,
   onCancelAll,
+  onDiscardAll,
   hideZone = false,
   externalModalOpen,
   onModalOpenChange,
@@ -198,22 +201,12 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     await Promise.all(inProgressItems.map(item => onCancelUpload(item.id)));
   }, [items, onCancelUpload]);
 
-  // Cancel everything and reset to empty zone.
-  // Removes all items from Zustand immediately (abort in-progress, revoke blobs) so
-  // the UI resets without waiting for the network. DB cleanup fires in the background.
+  // Discard everything and reset to empty zone.
+  // Two-pass: onDiscardAll clears Zustand immediately then fires background server cleanup.
   const handleCancelAll = useCallback(() => {
-    const mediaIdsToDelete = items
-      .filter(i => i.status === 'completed' && i.mediaId)
-      .map(i => i.mediaId!);
-
-    // Abort + remove all items from Zustand synchronously
-    items.forEach(item => void onCancelUpload(item.id));
-
-    // Background: delete completed media from DB (fire and forget)
-    mediaIdsToDelete.forEach(mediaId => void onRemove(mediaId));
-
+    onDiscardAll?.(items);
     onCancelAll?.();
-  }, [items, onCancelUpload, onRemove, onCancelAll]);
+  }, [items, onDiscardAll, onCancelAll]);
 
   // Intercept price apply to notify parent and keep modal price inputs in sync
   const handlePriceApplyWrapped = useCallback((price: number) => {
@@ -262,7 +255,6 @@ const UploadGallery: FC<UploadGalleryProps> = memo(({
     (item: QueueItem, context: { isSelectionMode: boolean }) => {
       const itemActions = context.isSelectionMode ? [] : ['cancel' as UploadItemAction];
 
-      const mediaId = item.mediaId ?? item.id;
       return (
         <UploadCardRenderer
           item={item}

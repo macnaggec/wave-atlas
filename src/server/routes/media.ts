@@ -37,6 +37,12 @@ export const mediaRouter = router({
     .input(z.object({ id: z.uuid() }))
     .mutation(({ input, ctx }) => mediaService.deleteMedia(ctx.user.id, input.id)),
 
+  deleteOrphanAsset: protectedProcedure
+    .input(z.object({ publicId: z.string(), resourceType: z.enum(['image', 'video']) }))
+    .mutation(({ input, ctx }) =>
+      mediaService.deleteOrphanAsset(ctx.user.id, input.publicId, input.resourceType)
+    ),
+
   updateBatch: protectedProcedure
     .input(mediaBatchUpdateSchema)
     .mutation(({ input, ctx }) =>
