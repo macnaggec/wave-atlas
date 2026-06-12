@@ -11,7 +11,6 @@ interface UploadActions {
   addToQueue: (items: UploadItem[]) => void;
   updateItem: (id: string, updates: Partial<UploadItem>) => void;
   removeItem: (id: string) => void;
-  clearCompleted: () => void;
   clearQueue: () => void;
   setUploadSpotId: (spotId: string | null) => void;
   setWizardStep: (step: 'files' | 'time') => void;
@@ -48,20 +47,17 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   },
 
   removeItem: (id: string) => {
-    set(state => ({
-      uploadQueue: state.uploadQueue.filter(item => item.id !== id),
-    }));
-  },
-
-  clearCompleted: () => {
-    set(state => ({
-      uploadQueue: state.uploadQueue.filter(item => item.status !== 'completed'),
-    }));
+    set(state => {
+      const item = state.uploadQueue.find(i => i.id === id);
+      if (item?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+      return { uploadQueue: state.uploadQueue.filter(i => i.id !== id) };
+    });
   },
 
   clearQueue: () => {
     const state = get();
     state.uploadQueue.forEach(item => {
+      if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
       if (item.abortUpload && item.status !== 'completed' && item.status !== 'error') {
         item.abortUpload();
       }
