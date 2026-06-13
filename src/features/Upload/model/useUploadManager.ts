@@ -49,6 +49,10 @@ export const useUploadManager = (
     const pipeline = createPipeline(id, spotId, sessionId, { signCloudinary, createMedia });
     let mediaItem: MediaItem;
 
+    // True if the item was removed from the queue (user discarded or cancelled) while we were awaiting.
+    // Safe to call at any await boundary — reads live store state, not a stale closure.
+    const isDiscarded = () => !useUploadStore.getState().uploadQueue.find(i => i.id === id);
+
     try {
       validateFileSize(file);
       const exifData = await pipeline.extractMetadata(file);
@@ -66,10 +70,20 @@ export const useUploadManager = (
       } else {
         // Normal flow: sign → upload → save
         cloudResult = await uploadNewFile(id, file, pipeline);
+        // Item may have been removed while Cloudinary upload was in-flight (signing/uploading race).
+        if (isDiscarded()) {
+          void deleteOrphanAsset({ publicId: cloudResult.publicId, resourceType: cloudResult.resource_type });
+          return;
+        }
         store.updateItem(id, { cloudinaryResult: cloudResult });
       }
 
       mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
+      // Item may have been removed while DB write was in-flight (saving race).
+      if (isDiscarded()) {
+        void deleteMedia({ id: mediaItem.id });
+        return;
+      }
       pipeline.complete(mediaItem.id, mediaItem.capturedAt ?? undefined);
       void invalidateSessionlessDrafts();
     } catch (error: unknown) {
@@ -80,7 +94,7 @@ export const useUploadManager = (
       }
 
     }
-  }, [spotId, sessionId, signCloudinary, createMedia, invalidateSessionlessDrafts]);
+  }, [spotId, sessionId, signCloudinary, createMedia, invalidateSessionlessDrafts, deleteOrphanAsset, deleteMedia]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -139,7 +153,8 @@ export const useUploadManager = (
 
     // Cloudinary upload succeeded but DB save never reached the server — orphaned asset
     if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
-      void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+      deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type })
+        .catch(() => notify.error('Failed to clean up upload — please contact support', 'Cleanup Error'));
     }
 
     // If completed, delete from DB and mark as deleted

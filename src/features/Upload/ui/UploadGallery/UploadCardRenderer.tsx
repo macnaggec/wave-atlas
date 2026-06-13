@@ -24,8 +24,6 @@ interface UploadCardRendererProps {
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
   hasDateError?: boolean;
-  /** Whether the item is currently being published */
-  isPublishing?: boolean;
 }
 
 /**
@@ -41,7 +39,6 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   onAction,
   onRetry,
   hasDateError,
-  isPublishing,
 }) => {
   if (item.status === 'importing') {
     return <Skeleton radius="md" className={classes.importingCard} />;
@@ -67,11 +64,9 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     ? `Media ${item.result.resource.asset_id}`
     : item.file?.name || 'Upload preview';
 
-  const overlays = isPublishing
-    ? renderPublishingOverlay()
-    : isCompleted
-      ? item.result ? renderDraftOverlay(item.result) : null
-      : renderUploadOverlay(item.status, item.progress, item.error, item.id, onRetry);
+  const overlays = isCompleted
+    ? item.result ? renderDraftOverlay(item.result) : null
+    : renderUploadOverlay(item.status, item.progress, item.error, item.id, item.file ? onRetry : undefined);
 
   const actionButtons = actions && actions.length > 0 ? (
     <Group gap="xs">
@@ -105,27 +100,11 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
-      actions={!isPublishing ? actionButtons : undefined}
-      validation={
-        hasDateError && !isPublishing
-          ? { hasError: true, message: 'Date required for publishing' }
-          : undefined
-      }
+      actions={actionButtons}
+      validation={hasDateError ? { hasError: true, message: 'Date required for publishing' } : undefined}
     />
   );
-},
-  (prev, next) =>
-    prev.item.id === next.item.id &&
-    prev.item.status === next.item.status &&
-    prev.item.progress === next.item.progress &&
-    prev.item.error === next.item.error &&
-    !!prev.item.result === !!next.item.result &&
-    prev.item.result?.capturedAt === next.item.result?.capturedAt &&
-    prev.item.result?.price === next.item.result?.price &&
-    prev.item.result?.status === next.item.result?.status &&
-    prev.hasDateError === next.hasDateError &&
-    prev.isPublishing === next.isPublishing
-);
+});
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';
 
@@ -135,15 +114,6 @@ function isVideoFile(file: File | null | undefined): boolean {
   if (!file) return false;
   if (file.type) return file.type.startsWith('video/');
   return VIDEO_EXTENSIONS.test(file.name);
-}
-
-function renderPublishingOverlay() {
-  return (
-    <Group gap="xs">
-      <Loader size="xs" />
-      <Text size="xs" c="dimmed">Publishing…</Text>
-    </Group>
-  );
 }
 
 function renderDraftOverlay(mediaItem: MediaItem) {
