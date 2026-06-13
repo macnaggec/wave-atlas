@@ -1,96 +1,92 @@
 import { memo } from 'react';
 import { Badge, Button, Group, ActionIcon, Loader, rem, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import classes from './UploadCardRenderer.module.css';
-import { IconTrash, IconRefresh, IconPencil, IconX } from '@tabler/icons-react';
+import { IconRefresh, IconX } from '@tabler/icons-react';
 import { MediaItem, MEDIA_STATUS } from 'entities/Media';
 import { formatPrice } from 'shared/lib/currency';
-import { QueueItem, UploadItemAction, UploadStatus } from '../../model';
+import { GalleryCard, UploadStatus } from '../../model';
 import DraftCard from '../cards/DraftCard';
 
-const ACTION_ICONS: Record<UploadItemAction, { icon: typeof IconTrash; label: string }> = {
-  delete: { icon: IconTrash, label: 'Delete' },
-  cancel: { icon: IconX, label: 'Cancel' },
-  retry: { icon: IconRefresh, label: 'Retry' },
-  edit: { icon: IconPencil, label: 'Edit' },
-};
-
 interface UploadCardRendererProps {
-  item: QueueItem;
-  /** Actions to show on the card — omit or pass [] to hide all */
-  actions?: UploadItemAction[];
-  /** Callback when a card action is triggered */
-  onAction?: (action: UploadItemAction, itemId: string) => void;
+  item: GalleryCard;
+  /** Called when the user clicks the remove (X) button */
+  onRemove?: (card: GalleryCard) => void;
   /** Callback to retry failed upload */
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
   hasDateError?: boolean;
+  /** When true, suppresses the remove button (e.g. item is in committed 'saving' state) */
+  hideRemove?: boolean;
 }
 
 /**
  * UploadCardRenderer - Memoized card renderer
  *
- * Prevents unnecessary DOM re-mounts by comparing only essential props.
+ * Dispatches rendering by card.kind:
+ *   'draft'     — server-only MediaItem, always shows DraftCard overlays
+ *   'uploading' — pipeline item, shows progress/error overlays until completed
+ *
  * Handles both uploading and completed states.
- * Owns ACTION_ICONS and builds action buttons internally.
  */
 export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   item,
-  actions,
-  onAction,
+  onRemove,
   onRetry,
   hasDateError,
+  hideRemove,
 }) => {
-  if (item.status === 'importing') {
+  if (item.kind === 'uploading' && item.pipelineItem.status === 'importing') {
     return <Skeleton radius="md" className={classes.importingCard} />;
   }
 
-  const isCompleted = item.status === 'completed';
+  const mediaItem = item.result;
+
+  const isCompleted = item.kind === 'draft' || item.pipelineItem.status === 'completed';
 
   // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.
   // lightboxUrl carries the watermark transform and is for public display only.
-  const imageUrl = isCompleted && item.result
-    ? item.result.thumbnailUrl
-    : item.previewUrl;
+  const imageUrl = isCompleted && mediaItem
+    ? mediaItem.thumbnailUrl
+    : item.kind === 'uploading' ? item.pipelineItem.previewUrl : '';
 
-  const resourceType = (isCompleted && item.result
-    ? item.result.resource.resource_type
-    : isVideoFile(item.file) ? 'video' : 'image') as 'image' | 'video';
+  const resourceType = (isCompleted && mediaItem
+    ? mediaItem.resource.resource_type
+    : item.kind === 'uploading' && isVideoFile(item.pipelineItem.file) ? 'video' : 'image') as 'image' | 'video';
 
-  const playbackUrl = isCompleted && item.result
-    ? item.result.resource.playback_url
+  const playbackUrl = isCompleted && mediaItem
+    ? mediaItem.resource.playback_url
     : undefined;
 
-  const alt = isCompleted && item.result
-    ? `Media ${item.result.resource.asset_id}`
-    : item.file?.name || 'Upload preview';
+  const alt = isCompleted && mediaItem
+    ? `Media ${mediaItem.resource.asset_id}`
+    : item.kind === 'uploading' ? (item.pipelineItem.file?.name || 'Upload preview') : 'Upload preview';
 
   const overlays = isCompleted
-    ? item.result ? renderDraftOverlay(item.result) : null
-    : renderUploadOverlay(item.status, item.progress, item.error, item.id, item.file ? onRetry : undefined);
+    ? (mediaItem ? renderDraftOverlay(mediaItem) : null)
+    : item.kind === 'uploading'
+      ? renderUploadOverlay(
+          item.pipelineItem.status,
+          item.pipelineItem.progress,
+          item.pipelineItem.error,
+          item.pipelineItem.id,
+          item.pipelineItem.file ? onRetry : undefined,
+        )
+      : null;
 
-  const actionButtons = actions && actions.length > 0 ? (
-    <Group gap="xs">
-      {actions.map((actionType) => {
-        const config = ACTION_ICONS[actionType];
-        const Icon = config.icon;
-        return (
-          <ActionIcon
-            key={actionType}
-            variant="transparent"
-            size="sm"
-            radius="xl"
-            aria-label={config.label}
-            className={classes.actionBtn}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAction?.(actionType, item.id);
-            }}
-          >
-            <Icon style={{ width: rem(12), height: rem(12) }} />
-          </ActionIcon>
-        );
-      })}
-    </Group>
+  const actionButton = !hideRemove && onRemove ? (
+    <ActionIcon
+      variant="transparent"
+      size="sm"
+      radius="xl"
+      aria-label="Remove"
+      className={classes.actionBtn}
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove(item);
+      }}
+    >
+      <IconX style={{ width: rem(12), height: rem(12) }} />
+    </ActionIcon>
   ) : undefined;
 
   return (
@@ -100,7 +96,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
-      actions={actionButtons}
+      actions={actionButton}
       validation={hasDateError ? { hasError: true, message: 'Date required for publishing' } : undefined}
     />
   );
@@ -186,3 +182,4 @@ function renderUploadOverlay(
     </Group>
   );
 }
+

@@ -11,6 +11,8 @@ export { useUploadQueue } from './useUploadQueue';
 export { useUploadWarning } from './useUploadWarning';
 export { useGooglePicker } from './useGooglePicker';
 export { useDraftEditing } from './useDraftEditing';
+export { useUploadStore } from './uploadStore';
 
 // Types
-export type { UploadItem, QueueItem, UploadStatus, UploadItemAction, CloudinaryResult, ExifMetadata } from './types';
+export type { UploadItem, GalleryCard, UploadStatus, CloudinaryResult, ExifMetadata } from './types';
+export { getItemId, isVideoItem, getMediaId } from './types';

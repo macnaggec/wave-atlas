@@ -1,4 +1,5 @@
-import { MediaItem } from 'entities/Media';
+import { z } from 'zod';
+import { MediaItem, mediaCloudinaryResultSchema } from 'entities/Media';
 
 /**
  * Upload status lifecycle:
@@ -6,9 +7,6 @@ import { MediaItem } from 'entities/Media';
  *                                        ↘ error
  */
 export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error' | 'importing' | 'cancelled';
-
-/** Actions available on individual upload cards. */
-export type UploadItemAction = 'delete' | 'cancel' | 'retry' | 'edit';
 
 /**
  * Zustand shape — owns upload-pipeline state only.
@@ -33,26 +31,11 @@ export interface UploadItem {
 }
 
 /**
- * Unified queue shape returned by useUploadQueue.
- * Extends UploadItem with result joined from TanStack Query by mediaId.
- * Never stored in Zustand — derived at render time only.
+ * Cloudinary upload response, derived from the shared validation schema.
+ * Uses schema-inference to eliminate drift between the client type and the
+ * server-validated shape (mediaCloudinaryResultSchema in entities/Media).
  */
-export interface QueueItem extends UploadItem {
-  result?: MediaItem;
-}
-
-/**
- * Cloudinary upload response — shaped by the server-signed upload params.
- * eager[0] = thumbnail (public), eager[1] = lightbox (public, watermarked).
- * Original is authenticated — stored by publicId, never exposed raw.
- * resource_type mirrors the Cloudinary HTTP response field name intentionally.
- */
-export interface CloudinaryResult {
-  publicId: string;
-  thumbnailUrl: string;
-  lightboxUrl: string;
-  resource_type: 'image' | 'video';
-}
+export type CloudinaryResult = z.infer<typeof mediaCloudinaryResultSchema>;
 
 /**
  * EXIF metadata extracted from uploaded file
@@ -60,4 +43,46 @@ export interface CloudinaryResult {
 export interface ExifMetadata {
   capturedAt?: Date;
   source: 'exif' | 'manual' | 'none';
+}
+
+/**
+ * Discriminated union for gallery cards.
+ *
+ * 'uploading' — item is (or was) in the upload pipeline. result is set once the
+ *               DB row exists (status: 'completed').
+ * 'draft'     — server-only draft: a MediaItem that was never in this pipeline
+ *               session. Has no pipeline state.
+ *
+ * id is the item's logical gallery key:
+ *   uploading → pipelineItem.mediaId ?? pipelineItem.id
+ *   draft     → result.id
+ */
+export type GalleryCard =
+  | { kind: 'uploading'; id: string; pipelineItem: UploadItem; result?: MediaItem }
+  | { kind: 'draft';     id: string; result: MediaItem };
+
+/** Stable gallery key — same as BaseGallery's default item.id. */
+export function getItemId(card: GalleryCard): string {
+  return card.id;
+}
+
+/** True if the card represents a video (checks Cloudinary result, then file MIME). */
+export function isVideoItem(card: GalleryCard): boolean {
+  if (card.kind === 'draft') return card.result.resource.resource_type === 'video';
+  return (
+    card.pipelineItem.cloudinaryResult?.resource_type === 'video' ||
+    !!card.pipelineItem.file?.type.startsWith('video/')
+  );
+}
+
+/**
+ * Returns the DB media ID for the card, or undefined if the item has not yet
+ * been saved to the database (upload still in-flight or in error without a DB row).
+ */
+export function getMediaId(card: GalleryCard): string | undefined {
+  if (card.kind === 'draft') return card.result.id;
+  if (card.pipelineItem.status === 'completed' && card.pipelineItem.mediaId) {
+    return card.pipelineItem.mediaId;
+  }
+  return undefined;
 }

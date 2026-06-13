@@ -46,19 +46,18 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     }));
   },
 
+  // Blob URL revocation is owned by the hook layer (useUploadManager).
+  // The store only manages queue membership — no side effects on removal.
   removeItem: (id: string) => {
-    set(state => {
-      const item = state.uploadQueue.find(i => i.id === id);
-      if (item?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
-      return { uploadQueue: state.uploadQueue.filter(i => i.id !== id) };
-    });
+    set(state => ({
+      uploadQueue: state.uploadQueue.filter(i => i.id !== id),
+    }));
   },
 
   clearQueue: () => {
     const state = get();
     state.uploadQueue.forEach(item => {
       if (item.status === 'importing') return;
-      if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
       if (item.abortUpload && item.status !== 'completed' && item.status !== 'error') {
         item.abortUpload();
       }

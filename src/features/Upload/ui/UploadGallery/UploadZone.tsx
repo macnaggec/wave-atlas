@@ -1,28 +1,13 @@
 import { useRef } from 'react';
 import { Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen, IconUpload } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
-import { validateFileBatch } from 'entities/Media';
+import { handleFileSelection } from '../../lib/fileSelection';
 
 interface UploadZoneProps {
   onFilesSelected: (files: File[]) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
   disabled?: boolean;
-}
-
-export function handleFileSelection(files: File[], onAdd: (files: File[]) => void): void {
-  if (!files.length) return;
-  const { valid, validFiles, errors, warnings } = validateFileBatch(files);
-  if (!valid) {
-    notifications.show({ title: 'Upload Error', message: errors.join('\n'), color: 'red', autoClose: 8000 });
-    if (validFiles.length > 0)
-      notifications.show({ title: 'Partial Upload', message: `${validFiles.length} of ${files.length} files will be uploaded`, color: 'yellow', autoClose: 5000 });
-  }
-  if (warnings.length > 0)
-    notifications.show({ title: 'Upload Warning', message: warnings.join('\n'), color: 'yellow', autoClose: 5000 });
-  if (validFiles.length > 0)
-    onAdd(validFiles);
 }
 
 export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled }: UploadZoneProps) {

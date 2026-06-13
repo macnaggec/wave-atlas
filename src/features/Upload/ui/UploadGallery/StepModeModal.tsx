@@ -1,24 +1,24 @@
 import React, { FC, memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Box, Button, Divider, Group, Loader, Menu, Modal, NumberInput, rem, Text } from '@mantine/core';
-import { IconArrowRight, IconCheck, IconPhoto, IconTrash, IconVideo } from '@tabler/icons-react';
-import { UploadItem, QueueItem, UploadItemAction } from '../../model';
+import { IconAlertCircle, IconArrowRight, IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
+import { GalleryCard, getItemId, isVideoItem } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { UploadCardRenderer } from './UploadCardRenderer';
-import { UploadZone, handleFileSelection } from './UploadZone';
+import { UploadZone } from './UploadZone';
+import { handleFileSelection } from '../../lib/fileSelection';
 
 export interface StepModeModalProps {
-  items: QueueItem[];
+  items: GalleryCard[];
   hasActiveUploads: boolean;
-  selection: UseGallerySelectionReturn<QueueItem>;
+  selection: UseGallerySelectionReturn<GalleryCard>;
   onProceed: (count: number) => void;
-  /** Required — ensures QW14 Cloudinary cleanup path is never silently dropped. */
-  onDiscardAll: (items: QueueItem[]) => void;
-  onRemove: (id: string) => Promise<void>;
+  /** Required — ensures Cloudinary cleanup path is never silently dropped. */
+  onDiscardAll: (cards: GalleryCard[]) => void;
+  onRemove: (card: GalleryCard) => Promise<void>;
   onCancelAll?: () => void;
   onAddFiles?: (files: File[]) => void;
   onBulkPriceEdit?: (selectedIds: string[], price: number) => void;
-  onAction?: (action: UploadItemAction, itemId: string) => void;
   onRetry?: (id: string) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
@@ -38,7 +38,6 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
   onCancelAll,
   onAddFiles,
   onBulkPriceEdit,
-  onAction,
   onRetry,
   onDriveImport,
   driveLoading,
@@ -47,34 +46,22 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
   externalModalOpen,
   onModalOpenChange,
 }) => {
-  const getItemId = useCallback(
-    (item: QueueItem) => item.mediaId ?? item.id,
-    []
-  );
-
-  const isVideoItem = useCallback(
-    (item: QueueItem) =>
-      item.cloudinaryResult?.resource_type === 'video' ||
-      !!item.file?.type.startsWith('video/'),
-    []
-  );
-
   const completedItems = useMemo(
-    () => items.filter((item): item is QueueItem => item.status === 'completed'),
+    () => items.filter(card => card.kind === 'draft' || (card.kind === 'uploading' && card.pipelineItem.status === 'completed')),
     [items]
   );
 
   const photoCompletedItems = useMemo(
-    () => completedItems.filter(i => !isVideoItem(i)),
-    [completedItems, isVideoItem]
+    () => completedItems.filter(card => !isVideoItem(card)),
+    [completedItems]
   );
   const videoCompletedItems = useMemo(
-    () => completedItems.filter(i => isVideoItem(i)),
-    [completedItems, isVideoItem]
+    () => completedItems.filter(card => isVideoItem(card)),
+    [completedItems]
   );
 
-  const hasPhotoItems = useMemo(() => items.some(i => !isVideoItem(i)), [items, isVideoItem]);
-  const hasVideoItems = useMemo(() => items.some(i => isVideoItem(i)), [items, isVideoItem]);
+  const hasPhotoItems = useMemo(() => items.some(card => !isVideoItem(card)), [items]);
+  const hasVideoItems = useMemo(() => items.some(card => isVideoItem(card)), [items]);
 
   // ========================================================================
   // TYPE-SPECIFIC PRICE CONTROLS
@@ -85,8 +72,8 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const photoSynced = useRef(false);
   const videoSynced = useRef(false);
-  const serverPhotoPrice = photoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
-  const serverVideoPrice = videoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
+  const serverPhotoPrice = photoCompletedItems.find(card => card.result?.price !== undefined)?.result?.price;
+  const serverVideoPrice = videoCompletedItems.find(card => card.result?.price !== undefined)?.result?.price;
   useEffect(() => {
     if (!photoSynced.current && serverPhotoPrice !== undefined) {
       setPhotoDisplayPrice(serverPhotoPrice / 100);
@@ -124,9 +111,17 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
     setInternalModalOpen(open);
     onModalOpenChangeRef.current?.(open);
   }, []);
+
+  // Guard: only fire handleModalChange(false) when the modal was previously shown,
+  // not on the very first render — prevents callers from reacting to the initial false signal.
+  const hasBeenShownRef = useRef(false);
   useEffect(() => {
-    if (items.length > 0) handleModalChange(true);
-    else handleModalChange(false);
+    if (items.length > 0) {
+      hasBeenShownRef.current = true;
+      handleModalChange(true);
+    } else if (hasBeenShownRef.current) {
+      handleModalChange(false);
+    }
   }, [items.length]);
 
   // ========================================================================
@@ -155,56 +150,70 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
   }, [items, onDiscardAll, onCancelAll]);
 
   const handleBulkDelete = useCallback(
-    async (selectedItems: UploadItem[]) => {
-      await Promise.all(selectedItems.map(item => onRemove(item.id)));
+    async (selectedCards: GalleryCard[]) => {
+      await Promise.all(selectedCards.map(card => onRemove(card)));
       selection.clearSelection();
     },
     [onRemove, selection.clearSelection]
   );
 
   const renderActions = useCallback(
-    (selectedItems: UploadItem[]) => (
+    (selectedCards: GalleryCard[]) => (
       <Menu.Item
         color="red"
-        leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
-        onClick={() => handleBulkDelete(selectedItems)}
+        leftSection={<IconAlertCircle style={{ width: rem(14), height: rem(14) }} />}
+        onClick={() => handleBulkDelete(selectedCards)}
       >
-        Delete {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+        Delete {selectedCards.length} {selectedCards.length === 1 ? 'item' : 'items'}
       </Menu.Item>
     ),
     [handleBulkDelete]
   );
 
   const renderCard = useCallback(
-    (item: QueueItem, context: { isSelectionMode: boolean }) => {
-      const itemActions = context.isSelectionMode ? [] : ['cancel' as UploadItemAction];
+    (card: GalleryCard, context: { isSelectionMode: boolean }) => {
+      const isSaving = card.kind === 'uploading' && card.pipelineItem.status === 'saving';
+      const hasDateError = (card.kind === 'draft' || card.pipelineItem.status === 'completed')
+        && !!card.result
+        && !card.result.capturedAt;
       return (
         <UploadCardRenderer
-          item={item}
+          item={card}
           onRetry={onRetry}
-          actions={itemActions}
-          onAction={onAction}
-          hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
+          onRemove={context.isSelectionMode ? undefined : onRemove}
+          hideRemove={isSaving}
+          hasDateError={hasDateError}
         />
       );
     },
-    [onAction, onRetry]
+    [onRemove, onRetry]
   );
 
   // ========================================================================
   // CONTINUE
   // ========================================================================
 
-  const hasImporting = items.some(item => item.status === 'importing');
-  const canProceed = !hasActiveUploads && !hasImporting && items.some(item => item.status === 'completed');
+  const hasImporting = items.some(card => card.kind === 'uploading' && card.pipelineItem.status === 'importing');
+  const canProceed = !hasActiveUploads && !hasImporting && completedItems.length > 0;
   const completedCount = canProceed ? completedItems.length : 0;
+
+  // Error cards with an orphaned Cloudinary asset (upload failed before DB write).
+  const orphanErrorCards = useMemo(
+    () => items.filter(card =>
+      card.kind === 'uploading' &&
+      card.pipelineItem.status === 'error' &&
+      card.pipelineItem.cloudinaryResult &&
+      !card.pipelineItem.mediaId
+    ),
+    [items]
+  );
 
   const handleContinue = useCallback(() => {
     if (onBulkPriceEdit) {
       const pp = typeof photoDisplayPrice === 'number' ? photoDisplayPrice : parseFloat(String(photoDisplayPrice));
       const vp = typeof videoDisplayPrice === 'number' ? videoDisplayPrice : parseFloat(String(videoDisplayPrice));
-      const photoIds = photoCompletedItems.map(i => i.mediaId ?? i.id);
-      const videoIds = videoCompletedItems.map(i => i.mediaId ?? i.id);
+      const photoIds = photoCompletedItems.map(card => getItemId(card));
+      const videoIds = videoCompletedItems.map(card => getItemId(card));
       if (photoIds.length > 0 && !isNaN(pp) && pp > 0) {
         void onBulkPriceEdit(photoIds, pp);
         onPricesChange?.(pp, undefined);
@@ -214,22 +223,27 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
         onPricesChange?.(undefined, vp);
       }
     }
+    // Clean up any orphaned Cloudinary assets from error cards before leaving.
+    if (orphanErrorCards.length > 0) onDiscardAll(orphanErrorCards);
     handleModalChange(false);
     onProceed(completedCount);
-  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, handleModalChange, onProceed, completedCount]);
+  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, orphanErrorCards, onDiscardAll, handleModalChange, onProceed, completedCount]);
 
   // ========================================================================
   // RENDER
   // ========================================================================
 
-  const uploadingCount = items.filter(i =>
-    ['pending', 'signing', 'uploading', 'saving'].includes(i.status)
-  ).length;
+  const uploadingCount = useMemo(
+    () => items.filter(card => card.kind === 'uploading' && ['pending', 'signing', 'uploading', 'saving'].includes(card.pipelineItem.status)).length,
+    [items]
+  );
 
   const modal = (
     <Modal
       opened={effectiveModalOpen && items.length > 0}
       onClose={() => {
+        // Clean up orphaned Cloudinary assets before calling onProceed.
+        if (orphanErrorCards.length > 0) onDiscardAll(orphanErrorCards);
         handleModalChange(false);
         if (items.length > 0 && completedCount > 0) onProceed(completedCount);
       }}
@@ -272,7 +286,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
       />
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <Box p="md">
-          <BaseGallery<UploadItem>
+          <BaseGallery<GalleryCard>
             items={items}
             getId={getItemId}
             selection={selection}
@@ -371,9 +385,10 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
     </Modal>
   );
 
-  if (hideZone) return modal;
-
-  const indicator = items.length > 0 && !effectiveModalOpen ? (
+  // Indicator is rendered regardless of hideZone — hideZone only suppresses the UploadZone drop target.
+  // When externalModalOpen is provided the caller manages modal state and renders its own indicator
+  // (e.g. FilesPill in UploadSidebar); suppress ours to avoid duplication.
+  const indicator = externalModalOpen === undefined && items.length > 0 && !effectiveModalOpen ? (
     <Group
       px="md" py="xs" gap="xs"
       justify="space-between"
@@ -385,7 +400,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
           ? <Loader size={12} />
           : completedCount > 0
             ? <IconCheck size={12} style={{ color: 'var(--mantine-color-green-5)' }} />
-            : <IconCheck size={12} style={{ color: 'var(--mantine-color-red-5)' }} />}
+            : <IconAlertCircle size={12} style={{ color: 'var(--mantine-color-red-5)' }} />}
         <Text size="xs" c="dimmed">
           {hasActiveUploads
             ? `${uploadingCount} of ${items.length} uploading…`
@@ -397,6 +412,15 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
       <Text size="xs" c="blue.4" fw={500}>View</Text>
     </Group>
   ) : null;
+
+  if (hideZone) {
+    return (
+      <>
+        {indicator}
+        {modal}
+      </>
+    );
+  }
 
   return (
     <>

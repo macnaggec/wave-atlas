@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useMemo } from 'react';
-import { useUploadManager, useUploadQueue, useDraftEditing, useUploadWarning, QueueItem, UploadItemAction } from '../model';
+import { useEffect, useRef, useMemo } from 'react';
+import { useUploadManager, useUploadQueue, useDraftEditing, useUploadWarning, GalleryCard, getItemId } from '../model';
 import { useGooglePicker } from '../model/useGooglePicker';
 import { useGallerySelection } from 'shared/hooks/gallery';
-import UploadGallery from './UploadGallery/UploadGallery';
-import { useSessionlessDrafts } from 'entities/Media';
+import StepModeModal from './UploadGallery/StepModeModal';
 
 export interface UploadManagerProps {
   spotId: string;
@@ -29,8 +28,7 @@ export function UploadManager({
   onModalOpenChange,
   onPricesChange,
 }: UploadManagerProps) {
-  const { data: sessionlessDrafts = [] } = useSessionlessDrafts(spotId, { enabled: sessionId === null });
-  const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId, sessionlessDrafts);
+  const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId);
   useUploadWarning(hasActiveUploads);
 
   const { trigger: openDrivePicker, isPickerLoading } = useGooglePicker(spotId, sessionId);
@@ -42,21 +40,19 @@ export function UploadManager({
     onQueueChangeRef.current?.(queue.length);
   }, [queue.length]);
 
-  const getItemId = useCallback((item: QueueItem) => item.mediaId ?? item.id, []);
-  // Only completed items are selectable — error items can't be price/date edited
+  // Only completed cards are selectable — error cards can't be price/date edited
   const selectableItems = useMemo(
-    () => queue.filter((item) => item.status === 'completed'),
+    () => queue.filter(card => card.kind === 'draft' || (card.kind === 'uploading' && card.pipelineItem.status === 'completed')),
     [queue]
   );
-  const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
+  const selection = useGallerySelection<GalleryCard>({ items: selectableItems, getId: getItemId });
 
   const { addFiles, remove, retry, discardAll } = useUploadManager(spotId, sessionId);
 
   const { handleBulkPriceEdit } = useDraftEditing(queue);
-  const handleAction = useCallback((_action: UploadItemAction, itemId: string) => void remove(itemId), [remove]);
 
   return (
-    <UploadGallery
+    <StepModeModal
       items={queue}
       hasActiveUploads={hasActiveUploads}
       onRemove={remove}
@@ -65,7 +61,6 @@ export function UploadManager({
       driveLoading={isPickerLoading}
       onRetry={retry}
       onBulkPriceEdit={handleBulkPriceEdit}
-      onAction={handleAction}
       selection={selection}
       onProceed={onProceed}
       onDiscardAll={discardAll}

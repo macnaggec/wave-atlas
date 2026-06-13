@@ -4,7 +4,7 @@ import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
 import { UploadError } from './UploadError';
-import { UploadItem } from './types';
+import { GalleryCard, UploadItem } from './types';
 import { createUploadPipeline } from './UploadPipeline';
 
 /**
@@ -126,18 +126,16 @@ export const useUploadManager = (
   }, []);
 
   /**
-   * User removes an upload (in-progress or completed)
+   * User removes an upload (in-progress, completed, or server-only draft).
+   * Dispatches on card.kind — no Zustand-lookup-as-proxy-for-type-inference.
    */
-  const remove = useCallback(async (id: string) => {
-    const store = useUploadStore.getState();
-    const item = store.uploadQueue.find(i => i.id === id);
-
-    // If not in uploadQueue, it's a draft from DB (exists only in merged queue)
-    if (!item) {
+  const remove = useCallback(async (card: GalleryCard) => {
+    if (card.kind === 'draft') {
       try {
-        await deleteMedia({ id });
-        // Clean up any lingering Zustand completed item with this DB id.
-        const lingering = store.uploadQueue.find(i => i.mediaId === id);
+        await deleteMedia({ id: card.result.id });
+        // Clean up any lingering Zustand completed item that references this DB row.
+        const store = useUploadStore.getState();
+        const lingering = store.uploadQueue.find(i => i.mediaId === card.result.id);
         if (lingering) {
           revokeBlobUrl(lingering.previewUrl);
           store.removeItem(lingering.id);
@@ -148,7 +146,8 @@ export const useUploadManager = (
       return;
     }
 
-    // For items in uploadQueue (actively uploaded or in progress)
+    // kind: 'uploading'
+    const item = card.pipelineItem;
     await abortIfUploading(item);
 
     // Cloudinary upload succeeded but DB save never reached the server — orphaned asset
@@ -157,7 +156,7 @@ export const useUploadManager = (
         .catch(() => notify.error('Failed to clean up upload — please contact support', 'Cleanup Error'));
     }
 
-    // If completed, delete from DB and mark as deleted
+    // If completed, delete from DB
     if (item.status === 'completed' && item.mediaId) {
       try {
         await deleteMedia({ id: item.mediaId });
@@ -167,7 +166,7 @@ export const useUploadManager = (
     }
 
     revokeBlobUrl(item.previewUrl);
-    store.removeItem(item.id);
+    useUploadStore.getState().removeItem(item.id);
   }, [deleteMedia, deleteOrphanAsset]);
 
   /**
@@ -188,35 +187,27 @@ export const useUploadManager = (
 
   /**
    * User discards everything (Discard button in upload modal).
-   * Two-pass: immediate Zustand clear, then background server cleanup.
-   * allItems is the full merged list so DB-only drafts are also deleted.
+   * Dispatches per-card cleanup via card.kind — no separate classification pass.
+   * allCards is the full merged gallery list so server-only drafts are also deleted.
    */
-  const discardAll = useCallback((allItems: Array<{ id: string; mediaId?: string }>) => {
+  const discardAll = useCallback((allCards: GalleryCard[]) => {
     const store = useUploadStore.getState();
-    const queue = store.uploadQueue;
 
-    const toDeleteDb: string[] = [];
-    const toDeleteOrphan: Array<{ publicId: string; resourceType: 'image' | 'video' }> = [];
-
-    queue.forEach(item => {
-      if (item.status === 'completed' && item.mediaId) {
-        toDeleteDb.push(item.mediaId);
-      } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
-        toDeleteOrphan.push({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
-      }
-    });
-
-    const queueIds = new Set(queue.map(i => i.id));
-    allItems.forEach(item => {
-      if (!queueIds.has(item.id) && item.mediaId) {
-        toDeleteDb.push(item.mediaId);
+    allCards.forEach(card => {
+      if (card.kind === 'draft') {
+        void deleteMedia({ id: card.result.id });
+      } else {
+        const item = card.pipelineItem;
+        revokeBlobUrl(item.previewUrl);
+        if (item.status === 'completed' && item.mediaId) {
+          void deleteMedia({ id: item.mediaId });
+        } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+          void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+        }
       }
     });
 
     store.clearQueue();
-
-    toDeleteDb.forEach(mediaId => void deleteMedia({ id: mediaId }));
-    toDeleteOrphan.forEach(o => void deleteOrphanAsset(o));
   }, [deleteMedia, deleteOrphanAsset]);
 
   // ========================================================================

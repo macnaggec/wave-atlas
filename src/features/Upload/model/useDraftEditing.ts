@@ -1,36 +1,32 @@
-
-
 import { useCallback } from 'react';
 import { useUpdateBatchMedia } from 'entities/Media';
 import { notify } from 'shared/lib/notifications';
-import { QueueItem } from './types';
+import { GalleryCard, getMediaId } from './types';
 
 /**
- * Encapsulates bulk metadata editing for draft queue items.
+ * Encapsulates bulk metadata editing for draft gallery cards.
  *
  * Responsibilities:
- * - Map queue item IDs → mediaIds (falls back to all completed if none selected)
+ * - Map card IDs → mediaIds (falls back to all cards with a DB row if none selected)
  * - Call server mutation
  * - Show success/error notifications
  */
-export function useDraftEditing(queue: QueueItem[]) {
+export function useDraftEditing(queue: GalleryCard[]) {
   const { mutateAsync: updateBatch } = useUpdateBatchMedia();
-  // selectedIds from useGallerySelection are keyed by getItemId = mediaId ?? id.
-  // For completed items this equals mediaId, so selectedIds ARE the media IDs.
-  // When nothing is selected, fall back to all completed items by mediaId.
-  const getMediaIds = useCallback((selectedIds: string[]): string[] => {
-    const targetIds = selectedIds.length > 0
-      ? selectedIds
-      : queue
-        .filter(item => item.status === 'completed' && item.mediaId)
-        .map(item => item.mediaId!);
 
+  // selectedIds from useGallerySelection are keyed by card.id = getItemId(card).
+  // For cards with a DB row this equals the mediaId, so selectedIds ARE the media IDs.
+  // When nothing is selected, fall back to all cards that have a DB row.
+  const getMediaIds = useCallback((selectedIds: string[]): string[] => {
+    const allMediaIds = queue
+      .map(card => getMediaId(card))
+      .filter((id): id is string => id !== undefined);
+
+    const targetIds = selectedIds.length > 0 ? selectedIds : allMediaIds;
     if (targetIds.length === 0) return [];
 
     const selectedSet = new Set(targetIds);
-    return queue
-      .filter(item => selectedSet.has(item.mediaId ?? item.id) && item.mediaId)
-      .map(item => item.mediaId!);
+    return allMediaIds.filter(id => selectedSet.has(id));
   }, [queue]);
 
   const handleBulkPriceEdit = useCallback(async (
