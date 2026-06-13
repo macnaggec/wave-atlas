@@ -11,24 +11,27 @@ interface UploadZoneProps {
   disabled?: boolean;
 }
 
+export function handleFileSelection(files: File[], onAdd: (files: File[]) => void): void {
+  if (!files.length) return;
+  const { valid, validFiles, errors, warnings } = validateFileBatch(files);
+  if (!valid) {
+    notifications.show({ title: 'Upload Error', message: errors.join('\n'), color: 'red', autoClose: 8000 });
+    if (validFiles.length > 0) {
+      notifications.show({ title: 'Partial Upload', message: `${validFiles.length} of ${files.length} files will be uploaded`, color: 'yellow', autoClose: 5000 });
+      onAdd(validFiles);
+    }
+  } else {
+    if (warnings.length > 0)
+      notifications.show({ title: 'Upload Warning', message: warnings.join('\n'), color: 'yellow', autoClose: 5000 });
+    onAdd(validFiles);
+  }
+}
+
 export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    const { valid, validFiles, errors, warnings } = validateFileBatch(files);
-    if (!valid) {
-      notifications.show({ title: 'Upload Error', message: errors.join('\n'), color: 'red', autoClose: 8000 });
-      if (validFiles.length > 0) {
-        notifications.show({ title: 'Partial Upload', message: `${validFiles.length} of ${files.length} files will be uploaded`, color: 'yellow', autoClose: 5000 });
-        onFilesSelected(validFiles);
-      }
-    } else {
-      if (warnings.length > 0)
-        notifications.show({ title: 'Upload Warning', message: warnings.join('\n'), color: 'yellow', autoClose: 5000 });
-      onFilesSelected(validFiles);
-    }
+    handleFileSelection(Array.from(e.target.files ?? []), onFilesSelected);
     e.target.value = '';
   };
 

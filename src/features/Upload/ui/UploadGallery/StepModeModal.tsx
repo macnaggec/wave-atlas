@@ -1,0 +1,412 @@
+import React, { FC, memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { Box, Button, Divider, Group, Loader, Menu, Modal, NumberInput, rem, Text } from '@mantine/core';
+import { IconArrowRight, IconCheck, IconPhoto, IconTrash, IconVideo } from '@tabler/icons-react';
+import { UploadItem, QueueItem, UploadItemAction } from '../../model';
+import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
+import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
+import { UploadCardRenderer } from './UploadCardRenderer';
+import { UploadZone, handleFileSelection } from './UploadZone';
+
+export interface StepModeModalProps {
+  items: QueueItem[];
+  hasActiveUploads: boolean;
+  selection: UseGallerySelectionReturn<QueueItem>;
+  onProceed: (count: number) => void;
+  /** Required — ensures QW14 Cloudinary cleanup path is never silently dropped. */
+  onDiscardAll: (items: QueueItem[]) => void;
+  onRemove: (id: string) => Promise<void>;
+  onCancelAll?: () => void;
+  onAddFiles?: (files: File[]) => void;
+  onBulkPriceEdit?: (selectedIds: string[], price: number) => void;
+  onAction?: (action: UploadItemAction, itemId: string) => void;
+  onRetry?: (id: string) => void;
+  onDriveImport?: () => void;
+  driveLoading?: boolean;
+  onPricesChange?: (photoPrice?: number, videoPrice?: number) => void;
+  hideZone?: boolean;
+  externalModalOpen?: boolean;
+  onModalOpenChange?: (open: boolean) => void;
+}
+
+const StepModeModal: FC<StepModeModalProps> = memo(({
+  items,
+  hasActiveUploads,
+  selection,
+  onProceed,
+  onDiscardAll,
+  onRemove,
+  onCancelAll,
+  onAddFiles,
+  onBulkPriceEdit,
+  onAction,
+  onRetry,
+  onDriveImport,
+  driveLoading,
+  onPricesChange,
+  hideZone = false,
+  externalModalOpen,
+  onModalOpenChange,
+}) => {
+  const getItemId = useCallback(
+    (item: QueueItem) => item.mediaId ?? item.id,
+    []
+  );
+
+  const isVideoItem = useCallback(
+    (item: QueueItem) =>
+      item.cloudinaryResult?.resource_type === 'video' ||
+      !!item.file?.type.startsWith('video/'),
+    []
+  );
+
+  const completedItems = useMemo(
+    () => items.filter((item): item is QueueItem => item.status === 'completed'),
+    [items]
+  );
+
+  const photoCompletedItems = useMemo(
+    () => completedItems.filter(i => !isVideoItem(i)),
+    [completedItems, isVideoItem]
+  );
+  const videoCompletedItems = useMemo(
+    () => completedItems.filter(i => isVideoItem(i)),
+    [completedItems, isVideoItem]
+  );
+
+  const hasPhotoItems = useMemo(() => items.some(i => !isVideoItem(i)), [items, isVideoItem]);
+  const hasVideoItems = useMemo(() => items.some(i => isVideoItem(i)), [items, isVideoItem]);
+
+  // ========================================================================
+  // TYPE-SPECIFIC PRICE CONTROLS
+  // ========================================================================
+
+  const [photoDisplayPrice, setPhotoDisplayPrice] = useState<number | string>(3);
+  const [videoDisplayPrice, setVideoDisplayPrice] = useState<number | string>(3);
+
+  const photoSynced = useRef(false);
+  const videoSynced = useRef(false);
+  const serverPhotoPrice = photoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
+  const serverVideoPrice = videoCompletedItems.find(i => i.result?.price !== undefined)?.result?.price;
+  useEffect(() => {
+    if (!photoSynced.current && serverPhotoPrice !== undefined) {
+      setPhotoDisplayPrice(serverPhotoPrice / 100);
+      photoSynced.current = true;
+    }
+  }, [serverPhotoPrice]);
+  useEffect(() => {
+    if (!videoSynced.current && serverVideoPrice !== undefined) {
+      setVideoDisplayPrice(serverVideoPrice / 100);
+      videoSynced.current = true;
+    }
+  }, [serverVideoPrice]);
+
+  const handlePhotoDisplayPriceChange = useCallback((val: number | string) => {
+    setPhotoDisplayPrice(val);
+    const p = typeof val === 'number' ? val : parseFloat(String(val));
+    if (!isNaN(p) && p > 0) onPricesChange?.(p, undefined);
+  }, [onPricesChange]);
+
+  const handleVideoDisplayPriceChange = useCallback((val: number | string) => {
+    setVideoDisplayPrice(val);
+    const p = typeof val === 'number' ? val : parseFloat(String(val));
+    if (!isNaN(p) && p > 0) onPricesChange?.(undefined, p);
+  }, [onPricesChange]);
+
+  // ========================================================================
+  // MODAL OPEN STATE
+  // ========================================================================
+
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const effectiveModalOpen = externalModalOpen !== undefined ? externalModalOpen : internalModalOpen;
+  const onModalOpenChangeRef = useRef(onModalOpenChange);
+  onModalOpenChangeRef.current = onModalOpenChange;
+  const handleModalChange = useCallback((open: boolean) => {
+    setInternalModalOpen(open);
+    onModalOpenChangeRef.current?.(open);
+  }, []);
+  useEffect(() => {
+    if (items.length > 0) handleModalChange(true);
+    else handleModalChange(false);
+  }, [items.length]);
+
+  // ========================================================================
+  // FILE HANDLING
+  // ========================================================================
+
+  const handleAddFiles = useCallback((files: File[]) => {
+    selection.disableSelectionMode();
+    onAddFiles?.(files);
+  }, [onAddFiles, selection.disableSelectionMode]);
+
+  const addMoreInputRef = useRef<HTMLInputElement>(null);
+  const handleAddMoreChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    handleFileSelection(files, handleAddFiles);
+  }, [handleAddFiles]);
+
+  // ========================================================================
+  // BULK ACTIONS
+  // ========================================================================
+
+  const handleCancelAll = useCallback(() => {
+    onDiscardAll(items);
+    onCancelAll?.();
+  }, [items, onDiscardAll, onCancelAll]);
+
+  const handleBulkDelete = useCallback(
+    async (selectedItems: UploadItem[]) => {
+      await Promise.all(selectedItems.map(item => onRemove(item.id)));
+      selection.clearSelection();
+    },
+    [onRemove, selection.clearSelection]
+  );
+
+  const renderActions = useCallback(
+    (selectedItems: UploadItem[]) => (
+      <Menu.Item
+        color="red"
+        leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
+        onClick={() => handleBulkDelete(selectedItems)}
+      >
+        Delete {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+      </Menu.Item>
+    ),
+    [handleBulkDelete]
+  );
+
+  const renderCard = useCallback(
+    (item: QueueItem, context: { isSelectionMode: boolean }) => {
+      const itemActions = context.isSelectionMode ? [] : ['cancel' as UploadItemAction];
+      return (
+        <UploadCardRenderer
+          item={item}
+          onRetry={onRetry}
+          actions={itemActions}
+          onAction={onAction}
+          hasDateError={item.status === 'completed' && !!item.result && !item.result.capturedAt}
+        />
+      );
+    },
+    [onAction, onRetry]
+  );
+
+  // ========================================================================
+  // CONTINUE
+  // ========================================================================
+
+  const hasImporting = items.some(item => item.status === 'importing');
+  const canProceed = !hasActiveUploads && !hasImporting && items.some(item => item.status === 'completed');
+  const completedCount = canProceed ? items.filter(item => item.status === 'completed').length : 0;
+
+  const handleContinue = useCallback(() => {
+    if (onBulkPriceEdit) {
+      const pp = typeof photoDisplayPrice === 'number' ? photoDisplayPrice : parseFloat(String(photoDisplayPrice));
+      const vp = typeof videoDisplayPrice === 'number' ? videoDisplayPrice : parseFloat(String(videoDisplayPrice));
+      const photoIds = photoCompletedItems.map(i => i.mediaId ?? i.id);
+      const videoIds = videoCompletedItems.map(i => i.mediaId ?? i.id);
+      if (photoIds.length > 0 && !isNaN(pp) && pp > 0) {
+        void onBulkPriceEdit(photoIds, pp);
+        onPricesChange?.(pp, undefined);
+      }
+      if (videoIds.length > 0 && !isNaN(vp) && vp > 0) {
+        void onBulkPriceEdit(videoIds, vp);
+        onPricesChange?.(undefined, vp);
+      }
+    }
+    handleModalChange(false);
+    onProceed(completedCount);
+  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, handleModalChange, onProceed, completedCount]);
+
+  // ========================================================================
+  // RENDER
+  // ========================================================================
+
+  const uploadingCount = items.filter(i =>
+    ['pending', 'signing', 'uploading', 'saving'].includes(i.status)
+  ).length;
+
+  const modal = (
+    <Modal
+      opened={effectiveModalOpen && items.length > 0}
+      onClose={() => {
+        handleModalChange(false);
+        if (items.length > 0) onProceed(completedCount);
+      }}
+      closeOnClickOutside={false}
+      closeOnEscape={false}
+      size={1000}
+      centered
+      title="Selected media"
+      overlayProps={{ backgroundOpacity: 0.45, blur: 4 }}
+      styles={{
+        body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
+        content: {
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(12px) saturate(140%)',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: 16,
+          overflow: 'hidden',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          '--mantine-color-gray-0': 'rgba(255,255,255,0.08)',
+        } as React.CSSProperties,
+        header: {
+          background: 'transparent',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          padding: '8px 12px',
+          minHeight: 0,
+        },
+        title: { color: '#fff', fontWeight: 600, fontSize: 13 },
+        close: { color: 'rgba(255,255,255,0.55)', width: 24, height: 24, minWidth: 0, minHeight: 0 },
+      }}
+    >
+      <input
+        ref={addMoreInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={handleAddMoreChange}
+        style={{ display: 'none' }}
+      />
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <Box p="md">
+          <BaseGallery<UploadItem>
+            items={items}
+            getId={getItemId}
+            selection={selection}
+            toolbar={onBulkPriceEdit ? (
+              <SelectionToolbar
+                selection={selection}
+                renderActions={renderActions}
+                renderContent={() => (
+                  <Group gap="xs" align="center">
+                    {hasPhotoItems && (
+                      <NumberInput
+                        size="xs"
+                        leftSection={<IconPhoto size={12} style={{ color: 'rgba(255,255,255,0.45)' }} />}
+                        value={photoDisplayPrice}
+                        onChange={handlePhotoDisplayPriceChange}
+                        min={3}
+                        step={1}
+                        decimalScale={0}
+                        prefix="$"
+                        placeholder="Free"
+                        w={90}
+                        styles={{
+                          input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' },
+                          controls: { borderLeft: '1px solid rgba(255,255,255,0.08)' },
+                          control: { borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.35)' },
+                        }}
+                      />
+                    )}
+                    {hasVideoItems && (
+                      <NumberInput
+                        size="xs"
+                        leftSection={<IconVideo size={12} style={{ color: 'rgba(255,255,255,0.45)' }} />}
+                        value={videoDisplayPrice}
+                        onChange={handleVideoDisplayPriceChange}
+                        min={3}
+                        step={1}
+                        decimalScale={0}
+                        prefix="$"
+                        placeholder="Free"
+                        w={90}
+                        styles={{
+                          input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' },
+                          controls: { borderLeft: '1px solid rgba(255,255,255,0.08)' },
+                          control: { borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.35)' },
+                        }}
+                      />
+                    )}
+                  </Group>
+                )}
+              />
+            ) : undefined}
+            renderCard={renderCard}
+            columns={3}
+          />
+        </Box>
+      </div>
+
+      <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+      <Group px="sm" py={6} justify="space-between">
+        <Button
+          variant="transparent" size="xs" radius="xl"
+          style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+          onClick={handleCancelAll}
+        >
+          Discard
+        </Button>
+        <Group gap="xs">
+          {onAddFiles && (
+            <Button
+              variant="transparent" size="xs" radius="xl"
+              style={{ color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onClick={() => addMoreInputRef.current?.click()}
+            >
+              Add more
+            </Button>
+          )}
+          {hasActiveUploads ? (
+            <Group gap="xs">
+              <Loader size={12} />
+              <Text size="xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {uploadingCount} of {items.length} uploading…
+              </Text>
+            </Group>
+          ) : canProceed ? (
+            <Button
+              variant="transparent" size="xs" radius="xl"
+              rightSection={<IconArrowRight size={12} />}
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)', color: '#fff' }}
+              onClick={handleContinue}
+            >
+              Continue with {completedCount} {completedCount === 1 ? 'file' : 'files'}
+            </Button>
+          ) : null}
+        </Group>
+      </Group>
+    </Modal>
+  );
+
+  if (hideZone) return modal;
+
+  const indicator = items.length > 0 && !effectiveModalOpen ? (
+    <Group
+      px="md" py="xs" gap="xs"
+      justify="space-between"
+      onClick={() => handleModalChange(true)}
+      style={{ cursor: 'pointer' }}
+    >
+      <Group gap="xs">
+        {hasActiveUploads
+          ? <Loader size={12} />
+          : <IconCheck size={12} style={{ color: 'var(--mantine-color-green-5)' }} />}
+        <Text size="xs" c="dimmed">
+          {hasActiveUploads
+            ? `${uploadingCount} of ${items.length} uploading…`
+            : `${completedCount} ${completedCount === 1 ? 'file' : 'files'} ready`}
+        </Text>
+      </Group>
+      <Text size="xs" c="blue.4" fw={500}>View</Text>
+    </Group>
+  ) : null;
+
+  return (
+    <>
+      {indicator}
+      <UploadZone
+        onFilesSelected={handleAddFiles}
+        onDriveImport={onDriveImport}
+        driveLoading={driveLoading}
+      />
+      {modal}
+    </>
+  );
+});
+
+StepModeModal.displayName = 'StepModeModal';
+
+export default StepModeModal;
