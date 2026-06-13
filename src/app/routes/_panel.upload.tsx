@@ -5,7 +5,7 @@ import { trpcProxy } from 'app/lib/trpcClient';
 import { useTRPC } from 'app/lib/trpc';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { UploadSidebar } from 'features/Upload/ui/UploadSidebar';
-import { useUploadStore } from 'features/Upload/model/uploadStore';
+import { useUploadStore } from 'features/Upload/model';
 import { useUpdateBatchMedia } from 'entities/Media';
 import type { Spot } from 'entities/Spot';
 

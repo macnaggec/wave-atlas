@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
-import { useUploadStore } from 'features/Upload/model/uploadStore';
+import { useUploadStore } from 'features/Upload/model';
 import type { Spot } from 'entities/Spot';
 import { minutesToTime } from './helpers';
 

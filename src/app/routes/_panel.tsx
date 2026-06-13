@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { useUploadStore } from 'features/Upload/model/uploadStore';
+import { useUploadStore } from 'features/Upload/model';
 import { useMyDraftCounts } from 'entities/Media';
 import { Skeleton, Text } from '@mantine/core';
 import type { SurfSessionItem } from 'entities/SurfSession';

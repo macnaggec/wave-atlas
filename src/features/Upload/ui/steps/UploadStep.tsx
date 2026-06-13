@@ -1,6 +1,6 @@
 import { Box, Stack, Text } from '@mantine/core';
 import type { Spot } from 'entities/Spot';
-import { useUploadStore } from '../../model/uploadStore';
+import { useUploadStore } from '../../model';
 import { UploadManager } from '../UploadManager';
 
 interface UploadStepProps {

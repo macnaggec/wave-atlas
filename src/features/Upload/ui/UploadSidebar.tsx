@@ -4,7 +4,7 @@ import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icon
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'entities/Identity';
 import { usePublishSession } from 'entities/SurfSession';
-import { useUploadStore } from '../model/uploadStore';
+import { useUploadStore } from '../model';
 import type { Spot } from 'entities/Spot';
 import { UploadStep } from './steps/UploadStep';
 import { TimeStep } from './steps/TimeStep';
