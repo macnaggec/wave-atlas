@@ -9,8 +9,7 @@ export interface UploadManagerProps {
   spotId: string;
   sessionId: string | null;
   onQueueChange?: (count: number) => void;
-  /** When provided, replaces Cancel button with Proceed once uploads complete (upload wizard mode). */
-  onProceed?: (count: number) => void;
+  onProceed: (count: number) => void;
   /** Called when the user cancels all uploads and wants to start over. */
   onCancelAll?: () => void;
   hideZone?: boolean;
@@ -51,9 +50,9 @@ export function UploadManager({
   );
   const selection = useGallerySelection({ items: selectableItems, getId: getItemId });
 
-  const { addFiles, remove, cancelUpload, retry, discardAll } = useUploadManager(spotId, sessionId);
+  const { addFiles, remove, retry, discardAll } = useUploadManager(spotId, sessionId);
 
-  const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue);
+  const { handleBulkPriceEdit } = useDraftEditing(queue);
   const handleAction = useCallback((_action: UploadItemAction, itemId: string) => void remove(itemId), [remove]);
 
   return (
@@ -61,12 +60,10 @@ export function UploadManager({
       items={queue}
       hasActiveUploads={hasActiveUploads}
       onRemove={remove}
-      onCancelUpload={cancelUpload}
       onAddFiles={addFiles}
       onDriveImport={openDrivePicker}
       driveLoading={isPickerLoading}
       onRetry={retry}
-      onBulkDateEdit={handleBulkDateEdit}
       onBulkPriceEdit={handleBulkPriceEdit}
       onAction={handleAction}
       selection={selection}
