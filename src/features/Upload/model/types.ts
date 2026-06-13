@@ -5,7 +5,7 @@ import { MediaItem } from 'entities/Media';
  * pending → signing → uploading → saving → completed
  *                                        ↘ error
  */
-export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error' | 'importing';
+export type UploadStatus = 'pending' | 'signing' | 'uploading' | 'saving' | 'completed' | 'error' | 'importing' | 'cancelled';
 
 /** Actions available on individual upload cards. */
 export type UploadItemAction = 'delete' | 'cancel' | 'retry' | 'edit';

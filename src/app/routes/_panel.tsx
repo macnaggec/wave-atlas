@@ -62,7 +62,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const { activeFilter, setActiveFilter } = usePanelFilter();
 
   const cartItems = useCartStore((state) => state.items);
-  const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.length > 0);
+  const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.some(i => i.status !== 'cancelled'));
   const uploadSpotId = useUploadStore((s) => s.uploadSpotId);
   const { data: draftCounts } = useMyDraftCounts();
   const hasDrafts = hasQueuedUploads || (draftCounts?.some((d) => d.count > 0) ?? false);

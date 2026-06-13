@@ -57,11 +57,18 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   clearQueue: () => {
     const state = get();
     state.uploadQueue.forEach(item => {
+      if (item.status === 'importing') return;
       if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
       if (item.abortUpload && item.status !== 'completed' && item.status !== 'error') {
         item.abortUpload();
       }
     });
-    set({ uploadQueue: [], uploadSpotId: null, wizardStep: 'files' });
+    set(s => ({
+      uploadQueue: s.uploadQueue
+        .filter(i => i.status === 'importing')
+        .map(i => ({ ...i, status: 'cancelled' as const })),
+      uploadSpotId: null,
+      wizardStep: 'files',
+    }));
   },
 }));

@@ -14,7 +14,7 @@ export function useUploadQueue(spotId: string, sessionId: string | null, draftMe
   const uploadQueue = useUploadStore(state => state.uploadQueue);
 
   const activeUploads = useMemo(
-    () => uploadQueue.filter(item => item.spotId === spotId),
+    () => uploadQueue.filter(item => item.spotId === spotId && item.status !== 'cancelled'),
     [uploadQueue, spotId]
   );
 

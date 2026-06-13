@@ -34,14 +34,14 @@ export function UploadManager({
   const { queue, hasActiveUploads } = useUploadQueue(spotId, sessionId, sessionlessDrafts);
   useUploadWarning(hasActiveUploads);
 
-  const { trigger: openDrivePicker, isPickerLoading, importingItems } = useGooglePicker(spotId, sessionId);
+  const { trigger: openDrivePicker, isPickerLoading } = useGooglePicker(spotId, sessionId);
 
   // Stable ref so effect deps don't change when caller passes an inline function
   const onQueueChangeRef = useRef(onQueueChange);
   useEffect(() => { onQueueChangeRef.current = onQueueChange; });
   useEffect(() => {
-    onQueueChangeRef.current?.(queue.length + importingItems.length);
-  }, [queue.length, importingItems.length]);
+    onQueueChangeRef.current?.(queue.length);
+  }, [queue.length]);
 
   const getItemId = useCallback((item: QueueItem) => item.mediaId ?? item.id, []);
   // Only completed items are selectable — error items can't be price/date edited
@@ -54,10 +54,11 @@ export function UploadManager({
   const { addFiles, remove, cancelUpload, retry, discardAll } = useUploadManager(spotId, sessionId);
 
   const { handleBulkPriceEdit, handleBulkDateEdit } = useDraftEditing(queue);
+  const handleAction = useCallback((_action: UploadItemAction, itemId: string) => void remove(itemId), [remove]);
 
   return (
     <UploadGallery
-      items={[...importingItems, ...queue]}
+      items={queue}
       hasActiveUploads={hasActiveUploads}
       onRemove={remove}
       onCancelUpload={cancelUpload}
@@ -67,7 +68,7 @@ export function UploadManager({
       onRetry={retry}
       onBulkDateEdit={handleBulkDateEdit}
       onBulkPriceEdit={handleBulkPriceEdit}
-      onAction={useCallback((_action: UploadItemAction, itemId: string) => void remove(itemId), [remove])}
+      onAction={handleAction}
       selection={selection}
       onProceed={onProceed}
       onDiscardAll={discardAll}

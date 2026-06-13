@@ -41,7 +41,7 @@ function UploadPanel() {
   const setUploadSpotId = useUploadStore((s) => s.setUploadSpotId);
   const updateItem = useUploadStore((s) => s.updateItem);
 
-  const hasDrafts = uploadQueue.length > 0;
+  const hasDrafts = uploadQueue.some(i => i.status !== 'cancelled');
   const missingSpot = !spot && hasDrafts;
 
   const handleSpotSelect = useCallback(async (newSpot: Spot) => {

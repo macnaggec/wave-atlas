@@ -1,9 +1,9 @@
 // src/features/Upload/model/useGooglePicker.ts
 import { useCallback, useState } from 'react';
 import { notify } from 'shared/lib/notifications';
-import { useRegisterDriveImport } from 'entities/Media';
+import { useRegisterDriveImport, useInvalidateSessionlessDrafts, useDeleteMedia } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
-import { QueueItem } from './types';
+import { UploadItem } from './types';
 
 const DRIVE_READONLY_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
@@ -15,7 +15,7 @@ const PICKER_MIME_TYPES = [
 
 type DriveDoc = google.picker.PickerDocument;
 
-function createImportingItem(doc: DriveDoc, spotId: string, sessionId: string | null): QueueItem {
+function createImportingItem(doc: DriveDoc, spotId: string, sessionId: string | null): UploadItem {
   return {
     id: `drive-import-${doc.id}`,
     spotId,
@@ -94,17 +94,19 @@ function buildPicker(
 export function useGooglePicker(spotId: string, sessionId: string | null) {
   const [isPickerInitializing, setIsPickerInitializing] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [importingItems, setImportingItems] = useState<QueueItem[]>([]);
 
   const { mutateAsync: registerDriveImport } = useRegisterDriveImport();
+  const { mutateAsync: deleteMedia } = useDeleteMedia();
+  const invalidateSessionlessDrafts = useInvalidateSessionlessDrafts(spotId);
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {
       const skeletons = docs.map((doc) => createImportingItem(doc, spotId, sessionId));
-      setImportingItems((current) => [...current, ...skeletons]);
+      useUploadStore.getState().addToQueue(skeletons);
 
-      await Promise.all(docs.map(async (doc) => {
-        const skeletonId = `drive-import-${doc.id}`;
+      let anySucceeded = false;
+      await Promise.all(skeletons.map(async (skeleton, i) => {
+        const doc = docs[i]!;
 
         try {
           const mediaItem = await registerDriveImport({
@@ -114,28 +116,36 @@ export function useGooglePicker(spotId: string, sessionId: string | null) {
             mimeType: doc.mimeType,
             accessToken,
           });
-          // Always add to Zustand so the item is visible regardless of sessionId.
-          // When sessionId is null, append() is a no-op and Zustand is the only store.
-          // When sessionId is set, useUploadQueue deduplicates by mediaId so the item
-          // appears once (via the Zustand path with result resolved from TQ).
-          useUploadStore.getState().addToQueue([{
-            id: skeletonId,
-            spotId,
-            sessionId,
-            file: null,
-            previewUrl: mediaItem.thumbnailUrl ?? doc.thumbnails?.[0]?.url ?? '',
-            status: 'completed',
-            progress: 100,
-            mediaId: mediaItem.id,
-          }]);
+          const store = useUploadStore.getState();
+          const wasCancelled = store.uploadQueue.find(i => i.id === skeleton.id)?.status === 'cancelled';
+          if (wasCancelled) {
+            // discarded while import was in-flight — clean up the committed server record
+            void deleteMedia({ id: mediaItem.id });
+            store.removeItem(skeleton.id);
+          } else {
+            store.updateItem(skeleton.id, {
+              status: 'completed',
+              progress: 100,
+              mediaId: mediaItem.id,
+              previewUrl: mediaItem.thumbnailUrl ?? doc.thumbnails?.[0]?.url ?? '',
+            });
+            anySucceeded = true;
+          }
         } catch {
-          notify.error(`Failed to import "${doc.name}"`, 'Drive Import Error');
-        } finally {
-          setImportingItems((current) => current.filter((item) => item.id !== skeletonId));
+          const store = useUploadStore.getState();
+          const wasCancelled = store.uploadQueue.find(i => i.id === skeleton.id)?.status === 'cancelled';
+          if (!wasCancelled) {
+            const errorMessage = `Failed to import "${doc.name}"`;
+            store.updateItem(skeleton.id, { status: 'error', error: errorMessage });
+            notify.error(errorMessage, 'Drive Import Error');
+          } else {
+            store.removeItem(skeleton.id);
+          }
         }
       }));
+      if (anySucceeded) void invalidateSessionlessDrafts();
     },
-    [registerDriveImport, spotId, sessionId],
+    [registerDriveImport, deleteMedia, spotId, sessionId, invalidateSessionlessDrafts],
   );
 
   const trigger = useCallback(async () => {
@@ -161,5 +171,5 @@ export function useGooglePicker(spotId: string, sessionId: string | null) {
     }
   }, [importDriveDocs]);
 
-  return { trigger, isPickerLoading: isPickerInitializing || isPickerOpen, importingItems };
+  return { trigger, isPickerLoading: isPickerInitializing || isPickerOpen };
 }
