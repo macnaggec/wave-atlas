@@ -48,6 +48,7 @@ export type MediaFulfillmentItem = {
 export interface IMediaRepository {
   createMedia(data: CreateMediaData): Promise<MediaItem>;
   findById(id: string): Promise<MediaItem | null>;
+  findByCloudinaryPublicId(publicId: string): Promise<{ id: string; photographerId: string } | null>;
   updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem>;
   updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
   softDelete(id: string): Promise<MediaItem>;
@@ -85,6 +86,16 @@ export class MediaRepository implements IMediaRepository {
     return runQuery(async () => {
       const row = await prisma.mediaItem.findUnique({ where: { id } });
       return row ? mapToMediaItem(row) : null;
+    });
+  }
+
+  findByCloudinaryPublicId(publicId: string): Promise<{ id: string; photographerId: string } | null> {
+    return runQuery(async () => {
+      const row = await prisma.mediaItem.findFirst({
+        where: { cloudinaryPublicId: publicId },
+        select: { id: true, photographerId: true },
+      });
+      return row ?? null;
     });
   }
 

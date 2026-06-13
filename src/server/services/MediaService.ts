@@ -1,5 +1,6 @@
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
+import { logger } from 'shared/lib/logger';
 import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
 import type { MediaStatus, MediaItem } from 'entities/Media';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
@@ -55,6 +56,15 @@ export class MediaService {
   }
 
   async deleteOrphanAsset(userId: string, publicId: string, resourceType: 'image' | 'video'): Promise<void> {
+    const existing = await this.media.findByCloudinaryPublicId(publicId);
+    if (existing) {
+      if (existing.photographerId !== userId) {
+        throw new ForbiddenError('Cannot delete asset: ownership could not be verified');
+      }
+      // Asset already has a live media record — not an orphan, nothing to delete
+      return;
+    }
+
     const expectedPrefix = `wave-atlas/users/${userId}/`;
     if (publicId.includes('..') || !publicId.startsWith(expectedPrefix)) {
       throw new ForbiddenError('Cannot delete asset: ownership could not be verified');
@@ -103,7 +113,7 @@ export class MediaService {
       });
     } catch (err) {
       this.cloudinary.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
-        (cleanupErr) => console.error('[MediaService] Failed to clean up orphaned Cloudinary asset', publicId, cleanupErr),
+        (cleanupErr) => logger.error('[MediaService] Failed to clean up orphaned Cloudinary asset', { publicId, error: cleanupErr }),
       );
       throw err;
     }
@@ -122,7 +132,7 @@ export class MediaService {
         media.cloudinaryPublicId,
         media.resource.resource_type as 'image' | 'video',
       ).catch((err) =>
-        console.error('[MediaService] Failed to clean up Cloudinary asset after hardDelete', media.cloudinaryPublicId, err),
+        logger.error('[MediaService] Failed to clean up Cloudinary asset after hardDelete', { publicId: media.cloudinaryPublicId, error: err }),
       );
     } else {
       await this.media.softDelete(mediaId);
