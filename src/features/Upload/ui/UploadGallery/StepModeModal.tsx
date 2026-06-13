@@ -197,7 +197,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const hasImporting = items.some(item => item.status === 'importing');
   const canProceed = !hasActiveUploads && !hasImporting && items.some(item => item.status === 'completed');
-  const completedCount = canProceed ? items.filter(item => item.status === 'completed').length : 0;
+  const completedCount = canProceed ? completedItems.length : 0;
 
   const handleContinue = useCallback(() => {
     if (onBulkPriceEdit) {
@@ -231,7 +231,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
       opened={effectiveModalOpen && items.length > 0}
       onClose={() => {
         handleModalChange(false);
-        if (items.length > 0) onProceed(completedCount);
+        if (items.length > 0 && completedCount > 0) onProceed(completedCount);
       }}
       closeOnClickOutside={false}
       closeOnEscape={false}
@@ -383,11 +383,15 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
       <Group gap="xs">
         {hasActiveUploads
           ? <Loader size={12} />
-          : <IconCheck size={12} style={{ color: 'var(--mantine-color-green-5)' }} />}
+          : completedCount > 0
+            ? <IconCheck size={12} style={{ color: 'var(--mantine-color-green-5)' }} />
+            : <IconCheck size={12} style={{ color: 'var(--mantine-color-red-5)' }} />}
         <Text size="xs" c="dimmed">
           {hasActiveUploads
             ? `${uploadingCount} of ${items.length} uploading…`
-            : `${completedCount} ${completedCount === 1 ? 'file' : 'files'} ready`}
+            : completedCount > 0
+              ? `${completedCount} ${completedCount === 1 ? 'file' : 'files'} ready`
+              : 'Upload failed'}
         </Text>
       </Group>
       <Text size="xs" c="blue.4" fw={500}>View</Text>
