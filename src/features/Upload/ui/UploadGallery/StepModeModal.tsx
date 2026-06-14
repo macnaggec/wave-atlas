@@ -194,19 +194,12 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
   // ========================================================================
 
   const hasImporting = items.some(card => card.kind === 'uploading' && card.pipelineItem.status === 'importing');
-  const canProceed = !hasActiveUploads && !hasImporting && completedItems.length > 0;
-  const completedCount = canProceed ? completedItems.length : 0;
-
-  // Error cards with an orphaned Cloudinary asset (upload failed before DB write).
-  const orphanErrorCards = useMemo(
-    () => items.filter(card =>
-      card.kind === 'uploading' &&
-      card.pipelineItem.status === 'error' &&
-      card.pipelineItem.cloudinaryResult &&
-      !card.pipelineItem.mediaId
-    ),
+  const errorCards = useMemo(
+    () => items.filter(card => card.kind === 'uploading' && card.pipelineItem.status === 'error'),
     [items]
   );
+  const canProceed = !hasActiveUploads && !hasImporting && completedItems.length > 0 && errorCards.length === 0;
+  const completedCount = canProceed ? completedItems.length : 0;
 
   const handleContinue = useCallback(() => {
     if (onBulkPriceEdit) {
@@ -223,11 +216,9 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
         onPricesChange?.(undefined, vp);
       }
     }
-    // Clean up any orphaned Cloudinary assets from error cards before leaving.
-    if (orphanErrorCards.length > 0) onDiscardAll(orphanErrorCards);
     handleModalChange(false);
     onProceed(completedCount);
-  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, orphanErrorCards, onDiscardAll, handleModalChange, onProceed, completedCount]);
+  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, handleModalChange, onProceed, completedCount]);
 
   // ========================================================================
   // RENDER
@@ -242,8 +233,6 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
     <Modal
       opened={effectiveModalOpen && items.length > 0}
       onClose={() => {
-        // Clean up orphaned Cloudinary assets before calling onProceed.
-        if (orphanErrorCards.length > 0) onDiscardAll(orphanErrorCards);
         handleModalChange(false);
         if (items.length > 0 && completedCount > 0) onProceed(completedCount);
       }}
@@ -379,6 +368,10 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
             >
               Continue with {completedCount} {completedCount === 1 ? 'file' : 'files'}
             </Button>
+          ) : errorCards.length > 0 ? (
+            <Text size="xs" style={{ color: 'var(--mantine-color-orange-4)' }}>
+              Remove or retry failed uploads to continue
+            </Text>
           ) : null}
         </Group>
       </Group>
