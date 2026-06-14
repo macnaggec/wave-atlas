@@ -86,3 +86,15 @@ export function getMediaId(card: GalleryCard): string | undefined {
   }
   return undefined;
 }
+
+export function isUploading(status: UploadStatus): boolean {
+  return ['signing', 'uploading', 'saving'].includes(status);
+}
+
+export function revokeBlobUrl(url?: string): void {
+  if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+}
+
+export function isOrphanAsset(item: UploadItem): item is UploadItem & { cloudinaryResult: CloudinaryResult } {
+  return item.status === 'error' && !!item.cloudinaryResult && !item.mediaId;
+}

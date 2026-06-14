@@ -17,3 +17,6 @@ export { useUploadStore } from './uploadStore';
 // Types
 export type { UploadItem, GalleryCard, UploadStatus, CloudinaryResult, ExifMetadata } from './types';
 export { getItemId, isVideoItem, getMediaId } from './types';
+
+// Pipeline item utilities
+export { isUploading, revokeBlobUrl, isOrphanAsset } from './types';

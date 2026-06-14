@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useDeleteOrphanAsset } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
+import { isUploading, revokeBlobUrl, isOrphanAsset } from './types';
 
 /**
  * Post-publish queue cleanup: revokes blob URLs, aborts in-progress uploads,
@@ -15,11 +16,11 @@ export function useClearUploadQueue() {
     store.uploadQueue.forEach(item => {
       if (item.status === 'importing') return;
 
-      if (item.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+      revokeBlobUrl(item.previewUrl);
 
-      if (['signing', 'uploading', 'saving'].includes(item.status)) {
+      if (isUploading(item.status)) {
         try { item.abortUpload?.(); } catch { /* abort errors expected */ }
-      } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+      } else if (isOrphanAsset(item)) {
         void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
       }
     });

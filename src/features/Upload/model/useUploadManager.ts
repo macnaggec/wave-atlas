@@ -5,16 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
 import { UploadError } from './UploadError';
 import { GalleryCard, UploadItem } from './types';
+import { isUploading, revokeBlobUrl, isOrphanAsset } from './types';
 import { createUploadPipeline } from './UploadPipeline';
-
-/**
- * Revoke blob URL to prevent memory leaks
- */
-function revokeBlobUrl(url?: string): void {
-  if (url?.startsWith('blob:')) {
-    URL.revokeObjectURL(url);
-  }
-}
 
 /**
  * Manages upload queue operations in business terms:
@@ -147,11 +139,13 @@ export const useUploadManager = (
     }
 
     // kind: 'uploading'
-    const item = card.pipelineItem;
+    // Re-read from the store to get live state — card.pipelineItem is a render snapshot
+    // and may be stale if status transitioned (e.g. uploading → error) between render and click.
+    const item = useUploadStore.getState().uploadQueue.find(i => i.id === card.pipelineItem.id) ?? card.pipelineItem;
     await abortIfUploading(item);
 
     // Cloudinary upload succeeded but DB save never reached the server — orphaned asset
-    if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+    if (isOrphanAsset(item)) {
       deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type })
         .catch(() => notify.error('Failed to clean up upload — please contact support', 'Cleanup Error'));
     }
@@ -203,7 +197,7 @@ export const useUploadManager = (
           try { item.abortUpload?.(); } catch { /* abort errors expected */ }
         } else if (item.status === 'completed' && item.mediaId) {
           void deleteMedia({ id: item.mediaId });
-        } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
+        } else if (isOrphanAsset(item)) {
           void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
         }
       }
@@ -267,10 +261,6 @@ async function abortIfUploading(item: UploadItem) {
   if (item.abortUpload && isUploading(item.status)) {
     try { item.abortUpload(); } catch { /* abort errors expected */ }
   }
-}
-
-function isUploading(status: string) {
-  return ['signing', 'uploading', 'saving'].includes(status);
 }
 
 function canRetry(item: UploadItem | undefined) {
