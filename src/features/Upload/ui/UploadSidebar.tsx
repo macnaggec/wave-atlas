@@ -4,7 +4,7 @@ import { IconChevronRight, IconLogin2, IconPhoto, IconVideo } from '@tabler/icon
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'entities/Identity';
 import { usePublishSession } from 'entities/SurfSession';
-import { useUploadStore } from '../model';
+import { useUploadStore, useClearUploadQueue } from '../model';
 import type { Spot } from 'entities/Spot';
 import { UploadStep } from './steps/UploadStep';
 import { TimeStep } from './steps/TimeStep';
@@ -86,9 +86,9 @@ function AuthGate() {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export function UploadSidebar({ active = true, spot, onCancel }: { active?: boolean; spot: Spot; onCancel: () => void }) {
+export function UploadSidebar({ spot, onCancel }: { spot: Spot; onCancel: () => void }) {
   const { isAuthenticated, isLoading } = useUser();
-  const clearQueue = useUploadStore((s) => s.clearQueue);
+  const clearQueue = useClearUploadQueue();
   const uploadQueue = useUploadStore((s) => s.uploadQueue);
   const wizardStep = useUploadStore((s) => s.wizardStep);
   const setWizardStep = useUploadStore((s) => s.setWizardStep);

@@ -18,7 +18,7 @@ interface UploadActions {
 
 interface UploadStore extends UploadState, UploadActions { }
 
-export const useUploadStore = create<UploadStore>((set, get) => ({
+export const useUploadStore = create<UploadStore>((set) => ({
   uploadQueue: [],
   uploadSpotId: null,
   wizardStep: 'files',
@@ -54,14 +54,8 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     }));
   },
 
+  // Pure membership reset — no side effects. Abort and blob revocation are owned by useUploadManager.
   clearQueue: () => {
-    const state = get();
-    state.uploadQueue.forEach(item => {
-      if (item.status === 'importing') return;
-      if (item.abortUpload && item.status !== 'completed' && item.status !== 'error') {
-        item.abortUpload();
-      }
-    });
     set(s => ({
       uploadQueue: s.uploadQueue
         .filter(i => i.status === 'importing')

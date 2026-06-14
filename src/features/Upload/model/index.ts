@@ -7,6 +7,7 @@
 
 // Main hooks
 export { useUploadManager } from './useUploadManager';
+export { useClearUploadQueue } from './useClearUploadQueue';
 export { useUploadQueue } from './useUploadQueue';
 export { useUploadWarning } from './useUploadWarning';
 export { useGooglePicker } from './useGooglePicker';

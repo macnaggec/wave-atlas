@@ -199,7 +199,9 @@ export const useUploadManager = (
       } else {
         const item = card.pipelineItem;
         revokeBlobUrl(item.previewUrl);
-        if (item.status === 'completed' && item.mediaId) {
+        if (isUploading(item.status)) {
+          try { item.abortUpload?.(); } catch { /* abort errors expected */ }
+        } else if (item.status === 'completed' && item.mediaId) {
           void deleteMedia({ id: item.mediaId });
         } else if (item.status === 'error' && item.cloudinaryResult && !item.mediaId) {
           void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
