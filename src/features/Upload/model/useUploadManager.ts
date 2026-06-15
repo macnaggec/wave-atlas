@@ -1,26 +1,99 @@
 import { useCallback } from 'react';
-import { useDeleteMedia, useDeleteOrphanAsset, useSignCloudinary, useCreateMedia, useInvalidateMyDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
+import {
+  useDeleteMedia, useDeleteOrphanAsset, useInvalidateMyDrafts, MediaItem, MEDIA_UPLOAD_LIMITS,
+  signCloudinaryDirect, createMediaDirect,
+} from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
+import { extractExifData } from 'shared/lib/exifExtractor';
 import { UploadError } from './UploadError';
-import { GalleryCard, UploadItem } from './types';
+import { GalleryCard, UploadItem, CloudinaryResult, ExifMetadata } from './types';
 import { isUploading, revokeBlobUrl, isOrphanAsset } from './types';
-import { createUploadPipeline } from './UploadPipeline';
+import { uploadToCloudinary } from './cloudinaryTransport';
+
+type SignatureData = Awaited<ReturnType<typeof signCloudinaryDirect>>;
+
+// ===========================================================================
+// PIPELINE STAGE FUNCTIONS
+// Module-level — no React deps, safe to run after component unmount.
+// Uses signCloudinaryDirect / createMediaDirect (plain tRPC client calls, not
+// React hook instances) for the critical-path server calls.
+// ===========================================================================
+
+async function extractMetadata(file: File): Promise<ExifMetadata> {
+  const exifData = await extractExifData(file);
+  return {
+    capturedAt: exifData.capturedAt ?? undefined,
+    source: exifData.source === 'fallback' ? 'none' : exifData.source,
+  };
+}
+
+async function pipelineSign(id: string): Promise<SignatureData> {
+  useUploadStore.getState().updateItem(id, { status: 'signing' });
+  return await signCloudinaryDirect();
+}
+
+function pipelineUpload(
+  id: string,
+  file: File,
+  signature: SignatureData,
+): { promise: Promise<CloudinaryResult>; abort: () => void } {
+  useUploadStore.getState().updateItem(id, { status: 'uploading', progress: 0 });
+  return uploadToCloudinary({
+    file,
+    signature: signature.signature,
+    timestamp: signature.timestamp,
+    apiKey: signature.apiKey,
+    cloudName: signature.cloudName,
+    folder: signature.folder,
+    eager: signature.eager,
+    onProgress: (progress) => { useUploadStore.getState().updateItem(id, { progress }); },
+  });
+}
+
+async function pipelineSave(
+  id: string,
+  cloudResult: CloudinaryResult,
+  exifData: ExifMetadata,
+): Promise<MediaItem> {
+  useUploadStore.getState().updateItem(id, { status: 'saving', progress: 100 });
+  const mediaItem = await createMediaDirect({
+    cloudinaryResult: cloudResult,
+    capturedAt: exifData.capturedAt,
+  });
+  return exifData.source === 'exif'
+    ? { ...mediaItem, dateSource: 'exif' as const }
+    : mediaItem;
+}
+
+function pipelineComplete(id: string, mediaId: string, capturedAt?: Date): void {
+  useUploadStore.getState().updateItem(id, { status: 'completed', mediaId, capturedAt });
+}
+
+function pipelineError(id: string, error: unknown): string | null {
+  const message = getErrorMessage(error);
+  if (message.includes('cancelled') || message.includes('abort')) {
+    return null;
+  }
+  useUploadStore.getState().updateItem(id, { status: 'error', error: message });
+  return message;
+}
+
+// ===========================================================================
+// HOOK
+// ===========================================================================
 
 /**
  * Manages upload queue operations in business terms:
  * - Users select files → add to queue
  * - Files upload through stages → track progress
  * - Users cancel/retry/remove → handle gracefully
- *
- * Implementation details hidden in UploadPipeline.
  */
 export const useUploadManager = () => {
   const { mutateAsync: deleteMedia } = useDeleteMedia();
   const { mutateAsync: deleteOrphanAsset } = useDeleteOrphanAsset();
-  const { mutateAsync: signCloudinary } = useSignCloudinary();
-  const { mutateAsync: createMedia } = useCreateMedia();
   const invalidateMyDrafts = useInvalidateMyDrafts();
 
   // ========================================================================
@@ -33,26 +106,26 @@ export const useUploadManager = () => {
   ) => {
     if (!file) return;
 
-    const pipeline = createPipeline(id, { signCloudinary, createMedia });
-    let mediaItem: MediaItem;
-
     const isDiscarded = () => !useUploadStore.getState().uploadQueue.find(i => i.id === id);
 
     try {
       validateFileSize(file);
-      const exifData = await pipeline.extractMetadata(file);
+      const exifData = await extractMetadata(file);
       const store = useUploadStore.getState();
       const existingCloudinaryResult = store.uploadQueue
         .find(i => i.id === id)
         ?.cloudinaryResult;
 
-      let cloudResult;
+      let cloudResult: CloudinaryResult;
 
       if (existingCloudinaryResult) {
         cloudResult = existingCloudinaryResult;
         store.updateItem(id, { status: 'saving', progress: 100 });
       } else {
-        cloudResult = await uploadNewFile(id, file, pipeline);
+        const signature = await pipelineSign(id);
+        const { promise, abort } = pipelineUpload(id, file, signature);
+        useUploadStore.getState().updateItem(id, { abortUpload: abort });
+        cloudResult = await promise;
         if (isDiscarded()) {
           void deleteOrphanAsset({ publicId: cloudResult.publicId, resourceType: cloudResult.resource_type });
           return;
@@ -60,21 +133,20 @@ export const useUploadManager = () => {
         store.updateItem(id, { cloudinaryResult: cloudResult });
       }
 
-      mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
+      const mediaItem = await pipelineSave(id, cloudResult, exifData);
       if (isDiscarded()) {
         void deleteMedia({ id: mediaItem.id });
         return;
       }
-      pipeline.complete(mediaItem.id, mediaItem.capturedAt ?? undefined);
+      pipelineComplete(id, mediaItem.id, mediaItem.capturedAt ?? undefined);
       void invalidateMyDrafts();
     } catch (error: unknown) {
-      const errorMessage = pipeline.handleError(error);
-
+      const errorMessage = pipelineError(id, error);
       if (errorMessage) {
         notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
       }
     }
-  }, [signCloudinary, createMedia, invalidateMyDrafts, deleteOrphanAsset, deleteMedia]);
+  }, [deleteOrphanAsset, deleteMedia, invalidateMyDrafts]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -86,16 +158,6 @@ export const useUploadManager = () => {
     store.addToQueue(newItems);
     newItems.forEach(item => processUpload(item.id, item.file));
   }, [processUpload]);
-
-  const cancelUpload = useCallback(async (id: string) => {
-    const store = useUploadStore.getState();
-    const item = store.uploadQueue.find(i => i.id === id);
-    if (!item) return;
-
-    await abortIfUploading(item);
-    revokeBlobUrl(item.previewUrl);
-    store.removeItem(id);
-  }, []);
 
   /**
    * User removes an upload (in-progress, completed, or server-only draft).
@@ -187,7 +249,6 @@ export const useUploadManager = () => {
   return {
     addFiles,
     remove,
-    cancelUpload,
     discardAll,
     retry,
   };
@@ -196,33 +257,6 @@ export const useUploadManager = () => {
 // ===========================================================================
 // MODULE-LEVEL HELPERS
 // ===========================================================================
-
-function createPipeline(
-  id: string,
-  client: Parameters<typeof createUploadPipeline>[1],
-) {
-  return createUploadPipeline(
-    (updates) => { useUploadStore.getState().updateItem(id, updates); },
-    client,
-  );
-}
-
-async function uploadNewFile(
-  id: string,
-  file: File,
-  pipeline: ReturnType<typeof createUploadPipeline>,
-) {
-  const signature = await pipeline.getSignature();
-
-  const { promise, abort } = pipeline.uploadToCloud(
-    file,
-    signature,
-    (progress) => { useUploadStore.getState().updateItem(id, { progress }); },
-  );
-
-  useUploadStore.getState().updateItem(id, { abortUpload: abort });
-  return promise;
-}
 
 async function abortIfUploading(item: UploadItem) {
   if (item.abortUpload && isUploading(item.status)) {

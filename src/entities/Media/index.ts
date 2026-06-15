@@ -23,7 +23,7 @@ export {
 export type { FileValidationResult, BatchValidationResult } from './lib/uploadValidation';
 export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValidation';
 
-export { useCreateMedia } from './model/useCreateMedia';
+export { signCloudinaryDirect, createMediaDirect } from './lib/mediaApi';
 export { useDeleteMedia } from './model/useDeleteMedia';
 export { useDeleteOrphanAsset } from './model/useDeleteOrphanAsset';
 export { useInvalidateMyDrafts } from './model/useInvalidateMyDrafts';
@@ -31,5 +31,4 @@ export { useMyDraftCounts } from './model/useMyDraftCounts';
 export { useMyDrafts } from './model/useMyDrafts';
 export { usePublishMedia } from './model/usePublishMedia';
 export { useRegisterDriveImport } from './model/useRegisterDriveImport';
-export { useSignCloudinary } from './model/useSignCloudinary';
 export { useUpdateBatchMedia } from './model/useUpdateBatchMedia';

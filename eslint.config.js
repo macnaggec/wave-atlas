@@ -108,7 +108,8 @@ export default tseslint.config(
           },
           // entity: a slice may import its own internals freely; cross-entity imports must
           // go through the target entity's public index only (same contract rule as features).
-          // useTRPC/useTRPCClient from app/lib/trpc.ts is a narrow infrastructure exception.
+          // app/lib/trpc.ts (React context hooks) and app/lib/trpcClient.ts (raw HTTP client)
+          // are narrow infrastructure exceptions. QW13 will move both to shared/lib/.
           {
             from: { type: 'entity' },
             allow: {
@@ -118,6 +119,7 @@ export default tseslint.config(
                 { type: 'shared' },
                 { type: 'types' },
                 { type: 'app', path: 'src/app/lib/trpc.ts' },
+                { type: 'app', path: 'src/app/lib/trpcClient.ts' },
               ],
             },
           },
