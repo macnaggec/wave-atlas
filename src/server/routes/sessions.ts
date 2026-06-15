@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
+import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
 
 export const sessionsRouter = router({
   /** Create a session and atomically attach + publish the specified draft media items. */
@@ -12,6 +13,8 @@ export const sessionsRouter = router({
         startsAt: z.coerce.date(),
         endsAt: z.coerce.date(),
         mediaIds: z.array(z.string().uuid()).min(1),
+        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
+        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
       }),
     )
     .mutation(({ input, ctx }) =>
@@ -21,6 +24,8 @@ export const sessionsRouter = router({
         startsAt: input.startsAt,
         endsAt: input.endsAt,
         mediaIds: input.mediaIds,
+        photoPrice: input.photoPrice,
+        videoPrice: input.videoPrice,
       }),
     ),
 

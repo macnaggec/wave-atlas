@@ -1,5 +1,6 @@
 import { router, protectedProcedure } from 'server/trpc';
 import { mediaRepository } from 'server/repositories/MediaRepository';
+import { mediaService } from 'server/services/MediaService';
 import { userRepository } from 'server/repositories/UserRepository';
 
 export const usersRouter = router({
@@ -19,7 +20,10 @@ export const usersRouter = router({
     }));
   }),
 
-  myDraftCounts: protectedProcedure.query(({ ctx }) => mediaRepository.countDraftsBySpot(ctx.user.id)),
+  myDraftCounts: protectedProcedure.query(async ({ ctx }) => {
+    const hasDrafts = await mediaService.hasDrafts(ctx.user.id);
+    return { hasDrafts };
+  }),
 
   deleteAccount: protectedProcedure.mutation(({ ctx }) => userRepository.anonymizeAndDelete(ctx.user.id)),
 });

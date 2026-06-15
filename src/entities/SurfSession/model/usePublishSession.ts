@@ -9,6 +9,7 @@ export function usePublishSession() {
     trpc.sessions.createAndPublish.mutationOptions({
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
       },
     }),
   );

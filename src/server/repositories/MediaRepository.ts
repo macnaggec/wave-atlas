@@ -5,7 +5,7 @@ import { prisma } from 'server/db';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 import { mapToMediaItem, toSignedUrl } from './mappers';
 
-export { mapToMediaItem };
+
 
 function mapToPublishedMedia(
   row: PrismaMediaItem & { spot: { id: string; name: string } | null },
@@ -15,24 +15,21 @@ function mapToPublishedMedia(
     type: row.type,
     lightboxUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
     thumbnailUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
-    price: row.price,
+    price: row.price!,
     capturedAt: row.capturedAt,
-    spotId: row.spotId,
+    spotId: row.spotId!,
     photographerId: row.photographerId,
     spot: row.spot,
   };
 }
 
 export type CreateMediaData = {
-  spotId: string;
-  sessionId?: string;
   photographerId: string;
   resource_type: 'image' | 'video';
   cloudinaryPublicId: string;
   thumbnailUrl: string;
   lightboxUrl: string;
   capturedAt: Date;
-  price: number;
   status: DomainMediaStatus;
 };
 
@@ -53,12 +50,12 @@ export interface IMediaRepository {
   updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
   softDelete(id: string): Promise<MediaItem>;
   hardDelete(id: string): Promise<void>;
-  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number; photographerId: string }[]>;
+  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
   findPublishedBySession(sessionId: string): Promise<PublishedMedia[]>;
-  countDraftsBySpot(photographerId: string): Promise<{ spotId: string; spotName: string; count: number }[]>;
-  findSessionlessDraftsBySpot(photographerId: string, spotId: string): Promise<MediaItem[]>;
+  hasDraftsByUser(photographerId: string): Promise<boolean>;
+  findDraftsByUser(photographerId: string): Promise<MediaItem[]>;
 }
 
 export class MediaRepository implements IMediaRepository {
@@ -66,15 +63,12 @@ export class MediaRepository implements IMediaRepository {
     return runQuery(async () => {
       const row = await prisma.mediaItem.create({
         data: {
-          spotId: data.spotId,
-          sessionId: data.sessionId,
           photographerId: data.photographerId,
           type: data.resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
           cloudinaryPublicId: data.cloudinaryPublicId,
           thumbnailUrl: data.thumbnailUrl,
           lightboxUrl: data.lightboxUrl,
           capturedAt: data.capturedAt,
-          price: data.price,
           status: data.status as MediaStatus,
         },
       });
@@ -128,22 +122,23 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number; photographerId: string }[]> {
+  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { id: { in: ids } },
         select: { id: true, status: true, price: true, photographerId: true },
       });
-      return rows as { id: string; status: DomainMediaStatus; price: number; photographerId: string }[];
+      return rows as { id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[];
     });
   }
 
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]> {
     return runQuery(async () => {
-      return prisma.mediaItem.findMany({
+      const rows = await prisma.mediaItem.findMany({
         where: { id: { in: ids } },
         select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
       });
+      return rows.map(r => ({ ...r, price: r.price! }));
     });
   }
 
@@ -161,7 +156,11 @@ export class MediaRepository implements IMediaRepository {
   findPublishedBySession(sessionId: string): Promise<PublishedMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
-        where: { sessionId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
+        where: {
+          sessionMedia: { some: { sessionId } },
+          status: MEDIA_STATUS.PUBLISHED,
+          deletedAt: null,
+        },
         orderBy: { capturedAt: 'asc' },
         include: { spot: { select: { id: true, name: true } } },
       });
@@ -169,49 +168,34 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  countDraftsBySpot(photographerId: string): Promise<{ spotId: string; spotName: string; count: number }[]> {
+  hasDraftsByUser(photographerId: string): Promise<boolean> {
     return runQuery(async () => {
-      const grouped = await prisma.mediaItem.groupBy({
-        by: ['spotId'],
-        where: { photographerId, status: MEDIA_STATUS.DRAFT, deletedAt: null },
-        _count: { id: true },
+      const count = await prisma.mediaItem.count({
+        where: {
+          photographerId,
+          status: MEDIA_STATUS.DRAFT,
+          deletedAt: null,
+          sessionMedia: { none: {} },
+        },
       });
-
-      if (grouped.length === 0) return [];
-
-      const spots = await prisma.spot.findMany({
-        where: { id: { in: grouped.map((g) => g.spotId) } },
-        select: { id: true, name: true },
-      });
-
-      const spotMap = new Map(spots.map((s) => [s.id, s.name]));
-
-      return grouped.map((g) => ({
-        spotId: g.spotId,
-        spotName: spotMap.get(g.spotId) ?? 'Unknown spot',
-        count: g._count.id,
-      }));
+      return count > 0;
     });
   }
 
-  findSessionlessDraftsBySpot(photographerId: string, spotId: string): Promise<MediaItem[]> {
+  findDraftsByUser(photographerId: string): Promise<MediaItem[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: {
           photographerId,
-          spotId,
-          sessionId: null,
           status: MEDIA_STATUS.DRAFT,
           deletedAt: null,
+          sessionMedia: { none: {} },
         },
         orderBy: { createdAt: 'asc' },
       });
       return rows.map(mapToMediaItem);
     });
   }
-
 }
 
 export const mediaRepository = new MediaRepository();
-
-

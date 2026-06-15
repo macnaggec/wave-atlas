@@ -1,0 +1,12 @@
+@keyframes flashBorder {
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 0 0 1.5px #ff4d6d, 0 0 8px rgba(255, 77, 109, 0.45); }
+  30%  { box-shadow: none; }
+  55%  { box-shadow: 0 0 0 1.5px #ff4d6d, 0 0 8px rgba(255, 77, 109, 0.45); }
+  75%, 100% { box-shadow: none; }
+}
+
+.flashBorder {
+  animation: flashBorder 0.9s ease forwards;
+  border-radius: 8px;
+}

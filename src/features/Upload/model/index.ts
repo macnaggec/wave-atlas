@@ -11,7 +11,6 @@ export { useClearUploadQueue } from './useClearUploadQueue';
 export { useUploadQueue } from './useUploadQueue';
 export { useUploadWarning } from './useUploadWarning';
 export { useGooglePicker } from './useGooglePicker';
-export { useDraftEditing } from './useDraftEditing';
 export { useUploadStore } from './uploadStore';
 
 // Types

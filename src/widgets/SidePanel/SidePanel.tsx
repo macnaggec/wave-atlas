@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconArrowLeft } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize } from '@tabler/icons-react';
 import styles from './SidePanel.module.css';
 
 interface SidePanelProps {
@@ -12,8 +12,10 @@ interface SidePanelProps {
   expanded?: boolean;
   /** Called when the expand/collapse toggle is clicked. */
   onExpandToggle?: () => void;
-  /** When provided, replaces the expand toggle with a ← back button. */
+  /** When provided, replaces the expand toggle with a ‹ back button. */
   onBack?: () => void;
+  /** Hides the › collapse button on the right of the top bar. */
+  hideClose?: boolean;
   /** Center slot in the top bar (e.g. ModeSwitcher or search bar). */
   header?: ReactNode;
   /** Right-of-header slot in the top bar (e.g. an Upload button). */
@@ -32,6 +34,7 @@ export function SidePanel({
   expanded,
   onExpandToggle,
   onBack,
+  hideClose,
   header,
   topAction,
   subheader,
@@ -66,7 +69,7 @@ export function SidePanel({
             tabIndex={!onBack && !onExpandToggle ? -1 : undefined}
           >
             {onBack
-              ? <IconArrowLeft size={16} />
+              ? <IconChevronLeft size={16} />
               : expanded
               ? <IconMinimize size={16} />
               : <IconMaximize size={16} />}
@@ -76,13 +79,15 @@ export function SidePanel({
 
           {topAction && <div className={styles.topActionSlot}>{topAction}</div>}
 
-          <button
-            className={styles.topBtn}
-            onClick={onClose}
-            aria-label="Hide panel"
-          >
-            <IconChevronRight size={16} />
-          </button>
+          {!hideClose && (
+            <button
+              className={styles.topBtn}
+              onClick={onClose}
+              aria-label="Hide panel"
+            >
+              <IconChevronRight size={16} />
+            </button>
+          )}
         </div>
 
         {/* Subheader: full-width row below top bar (e.g. search in State A) */}

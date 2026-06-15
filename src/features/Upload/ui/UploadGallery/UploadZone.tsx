@@ -2,15 +2,18 @@ import { useRef } from 'react';
 import { Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen, IconUpload } from '@tabler/icons-react';
 import { handleFileSelection } from '../../lib/fileSelection';
+import styles from './UploadZone.module.css';
 
 interface UploadZoneProps {
   onFilesSelected: (files: File[]) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
   disabled?: boolean;
+  flashError?: boolean;
+  onFlashEnd?: () => void;
 }
 
-export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled }: UploadZoneProps) {
+export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled, flashError, onFlashEnd }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +36,8 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
         gap="md"
         align="center"
         py="xl"
+        className={flashError ? styles.flashBorder : undefined}
+        onAnimationEnd={flashError ? onFlashEnd : undefined}
         style={{
           borderRadius: 8,
           background: 'rgba(255,255,255,0.08)',

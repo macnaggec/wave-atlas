@@ -13,6 +13,6 @@ export function toCartItem(item: MediaItem, spotName: string): CartItem {
     capturedAt,
     thumbnailUrl: item.thumbnailUrl,
     lightboxUrl: item.lightboxUrl,
-    priceCents: item.price,
+    priceCents: item.price ?? 0,
   };
 }

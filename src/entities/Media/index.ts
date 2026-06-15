@@ -26,10 +26,10 @@ export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValida
 export { useCreateMedia } from './model/useCreateMedia';
 export { useDeleteMedia } from './model/useDeleteMedia';
 export { useDeleteOrphanAsset } from './model/useDeleteOrphanAsset';
-export { useInvalidateSessionlessDrafts } from './model/useInvalidateSessionlessDrafts';
+export { useInvalidateMyDrafts } from './model/useInvalidateMyDrafts';
 export { useMyDraftCounts } from './model/useMyDraftCounts';
+export { useMyDrafts } from './model/useMyDrafts';
 export { usePublishMedia } from './model/usePublishMedia';
 export { useRegisterDriveImport } from './model/useRegisterDriveImport';
-export { useSessionlessDrafts } from './model/useSessionlessDrafts';
 export { useSignCloudinary } from './model/useSignCloudinary';
 export { useUpdateBatchMedia } from './model/useUpdateBatchMedia';

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useDeleteMedia, useDeleteOrphanAsset, useSignCloudinary, useCreateMedia, useInvalidateSessionlessDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
+import { useDeleteMedia, useDeleteOrphanAsset, useSignCloudinary, useCreateMedia, useInvalidateMyDrafts, MediaItem, MEDIA_UPLOAD_LIMITS } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
@@ -15,21 +15,16 @@ import { createUploadPipeline } from './UploadPipeline';
  * - Users cancel/retry/remove → handle gracefully
  *
  * Implementation details hidden in UploadPipeline.
- * Metadata updates (price/date) are owned by TanStack Query via useDraftEditing.
  */
-export const useUploadManager = (
-  spotId: string,
-  sessionId: string | null,
-) => {
+export const useUploadManager = () => {
   const { mutateAsync: deleteMedia } = useDeleteMedia();
   const { mutateAsync: deleteOrphanAsset } = useDeleteOrphanAsset();
   const { mutateAsync: signCloudinary } = useSignCloudinary();
   const { mutateAsync: createMedia } = useCreateMedia();
-  const invalidateSessionlessDrafts = useInvalidateSessionlessDrafts(spotId);
+  const invalidateMyDrafts = useInvalidateMyDrafts();
 
   // ========================================================================
   // UPLOAD ORCHESTRATION - How uploads happen (implementation)
-  // Defined first so business-logic callbacks can reference processUpload without stale closures.
   // ========================================================================
 
   const processUpload = useCallback(async (
@@ -38,11 +33,9 @@ export const useUploadManager = (
   ) => {
     if (!file) return;
 
-    const pipeline = createPipeline(id, spotId, sessionId, { signCloudinary, createMedia });
+    const pipeline = createPipeline(id, { signCloudinary, createMedia });
     let mediaItem: MediaItem;
 
-    // True if the item was removed from the queue (user discarded or cancelled) while we were awaiting.
-    // Safe to call at any await boundary — reads live store state, not a stale closure.
     const isDiscarded = () => !useUploadStore.getState().uploadQueue.find(i => i.id === id);
 
     try {
@@ -56,13 +49,10 @@ export const useUploadManager = (
       let cloudResult;
 
       if (existingCloudinaryResult) {
-        // Retry scenario: reuse existing Cloudinary upload
         cloudResult = existingCloudinaryResult;
         store.updateItem(id, { status: 'saving', progress: 100 });
       } else {
-        // Normal flow: sign → upload → save
         cloudResult = await uploadNewFile(id, file, pipeline);
-        // Item may have been removed while Cloudinary upload was in-flight (signing/uploading race).
         if (isDiscarded()) {
           void deleteOrphanAsset({ publicId: cloudResult.publicId, resourceType: cloudResult.resource_type });
           return;
@@ -71,47 +61,37 @@ export const useUploadManager = (
       }
 
       mediaItem = await pipeline.saveToDatabase(cloudResult, exifData);
-      // Item may have been removed while DB write was in-flight (saving race).
       if (isDiscarded()) {
         void deleteMedia({ id: mediaItem.id });
         return;
       }
       pipeline.complete(mediaItem.id, mediaItem.capturedAt ?? undefined);
-      void invalidateSessionlessDrafts();
+      void invalidateMyDrafts();
     } catch (error: unknown) {
       const errorMessage = pipeline.handleError(error);
 
       if (errorMessage) {
         notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
       }
-
     }
-  }, [spotId, sessionId, signCloudinary, createMedia, invalidateSessionlessDrafts, deleteOrphanAsset, deleteMedia]);
+  }, [signCloudinary, createMedia, invalidateMyDrafts, deleteOrphanAsset, deleteMedia]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
   // ========================================================================
 
-  /**
-   * User selects files to upload
-   */
   const addFiles = useCallback((files: File[]) => {
     const store = useUploadStore.getState();
-    const newItems = createPendingItems(files, spotId, sessionId);
+    const newItems = createPendingItems(files);
     store.addToQueue(newItems);
     newItems.forEach(item => processUpload(item.id, item.file));
-  }, [spotId, sessionId, processUpload]);
+  }, [processUpload]);
 
-  /**
-   * User cancels an upload (only aborts, doesn't delete from DB)
-   * Used during "Cancel Uploads" to avoid race conditions with completing uploads
-   */
   const cancelUpload = useCallback(async (id: string) => {
     const store = useUploadStore.getState();
     const item = store.uploadQueue.find(i => i.id === id);
     if (!item) return;
 
-    // Only abort if still uploading - don't delete completed items from DB
     await abortIfUploading(item);
     revokeBlobUrl(item.previewUrl);
     store.removeItem(id);
@@ -119,15 +99,15 @@ export const useUploadManager = (
 
   /**
    * User removes an upload (in-progress, completed, or server-only draft).
-   * Dispatches on card.kind — no Zustand-lookup-as-proxy-for-type-inference.
+   * Dispatches on kind — reads live store state to avoid stale snapshot.
    */
-  const remove = useCallback(async (card: GalleryCard) => {
-    if (card.kind === 'draft') {
+  const remove = useCallback(async (kind: GalleryCard['kind'], id: string) => {
+    if (kind === 'draft') {
       try {
-        await deleteMedia({ id: card.result.id });
+        await deleteMedia({ id });
         // Clean up any lingering Zustand completed item that references this DB row.
         const store = useUploadStore.getState();
-        const lingering = store.uploadQueue.find(i => i.mediaId === card.result.id);
+        const lingering = store.uploadQueue.find(i => i.mediaId === id);
         if (lingering) {
           revokeBlobUrl(lingering.previewUrl);
           store.removeItem(lingering.id);
@@ -138,19 +118,17 @@ export const useUploadManager = (
       return;
     }
 
-    // kind: 'uploading'
-    // Re-read from the store to get live state — card.pipelineItem is a render snapshot
-    // and may be stale if status transitioned (e.g. uploading → error) between render and click.
-    const item = useUploadStore.getState().uploadQueue.find(i => i.id === card.pipelineItem.id) ?? card.pipelineItem;
+    // kind: 'uploading' — re-read live state; id = item.mediaId ?? item.id
+    const item = useUploadStore.getState().uploadQueue.find(i => i.mediaId === id || i.id === id);
+    if (!item) return;
+
     await abortIfUploading(item);
 
-    // Cloudinary upload succeeded but DB save never reached the server — orphaned asset
     if (isOrphanAsset(item)) {
       deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type })
         .catch(() => notify.error('Failed to clean up upload — please contact support', 'Cleanup Error'));
     }
 
-    // If completed, delete from DB
     if (item.status === 'completed' && item.mediaId) {
       try {
         await deleteMedia({ id: item.mediaId });
@@ -163,9 +141,6 @@ export const useUploadManager = (
     useUploadStore.getState().removeItem(item.id);
   }, [deleteMedia, deleteOrphanAsset]);
 
-  /**
-   * User retries a failed upload
-   */
   const retry = useCallback((id: string) => {
     const store = useUploadStore.getState();
     const item = store.uploadQueue.find(i => i.id === id);
@@ -181,8 +156,7 @@ export const useUploadManager = (
 
   /**
    * User discards everything (Discard button in upload modal).
-   * Dispatches per-card cleanup via card.kind — no separate classification pass.
-   * allCards is the full merged gallery list so server-only drafts are also deleted.
+   * Re-reads live item state from store to avoid stale pipelineItem snapshot.
    */
   const discardAll = useCallback((allCards: GalleryCard[]) => {
     const store = useUploadStore.getState();
@@ -191,7 +165,7 @@ export const useUploadManager = (
       if (card.kind === 'draft') {
         void deleteMedia({ id: card.result.id });
       } else {
-        const item = card.pipelineItem;
+        const item = store.uploadQueue.find(i => i.id === card.pipelineItem.id) ?? card.pipelineItem;
         revokeBlobUrl(item.previewUrl);
         if (isUploading(item.status)) {
           try { item.abortUpload?.(); } catch { /* abort errors expected */ }
@@ -220,22 +194,15 @@ export const useUploadManager = (
 };
 
 // ===========================================================================
-// MODULE-LEVEL HELPERS - No hook deps; accept all inputs as explicit params
+// MODULE-LEVEL HELPERS
 // ===========================================================================
 
 function createPipeline(
   id: string,
-  spotId: string,
-  sessionId: string | null,
-  client: Parameters<typeof createUploadPipeline>[3],
+  client: Parameters<typeof createUploadPipeline>[1],
 ) {
   return createUploadPipeline(
-    spotId,
-    sessionId,
-    (updates) => {
-      // Update store even if component unmounted (background uploads).
-      useUploadStore.getState().updateItem(id, updates);
-    },
+    (updates) => { useUploadStore.getState().updateItem(id, updates); },
     client,
   );
 }
@@ -268,14 +235,12 @@ function canRetry(item: UploadItem | undefined) {
 }
 
 // ===========================================================================
-// PURE FUNCTIONS - No side effects, easy to test
+// PURE FUNCTIONS
 // ===========================================================================
 
-function createPendingItems(files: File[], spotId: string, sessionId: string | null): UploadItem[] {
+function createPendingItems(files: File[]): UploadItem[] {
   return files.map((file) => ({
     id: uuidv4(),
-    spotId,
-    sessionId,
     file,
     previewUrl: URL.createObjectURL(file),
     status: 'pending' as const,

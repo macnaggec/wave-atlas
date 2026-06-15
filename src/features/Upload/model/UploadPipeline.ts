@@ -14,8 +14,6 @@ type SignatureData = {
 };
 
 type CreateMediaInput = {
-  spotId: string;
-  sessionId?: string;
   cloudinaryResult: CloudinaryResult;
   capturedAt?: Date;
 };
@@ -26,8 +24,6 @@ type PipelineDeps = {
 };
 
 export function createUploadPipeline(
-  spotId: string,
-  sessionId: string | null,
   updateStatus: (updates: Partial<UploadItem>) => void,
   deps: PipelineDeps,
 ) {
@@ -68,8 +64,6 @@ export function createUploadPipeline(
   ): Promise<MediaItem> {
     updateStatus({ status: 'saving', progress: 100 });
     const mediaItem = await deps.createMedia({
-      spotId,
-      ...(sessionId !== null ? { sessionId } : {}),
       cloudinaryResult: cloudResult,
       capturedAt: exifData.capturedAt ?? undefined,
     });

@@ -7,15 +7,13 @@ import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
-function assertPriceFloor(price: number | undefined): void {
-  if (price !== undefined && price < MIN_MEDIA_PRICE_CENTS) {
+function assertPriceFloor(price: number | null | undefined): void {
+  if (price != null && price < MIN_MEDIA_PRICE_CENTS) {
     throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
   }
 }
 
 export type CreateMediaInput = {
-  spotId: string;
-  sessionId?: string;
   cloudinaryResult: {
     publicId: string;
     thumbnailUrl: string;
@@ -23,7 +21,6 @@ export type CreateMediaInput = {
     resource_type: string;
   };
   capturedAt?: Date;
-  price?: number;
 };
 
 export type UpdateMediaInput = {
@@ -38,8 +35,6 @@ export type UpdateBatchInput = {
 };
 
 export type RegisterDriveImportInput = {
-  spotId: string;
-  sessionId?: string;
   remoteFileId: string;
   mimeType: string;
   accessToken: string;
@@ -74,15 +69,12 @@ export class MediaService {
 
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
     return this.media.createMedia({
-      spotId: input.spotId,
-      sessionId: input.sessionId,
       photographerId: userId,
       resource_type: input.cloudinaryResult.resource_type as 'image' | 'video',
       cloudinaryPublicId: input.cloudinaryResult.publicId,
       thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
       lightboxUrl: input.cloudinaryResult.lightboxUrl,
       capturedAt: input.capturedAt ?? new Date(),
-      price: input.price ?? MIN_MEDIA_PRICE_CENTS,
       status: MEDIA_STATUS.DRAFT,
     });
   }
@@ -100,15 +92,12 @@ export class MediaService {
 
     try {
       return await this.media.createMedia({
-        spotId: input.spotId,
-        sessionId: input.sessionId,
         photographerId: userId,
         resource_type: resource_type as 'image' | 'video',
         cloudinaryPublicId: publicId,
         thumbnailUrl,
         lightboxUrl,
         capturedAt: new Date(),
-        price: MIN_MEDIA_PRICE_CENTS,
         status: MEDIA_STATUS.DRAFT,
       });
     } catch (err) {
@@ -193,8 +182,12 @@ export class MediaService {
     await this.media.updateManyMedia(mediaIds, updateData);
   }
 
-  async getSessionlessDrafts(userId: string, spotId: string): Promise<MediaItem[]> {
-    return this.media.findSessionlessDraftsBySpot(userId, spotId);
+  async getMyDrafts(userId: string): Promise<MediaItem[]> {
+    return this.media.findDraftsByUser(userId);
+  }
+
+  async hasDrafts(userId: string): Promise<boolean> {
+    return this.media.hasDraftsByUser(userId);
   }
 
   /**
@@ -205,7 +198,7 @@ export class MediaService {
   private async fetchOwnedBatch(
     userId: string,
     mediaIds: string[],
-  ): Promise<{ id: string; status: string; price: number; photographerId: string }[]> {
+  ): Promise<{ id: string; status: string; price: number | null; photographerId: string }[]> {
     const items = await this.media.findByIds(mediaIds);
 
     const found = new Set(items.map((i) => i.id));

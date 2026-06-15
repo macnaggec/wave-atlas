@@ -1,4 +1,4 @@
-import { MediaStatus, SurfSessionStatus } from '@prisma/client';
+import { MediaStatus, MediaType, SurfSessionStatus } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'shared/errors/PrismaErrorMapper';
 import { mapToMediaItem } from './mappers';
@@ -15,9 +15,12 @@ export type CreateSurfSessionData = {
 export type CreateAndPublishData = CreateSurfSessionData & {
   /** IDs of the specific unlinked DRAFT MediaItems to attach and publish. */
   mediaIds: string[];
+  /** Price in cents applied to all photo items. */
+  photoPrice: number;
+  /** Price in cents applied to all video items. */
+  videoPrice: number;
 };
 
-export type { SurfSessionItem, SurfSessionPage };
 
 export class SurfSessionRepository {
   create(data: CreateSurfSessionData): Promise<{ id: string; spotId: string; startsAt: Date; endsAt: Date }> {
@@ -40,7 +43,7 @@ export class SurfSessionRepository {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: {
-          sessionId,
+          sessionMedia: { some: { sessionId } },
           photographerId,
           status: MediaStatus.DRAFT,
           deletedAt: null,
@@ -69,13 +72,17 @@ export class SurfSessionRepository {
         orderBy: { createdAt: 'desc' },
         include: {
           spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { status: MediaStatus.PUBLISHED, deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
+          sessionMedia: {
+            where: { media: { status: MediaStatus.PUBLISHED, deletedAt: null } },
+            orderBy: { media: { capturedAt: 'asc' } },
             take: 1,
-            select: { thumbnailUrl: true, cloudinaryPublicId: true },
+            include: { media: { select: { thumbnailUrl: true, cloudinaryPublicId: true } } },
           },
-          _count: { select: { mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } } } },
+          _count: {
+            select: {
+              sessionMedia: { where: { media: { status: MediaStatus.PUBLISHED, deletedAt: null } } },
+            },
+          },
         },
       });
 
@@ -89,8 +96,8 @@ export class SurfSessionRepository {
         status: row.status,
         createdAt: row.createdAt,
         spot: row.spot,
-        thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-        mediaCount: row._count.mediaItems,
+        thumbnailUrl: row.sessionMedia[0]?.media.thumbnailUrl ?? null,
+        mediaCount: row._count.sessionMedia,
       }));
 
       return {
@@ -107,17 +114,14 @@ export class SurfSessionRepository {
         orderBy: { createdAt: 'desc' },
         include: {
           spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
+          sessionMedia: {
+            where: { media: { deletedAt: null } },
+            orderBy: { media: { capturedAt: 'asc' } },
             take: 1,
-            select: { thumbnailUrl: true, cloudinaryPublicId: true },
+            include: { media: { select: { thumbnailUrl: true, cloudinaryPublicId: true } } },
           },
           _count: {
-            // Count all non-deleted items (not just published) so draft sessions show their item count
-            select: {
-              mediaItems: { where: { deletedAt: null } },
-            },
+            select: { sessionMedia: { where: { media: { deletedAt: null } } } },
           },
         },
       });
@@ -131,15 +135,17 @@ export class SurfSessionRepository {
         status: row.status,
         createdAt: row.createdAt,
         spot: row.spot,
-        thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-        mediaCount: row._count.mediaItems,
+        thumbnailUrl: row.sessionMedia[0]?.media.thumbnailUrl ?? null,
+        mediaCount: row._count.sessionMedia,
       }));
     });
   }
 
   /**
-   * Creates a session and atomically attaches + publishes the specified DRAFT media items.
-   * Scoped to explicit mediaIds to avoid sweeping unrelated orphaned drafts for the spot.
+   * Creates a session and atomically:
+   * - Links draft MediaItems via SessionMedia join rows
+   * - Sets spotId and price (by type) on each item
+   * - Publishes items and session
    */
   createAndPublish(data: CreateAndPublishData): Promise<{ id: string }> {
     return runQuery(() =>
@@ -155,16 +161,39 @@ export class SurfSessionRepository {
           select: { id: true },
         });
 
-        await tx.mediaItem.updateMany({
+        // Fetch types for type-specific price assignment
+        const items = await tx.mediaItem.findMany({
           where: {
             id: { in: data.mediaIds },
             photographerId: data.photographerId,
-            sessionId: null,
             status: MediaStatus.DRAFT,
             deletedAt: null,
           },
-          data: { sessionId: session.id, status: MediaStatus.PUBLISHED },
+          select: { id: true, type: true },
         });
+
+        // Create SessionMedia join rows
+        await tx.sessionMedia.createMany({
+          data: items.map((item) => ({ sessionId: session.id, mediaId: item.id })),
+        });
+
+        // Publish photos
+        const photoIds = items.filter((i) => i.type === MediaType.PHOTO).map((i) => i.id);
+        if (photoIds.length > 0) {
+          await tx.mediaItem.updateMany({
+            where: { id: { in: photoIds } },
+            data: { spotId: data.spotId, price: data.photoPrice, status: MediaStatus.PUBLISHED },
+          });
+        }
+
+        // Publish videos
+        const videoIds = items.filter((i) => i.type === MediaType.VIDEO).map((i) => i.id);
+        if (videoIds.length > 0) {
+          await tx.mediaItem.updateMany({
+            where: { id: { in: videoIds } },
+            data: { spotId: data.spotId, price: data.videoPrice, status: MediaStatus.PUBLISHED },
+          });
+        }
 
         return { id: session.id };
       }),
@@ -177,13 +206,17 @@ export class SurfSessionRepository {
         where: { id: sessionId },
         include: {
           spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { status: MediaStatus.PUBLISHED, deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
+          sessionMedia: {
+            where: { media: { status: MediaStatus.PUBLISHED, deletedAt: null } },
+            orderBy: { media: { capturedAt: 'asc' } },
             take: 1,
-            select: { thumbnailUrl: true, cloudinaryPublicId: true },
+            include: { media: { select: { thumbnailUrl: true, cloudinaryPublicId: true } } },
           },
-          _count: { select: { mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } } } },
+          _count: {
+            select: {
+              sessionMedia: { where: { media: { status: MediaStatus.PUBLISHED, deletedAt: null } } },
+            },
+          },
         },
       });
       if (!row) return null;
@@ -196,8 +229,8 @@ export class SurfSessionRepository {
         status: row.status,
         createdAt: row.createdAt,
         spot: row.spot,
-        thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-        mediaCount: row._count.mediaItems,
+        thumbnailUrl: row.sessionMedia[0]?.media.thumbnailUrl ?? null,
+        mediaCount: row._count.sessionMedia,
       };
     });
   }
@@ -207,7 +240,12 @@ export class SurfSessionRepository {
     return runQuery(() =>
       prisma.$transaction(async (tx) => {
         await tx.mediaItem.updateMany({
-          where: { sessionId, photographerId, status: MediaStatus.DRAFT, deletedAt: null },
+          where: {
+            sessionMedia: { some: { sessionId } },
+            photographerId,
+            status: MediaStatus.DRAFT,
+            deletedAt: null,
+          },
           data: { status: MediaStatus.PUBLISHED },
         });
 
@@ -216,9 +254,13 @@ export class SurfSessionRepository {
           data: { status: SurfSessionStatus.PUBLISHED },
         });
 
-        // updateMany doesn't return records — fetch the published ids within the same transaction
         const published = await tx.mediaItem.findMany({
-          where: { sessionId, photographerId, status: MediaStatus.PUBLISHED, deletedAt: null },
+          where: {
+            sessionMedia: { some: { sessionId } },
+            photographerId,
+            status: MediaStatus.PUBLISHED,
+            deletedAt: null,
+          },
           select: { id: true },
         });
 

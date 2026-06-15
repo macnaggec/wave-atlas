@@ -8,7 +8,7 @@ import { getErrorMessage } from 'shared/lib/getErrorMessage';
  *
  * Single source of truth for:
  * - tRPC delete call
- * - myUploads + myDraftCounts query invalidation
+ * - myUploads + myDraftCounts + myDrafts query invalidation
  * - error notification
  */
 export function useDeleteMedia() {
@@ -20,7 +20,7 @@ export function useDeleteMedia() {
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
-        void queryClient.invalidateQueries({ queryKey: trpc.media.sessionlessDrafts.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
       },
       onError: (err) => {
         notify.error(getErrorMessage(err), 'Delete Failed');

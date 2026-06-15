@@ -10,7 +10,7 @@ import DraftCard from '../cards/DraftCard';
 interface UploadCardRendererProps {
   item: GalleryCard;
   /** Called when the user clicks the remove (X) button */
-  onRemove?: (card: GalleryCard) => void;
+  onRemove?: (kind: GalleryCard['kind'], id: string) => void;
   /** Callback to retry failed upload */
   onRetry?: (id: string) => void;
   /** Whether the item has a date validation error (computed by parent) */
@@ -82,7 +82,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
       className={classes.actionBtn}
       onClick={(e) => {
         e.stopPropagation();
-        onRemove(item);
+        onRemove(item.kind, item.id);
       }}
     >
       <IconX style={{ width: rem(12), height: rem(12) }} />
@@ -124,9 +124,11 @@ function renderDraftOverlay(mediaItem: MediaItem) {
     badges.push(<Badge key="drive" size="sm" color="blue" variant="light">Drive</Badge>);
   }
 
-  badges.push(
-    <Badge key="price" size="sm" color="green" variant="filled">{formatPrice(mediaItem.price)}</Badge>
-  );
+  if (mediaItem.price != null) {
+    badges.push(
+      <Badge key="price" size="sm" color="green" variant="filled">{formatPrice(mediaItem.price)}</Badge>
+    );
+  }
 
   if (formattedDate) {
     badges.push(<Badge key="date" size="sm" color="blue" variant="filled">{formattedDate}</Badge>);

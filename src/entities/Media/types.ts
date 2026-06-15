@@ -9,11 +9,12 @@ import type { Cents } from 'shared/types/coordinates';
 export interface MediaItem {
   id: string;
   photographerId: string;
-  spotId: string;
+  /** Null on drafts; set at publish time. */
+  spotId: string | null;
   capturedAt: Date;
   dateSource?: 'exif' | 'fallback'; // Track if date came from EXIF metadata
-  /** Price in cents (e.g. 300 = $3.00) */
-  price: Cents;
+  /** Price in cents (e.g. 300 = $3.00). Null on drafts; set at publish time. */
+  price: Cents | null;
   lightboxUrl: string;
   thumbnailUrl: string;
   cloudinaryPublicId: string;

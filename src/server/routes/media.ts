@@ -71,7 +71,6 @@ export const mediaRouter = router({
     .input(registerDriveImportSchema)
     .mutation(({ input, ctx }) => mediaService.registerDriveImport(ctx.user.id, input)),
 
-  sessionlessDrafts: protectedProcedure
-    .input(z.object({ spotId: z.uuid() }))
-    .query(({ input, ctx }) => mediaService.getSessionlessDrafts(ctx.user.id, input.spotId)),
+  myDrafts: protectedProcedure
+    .query(({ ctx }) => mediaService.getMyDrafts(ctx.user.id)),
 });

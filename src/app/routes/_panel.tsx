@@ -65,8 +65,8 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.some(i => i.status !== 'cancelled'));
   const uploadSpotId = useUploadStore((s) => s.uploadSpotId);
   const { data: draftCounts } = useMyDraftCounts();
-  const hasDrafts = hasQueuedUploads || (draftCounts?.some((d) => d.count > 0) ?? false);
-  const resumeSpotId = uploadSpotId ?? draftCounts?.[0]?.spotId;
+  const hasDrafts = hasQueuedUploads || (draftCounts?.hasDrafts ?? false);
+  const resumeSpotId = uploadSpotId;
 
   const cartMatch = matches.find((match) => match.routeId === '/_panel/cart');
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
@@ -231,7 +231,13 @@ function PanelFrame({ children }: { children: ReactNode }) {
         expanded={isExpanded}
         onExpandToggle={forceExpanded || uploadMatch ? undefined : () => setExpanded((prev) => !prev)}
         onBack={
-          forceExpanded
+          uploadMatch
+            ? () => {
+                const search = uploadMatch.search as { spotId?: string };
+                if (search.spotId) void navigate({ to: '/$spotId', params: { spotId: search.spotId } });
+                else void navigate({ to: '/' });
+              }
+            : forceExpanded
             ? () => {
                 if (sessionDetailMatch) router.history.back();
                 else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
@@ -239,6 +245,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
               }
             : undefined
         }
+        hideClose={!!uploadMatch}
         header={header}
         subheader={subheader}
       >

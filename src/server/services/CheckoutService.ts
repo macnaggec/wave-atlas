@@ -33,7 +33,7 @@ export class CheckoutService {
     itemIds: string[],
   ): Promise<{ checkoutUrl: string; orderId: string }> {
     const mediaItems = await this.fetchAndValidateCartItems(buyerId, itemIds);
-    const totalCents = mediaItems.reduce((sum, item) => sum + item.price, 0);
+    const totalCents = mediaItems.reduce((sum, item) => sum + (item.price ?? 0), 0);
 
     const order = await this.orders.createOrder({
       buyerId,
@@ -87,37 +87,6 @@ export class CheckoutService {
     const purchase = await this.purchases.findByBuyerAndMedia(buyerId, mediaItemId);
 
     if (!purchase) throw new ForbiddenError('You have not purchased this item');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
-  }
-
-  /**
-   * Token-based download access for guest purchases.
-   * The downloadToken is the proof of purchase — no auth required.
-   * Used for email-delivered download links (backlog item 51).
-   */
-  async generateDownloadAccessByToken(
-    downloadToken: string,
-  ): Promise<{ downloadUrl: string; expiresAt: number }> {
-    const purchase = await this.purchases.findByDownloadToken(downloadToken);
-
-    if (!purchase) throw new ForbiddenError('Invalid or expired download token');
-
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
-  }
-
-  /**
-   * Download access for guest purchases via purchaseId + orderId.
-   * The orderId in the URL is the proof of access — tokens never leave the DB.
-   * Security: orderId in WHERE clause acts as ownership check (purchase must belong to that order).
-   */
-  async getGuestDownloadAccess(
-    purchaseId: string,
-    orderId: string,
-  ): Promise<{ downloadUrl: string; expiresAt: number }> {
-    const purchase = await this.purchases.findByIdAndOrder(purchaseId, orderId);
-
-    if (!purchase) throw new ForbiddenError('Purchase not found');
 
     return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
   }

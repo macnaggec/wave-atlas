@@ -1,7 +1,7 @@
 import React, { FC, memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { Box, Button, Divider, Group, Loader, Menu, Modal, NumberInput, rem, Text } from '@mantine/core';
+import { Box, Button, Divider, Group, Loader, Menu, Modal, rem, Text, ThemeIcon } from '@mantine/core';
 import { IconAlertCircle, IconArrowRight, IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
-import { GalleryCard, getItemId, isVideoItem } from '../../model';
+import { GalleryCard, getItemId } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { UploadCardRenderer } from './UploadCardRenderer';
@@ -11,115 +11,61 @@ import { handleFileSelection } from '../../lib/fileSelection';
 export interface StepModeModalProps {
   items: GalleryCard[];
   hasActiveUploads: boolean;
+  filesErrorTick?: number;
   selection: UseGallerySelectionReturn<GalleryCard>;
-  onProceed: (count: number) => void;
+  onProceed?: (count: number) => void;
   /** Required — ensures Cloudinary cleanup path is never silently dropped. */
   onDiscardAll: (cards: GalleryCard[]) => void;
-  onRemove: (card: GalleryCard) => Promise<void>;
-  onCancelAll?: () => void;
+  onRemove: (kind: GalleryCard['kind'], id: string) => Promise<void>;
   onAddFiles?: (files: File[]) => void;
-  onBulkPriceEdit?: (selectedIds: string[], price: number) => void;
   onRetry?: (id: string) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
-  onPricesChange?: (photoPrice?: number, videoPrice?: number) => void;
-  hideZone?: boolean;
-  externalModalOpen?: boolean;
-  onModalOpenChange?: (open: boolean) => void;
 }
 
-const StepModeModal: FC<StepModeModalProps> = memo(({
+export const StepModeModal: FC<StepModeModalProps> = memo(({
   items,
   hasActiveUploads,
+  filesErrorTick,
   selection,
   onProceed,
   onDiscardAll,
   onRemove,
-  onCancelAll,
   onAddFiles,
-  onBulkPriceEdit,
   onRetry,
   onDriveImport,
   driveLoading,
-  onPricesChange,
-  hideZone = false,
-  externalModalOpen,
-  onModalOpenChange,
 }) => {
   const completedItems = useMemo(
     () => items.filter(card => card.kind === 'draft' || (card.kind === 'uploading' && card.pipelineItem.status === 'completed')),
     [items]
   );
 
-  const photoCompletedItems = useMemo(
-    () => completedItems.filter(card => !isVideoItem(card)),
-    [completedItems]
-  );
-  const videoCompletedItems = useMemo(
-    () => completedItems.filter(card => isVideoItem(card)),
-    [completedItems]
-  );
-
-  const hasPhotoItems = useMemo(() => items.some(card => !isVideoItem(card)), [items]);
-  const hasVideoItems = useMemo(() => items.some(card => isVideoItem(card)), [items]);
-
-  // ========================================================================
-  // TYPE-SPECIFIC PRICE CONTROLS
-  // ========================================================================
-
-  const [photoDisplayPrice, setPhotoDisplayPrice] = useState<number | string>(3);
-  const [videoDisplayPrice, setVideoDisplayPrice] = useState<number | string>(3);
-
-  const photoSynced = useRef(false);
-  const videoSynced = useRef(false);
-  const serverPhotoPrice = photoCompletedItems.find(card => card.result?.price !== undefined)?.result?.price;
-  const serverVideoPrice = videoCompletedItems.find(card => card.result?.price !== undefined)?.result?.price;
-  useEffect(() => {
-    if (!photoSynced.current && serverPhotoPrice !== undefined) {
-      setPhotoDisplayPrice(serverPhotoPrice / 100);
-      photoSynced.current = true;
-    }
-  }, [serverPhotoPrice]);
-  useEffect(() => {
-    if (!videoSynced.current && serverVideoPrice !== undefined) {
-      setVideoDisplayPrice(serverVideoPrice / 100);
-      videoSynced.current = true;
-    }
-  }, [serverVideoPrice]);
-
-  const handlePhotoDisplayPriceChange = useCallback((val: number | string) => {
-    setPhotoDisplayPrice(val);
-    const p = typeof val === 'number' ? val : parseFloat(String(val));
-    if (!isNaN(p) && p > 0) onPricesChange?.(p, undefined);
-  }, [onPricesChange]);
-
-  const handleVideoDisplayPriceChange = useCallback((val: number | string) => {
-    setVideoDisplayPrice(val);
-    const p = typeof val === 'number' ? val : parseFloat(String(val));
-    if (!isNaN(p) && p > 0) onPricesChange?.(undefined, p);
-  }, [onPricesChange]);
-
   // ========================================================================
   // MODAL OPEN STATE
   // ========================================================================
 
   const [internalModalOpen, setInternalModalOpen] = useState(false);
-  const effectiveModalOpen = externalModalOpen !== undefined ? externalModalOpen : internalModalOpen;
-  const onModalOpenChangeRef = useRef(onModalOpenChange);
-  onModalOpenChangeRef.current = onModalOpenChange;
   const handleModalChange = useCallback((open: boolean) => {
     setInternalModalOpen(open);
-    onModalOpenChangeRef.current?.(open);
   }, []);
 
-  // Guard: only fire handleModalChange(false) when the modal was previously shown,
-  // not on the very first render — prevents callers from reacting to the initial false signal.
-  const hasBeenShownRef = useRef(false);
+  const [isFlashing, setIsFlashing] = useState(false);
+  const prevTickRef = useRef(0);
   useEffect(() => {
-    if (items.length > 0) {
-      hasBeenShownRef.current = true;
+    if (filesErrorTick && filesErrorTick !== prevTickRef.current && items.length === 0) {
+      prevTickRef.current = filesErrorTick;
+      setIsFlashing(true);
+    }
+  }, [filesErrorTick, items.length]);
+
+  const prevItemsLengthRef = useRef(items.length);
+  useEffect(() => {
+    const prev = prevItemsLengthRef.current;
+    prevItemsLengthRef.current = items.length;
+    if (items.length > 0 && prev === 0) {
       handleModalChange(true);
-    } else if (hasBeenShownRef.current) {
+    } else if (items.length === 0 && prev > 0) {
       handleModalChange(false);
     }
   }, [items.length]);
@@ -146,12 +92,12 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const handleCancelAll = useCallback(() => {
     onDiscardAll(items);
-    onCancelAll?.();
-  }, [items, onDiscardAll, onCancelAll]);
+    handleModalChange(false);
+  }, [items, onDiscardAll, handleModalChange]);
 
   const handleBulkDelete = useCallback(
     async (selectedCards: GalleryCard[]) => {
-      await Promise.all(selectedCards.map(card => onRemove(card)));
+      await Promise.all(selectedCards.map(card => onRemove(card.kind, card.id)));
       selection.clearSelection();
     },
     [onRemove, selection.clearSelection]
@@ -180,7 +126,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
         <UploadCardRenderer
           item={card}
           onRetry={onRetry}
-          onRemove={context.isSelectionMode ? undefined : onRemove}
+          onRemove={context.isSelectionMode ? undefined : (kind, id) => onRemove(kind, id)}
           hideRemove={isSaving}
           hasDateError={hasDateError}
         />
@@ -199,26 +145,11 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
     [items]
   );
   const canProceed = !hasActiveUploads && !hasImporting && completedItems.length > 0 && errorCards.length === 0;
-  const completedCount = canProceed ? completedItems.length : 0;
 
   const handleContinue = useCallback(() => {
-    if (onBulkPriceEdit) {
-      const pp = typeof photoDisplayPrice === 'number' ? photoDisplayPrice : parseFloat(String(photoDisplayPrice));
-      const vp = typeof videoDisplayPrice === 'number' ? videoDisplayPrice : parseFloat(String(videoDisplayPrice));
-      const photoIds = photoCompletedItems.map(card => getItemId(card));
-      const videoIds = videoCompletedItems.map(card => getItemId(card));
-      if (photoIds.length > 0 && !isNaN(pp) && pp > 0) {
-        void onBulkPriceEdit(photoIds, pp);
-        onPricesChange?.(pp, undefined);
-      }
-      if (videoIds.length > 0 && !isNaN(vp) && vp > 0) {
-        void onBulkPriceEdit(videoIds, vp);
-        onPricesChange?.(undefined, vp);
-      }
-    }
     handleModalChange(false);
-    onProceed(completedCount);
-  }, [photoDisplayPrice, videoDisplayPrice, photoCompletedItems, videoCompletedItems, onBulkPriceEdit, onPricesChange, handleModalChange, onProceed, completedCount]);
+    onProceed?.(completedItems.length);
+  }, [handleModalChange, onProceed, completedItems.length]);
 
   // ========================================================================
   // RENDER
@@ -231,10 +162,10 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const modal = (
     <Modal
-      opened={effectiveModalOpen && items.length > 0}
+      opened={internalModalOpen && items.length > 0}
       onClose={() => {
         handleModalChange(false);
-        if (items.length > 0 && completedCount > 0) onProceed(completedCount);
+        if (items.length > 0 && canProceed) onProceed?.(completedItems.length);
       }}
       closeOnClickOutside={false}
       closeOnEscape={false}
@@ -279,54 +210,12 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
             items={items}
             getId={getItemId}
             selection={selection}
-            toolbar={onBulkPriceEdit ? (
+            toolbar={
               <SelectionToolbar
                 selection={selection}
                 renderActions={renderActions}
-                renderContent={() => (
-                  <Group gap="xs" align="center">
-                    {hasPhotoItems && (
-                      <NumberInput
-                        size="xs"
-                        leftSection={<IconPhoto size={12} style={{ color: 'rgba(255,255,255,0.45)' }} />}
-                        value={photoDisplayPrice}
-                        onChange={handlePhotoDisplayPriceChange}
-                        min={3}
-                        step={1}
-                        decimalScale={0}
-                        prefix="$"
-                        placeholder="Free"
-                        w={90}
-                        styles={{
-                          input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' },
-                          controls: { borderLeft: '1px solid rgba(255,255,255,0.08)' },
-                          control: { borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.35)' },
-                        }}
-                      />
-                    )}
-                    {hasVideoItems && (
-                      <NumberInput
-                        size="xs"
-                        leftSection={<IconVideo size={12} style={{ color: 'rgba(255,255,255,0.45)' }} />}
-                        value={videoDisplayPrice}
-                        onChange={handleVideoDisplayPriceChange}
-                        min={3}
-                        step={1}
-                        decimalScale={0}
-                        prefix="$"
-                        placeholder="Free"
-                        w={90}
-                        styles={{
-                          input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' },
-                          controls: { borderLeft: '1px solid rgba(255,255,255,0.08)' },
-                          control: { borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.35)' },
-                        }}
-                      />
-                    )}
-                  </Group>
-                )}
               />
-            ) : undefined}
+            }
             renderCard={renderCard}
             columns={3}
           />
@@ -366,7 +255,7 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
               style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)', color: '#fff' }}
               onClick={handleContinue}
             >
-              Continue with {completedCount} {completedCount === 1 ? 'file' : 'files'}
+              Continue with {completedItems.length} {completedItems.length === 1 ? 'file' : 'files'}
             </Button>
           ) : errorCards.length > 0 ? (
             <Text size="xs" style={{ color: 'var(--mantine-color-orange-4)' }}>
@@ -378,56 +267,68 @@ const StepModeModal: FC<StepModeModalProps> = memo(({
     </Modal>
   );
 
-  // Indicator is rendered regardless of hideZone — hideZone only suppresses the UploadZone drop target.
-  // When externalModalOpen is provided the caller manages modal state and renders its own indicator
-  // (e.g. FilesPill in UploadSidebar); suppress ours to avoid duplication.
-  const indicator = externalModalOpen === undefined && items.length > 0 && !effectiveModalOpen ? (
-    <Group
-      px="md" py="xs" gap="xs"
-      justify="space-between"
-      onClick={() => handleModalChange(true)}
-      style={{ cursor: 'pointer' }}
-    >
-      <Group gap="xs">
-        {hasActiveUploads
-          ? <Loader size={12} />
-          : completedCount > 0
-            ? <IconCheck size={12} style={{ color: 'var(--mantine-color-green-5)' }} />
-            : <IconAlertCircle size={12} style={{ color: 'var(--mantine-color-red-5)' }} />}
-        <Text size="xs" c="dimmed">
-          {hasActiveUploads
-            ? `${uploadingCount} of ${items.length} uploading…`
-            : completedCount > 0
-              ? `${completedCount} ${completedCount === 1 ? 'file' : 'files'} ready`
-              : 'Upload failed'}
-        </Text>
-      </Group>
-      <Text size="xs" c="blue.4" fw={500}>View</Text>
-    </Group>
-  ) : null;
+  const photoCount = completedItems.filter(c => c.result?.resource?.resource_type !== 'video').length;
+  const videoCount = completedItems.filter(c => c.result?.resource?.resource_type === 'video').length;
 
-  if (hideZone) {
-    return (
-      <>
-        {indicator}
-        {modal}
-      </>
-    );
-  }
+  const sectionLabel = (
+    <Group px="md" py="sm" justify="space-between">
+      {hasActiveUploads ? (
+        <Group justify="space-between" style={{ flex: 1 }}>
+          <Group gap={6} align="center">
+            <Loader size={10} />
+            <Text size="xs" c="dimmed">{uploadingCount} uploading</Text>
+            {completedItems.length > 0 && (
+              <Text size="xs" c="dimmed" style={{ opacity: 0.55 }}>· {completedItems.length} ready</Text>
+            )}
+          </Group>
+          <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={() => handleModalChange(true)}>View</Text>
+        </Group>
+      ) : completedItems.length > 0 ? (
+        <Group justify="space-between" style={{ flex: 1 }}>
+          <Group gap={8} align="center">
+            <ThemeIcon size={22} variant="transparent" style={{ color: 'var(--mantine-color-green-5)' }}>
+              <IconCheck size={20} />
+            </ThemeIcon>
+            {photoCount > 0 && (
+              <Group gap={3} align="center">
+                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <IconPhoto size={20} />
+                </ThemeIcon>
+                <Text size="xs" c="dimmed">{photoCount}</Text>
+              </Group>
+            )}
+            {videoCount > 0 && (
+              <Group gap={3} align="center">
+                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <IconVideo size={20} />
+                </ThemeIcon>
+                <Text size="xs" c="dimmed">{videoCount}</Text>
+              </Group>
+            )}
+          </Group>
+          <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={() => handleModalChange(true)}>View</Text>
+        </Group>
+      ) : items.length > 0 ? (
+        <Text size="xs" c="red.4">Upload failed</Text>
+      ) : null}
+    </Group>
+  );
 
   return (
     <>
-      {indicator}
-      <UploadZone
-        onFilesSelected={handleAddFiles}
-        onDriveImport={onDriveImport}
-        driveLoading={driveLoading}
-      />
+      {sectionLabel}
+      {items.length === 0 && (
+        <UploadZone
+          onFilesSelected={handleAddFiles}
+          onDriveImport={onDriveImport}
+          driveLoading={driveLoading}
+          flashError={isFlashing}
+          onFlashEnd={() => setIsFlashing(false)}
+        />
+      )}
       {modal}
     </>
   );
 });
 
 StepModeModal.displayName = 'StepModeModal';
-
-export default StepModeModal;

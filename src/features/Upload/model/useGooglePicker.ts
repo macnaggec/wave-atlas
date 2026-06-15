@@ -1,7 +1,6 @@
-// src/features/Upload/model/useGooglePicker.ts
 import { useCallback, useState } from 'react';
 import { notify } from 'shared/lib/notifications';
-import { useRegisterDriveImport, useInvalidateSessionlessDrafts, useDeleteMedia } from 'entities/Media';
+import { useRegisterDriveImport, useInvalidateMyDrafts, useDeleteMedia } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
 import { UploadItem } from './types';
 
@@ -15,11 +14,9 @@ const PICKER_MIME_TYPES = [
 
 type DriveDoc = google.picker.PickerDocument;
 
-function createImportingItem(doc: DriveDoc, spotId: string, sessionId: string | null): UploadItem {
+function createImportingItem(doc: DriveDoc): UploadItem {
   return {
     id: `drive-import-${doc.id}`,
-    spotId,
-    sessionId,
     file: null,
     previewUrl: doc.thumbnails?.[0]?.url ?? doc.url ?? '',
     status: 'importing',
@@ -91,17 +88,17 @@ function buildPicker(
     .build();
 }
 
-export function useGooglePicker(spotId: string, sessionId: string | null) {
+export function useGooglePicker() {
   const [isPickerInitializing, setIsPickerInitializing] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const { mutateAsync: registerDriveImport } = useRegisterDriveImport();
   const { mutateAsync: deleteMedia } = useDeleteMedia();
-  const invalidateSessionlessDrafts = useInvalidateSessionlessDrafts(spotId);
+  const invalidateMyDrafts = useInvalidateMyDrafts();
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {
-      const skeletons = docs.map((doc) => createImportingItem(doc, spotId, sessionId));
+      const skeletons = docs.map((doc) => createImportingItem(doc));
       useUploadStore.getState().addToQueue(skeletons);
 
       let anySucceeded = false;
@@ -110,8 +107,6 @@ export function useGooglePicker(spotId: string, sessionId: string | null) {
 
         try {
           const mediaItem = await registerDriveImport({
-            spotId,
-            ...(sessionId !== null ? { sessionId } : {}),
             remoteFileId: doc.id,
             mimeType: doc.mimeType,
             accessToken,
@@ -119,7 +114,6 @@ export function useGooglePicker(spotId: string, sessionId: string | null) {
           const store = useUploadStore.getState();
           const wasCancelled = store.uploadQueue.find(i => i.id === skeleton.id)?.status === 'cancelled';
           if (wasCancelled) {
-            // discarded while import was in-flight — clean up the committed server record
             void deleteMedia({ id: mediaItem.id });
             store.removeItem(skeleton.id);
           } else {
@@ -143,9 +137,9 @@ export function useGooglePicker(spotId: string, sessionId: string | null) {
           }
         }
       }));
-      if (anySucceeded) void invalidateSessionlessDrafts();
+      if (anySucceeded) void invalidateMyDrafts();
     },
-    [registerDriveImport, deleteMedia, spotId, sessionId, invalidateSessionlessDrafts],
+    [registerDriveImport, deleteMedia, invalidateMyDrafts],
   );
 
   const trigger = useCallback(async () => {

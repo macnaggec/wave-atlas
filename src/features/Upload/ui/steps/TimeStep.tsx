@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { useUploadStore } from 'features/Upload/model';
-import type { Spot } from 'entities/Spot';
 import { minutesToTime } from './helpers';
 
 function dateToMinutes(d: Date): number {
@@ -10,17 +9,17 @@ function dateToMinutes(d: Date): number {
 }
 
 interface TimeStepProps {
-  spot: Spot;
   onChange: (date: Date | null, range: [number, number]) => void;
+  hasTriedPublish?: boolean;
 }
 
-export function TimeStep({ spot, onChange }: TimeStepProps) {
+export function TimeStep({ onChange, hasTriedPublish }: TimeStepProps) {
   const queue = useUploadStore((s) => s.uploadQueue);
   const exifDates = useMemo(() => {
     return queue
-      .filter((item) => item.spotId === spot.id && item.status === 'completed' && item.capturedAt)
+      .filter((item) => item.status === 'completed' && item.capturedAt)
       .map((item) => item.capturedAt!);
-  }, [queue, spot.id]);
+  }, [queue]);
 
   const [date, setDate] = useState<Date | null>(() => {
     if (exifDates.length === 0) return new Date();
@@ -52,9 +51,11 @@ export function TimeStep({ spot, onChange }: TimeStepProps) {
     onChange(date, newRange);
   }, [date, onChange]);
 
+  const dateError = hasTriedPublish && !date;
+
   return (
     <Stack gap={0} p="md">
-      <Text size="sm" fw={500} ta="center" mb="lg" style={{ letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>When did you shoot?</Text>
+      <Text size="sm" fw={500} ta="center" mb="lg" style={{ letterSpacing: '0.07em', textTransform: 'uppercase', color: dateError ? 'var(--mantine-color-red-5)' : 'rgba(255,255,255,0.4)' }}>When did you shoot?</Text>
 
       <Stack gap={'40px'}>
         <Center>

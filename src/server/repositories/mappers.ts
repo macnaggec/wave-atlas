@@ -13,9 +13,9 @@ export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
   return {
     id: row.id,
     photographerId: row.photographerId,
-    spotId: row.spotId,
+    spotId: row.spotId ?? null,
     capturedAt: row.capturedAt,
-    price: row.price,
+    price: row.price ?? null,
     lightboxUrl,
     thumbnailUrl,
     cloudinaryPublicId: row.cloudinaryPublicId,

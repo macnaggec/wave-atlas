@@ -81,10 +81,9 @@ model MediaItem {
   id                 String            @id @default(uuid())
   type               MediaType         @default(PHOTO)
   photographerId     String            @map("photographer_id")
-  spotId             String            @map("spot_id")
-  sessionId          String?           @map("session_id")
+  spotId             String?           @map("spot_id")
   capturedAt         DateTime          @map("captured_at")
-  price              Int
+  price              Int?
   lightboxUrl        String            @map("lightbox_url")
   cloudinaryPublicId String            @map("cloudinary_public_id")
   status             MediaStatus       @default(DRAFT)
@@ -94,12 +93,22 @@ model MediaItem {
   import_source      MediaImportSource @default(DIRECT)
   remote_file_id     String?
   photographer       User              @relation("PhotographerMedia", fields: [photographerId], references: [id])
-  spot               Spot              @relation(fields: [spotId], references: [id])
-  session            SurfSession?      @relation(fields: [sessionId], references: [id])
+  spot               Spot?             @relation(fields: [spotId], references: [id])
+  sessionMedia       SessionMedia[]
   orderItems         OrderItem[]
   purchases          Purchase[]
 
   @@map("media_items")
+}
+
+model SessionMedia {
+  sessionId String      @map("session_id")
+  mediaId   String      @map("media_id")
+  session   SurfSession @relation(fields: [sessionId], references: [id])
+  media     MediaItem   @relation(fields: [mediaId], references: [id])
+
+  @@id([sessionId, mediaId])
+  @@map("session_media")
 }
 
 model Spot {
@@ -131,9 +140,9 @@ model SurfSession {
   status         SurfSessionStatus @default(DRAFT)
   createdAt      DateTime          @default(now()) @map("created_at")
 
-  spot         Spot        @relation(fields: [spotId], references: [id])
-  photographer User        @relation("PhotographerSurfSessions", fields: [photographerId], references: [id])
-  mediaItems   MediaItem[]
+  spot         Spot           @relation(fields: [spotId], references: [id])
+  photographer User           @relation("PhotographerSurfSessions", fields: [photographerId], references: [id])
+  sessionMedia SessionMedia[]
 
   @@map("surf_sessions")
 }

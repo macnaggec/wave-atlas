@@ -20,11 +20,8 @@ export const mediaCloudinaryResultSchema = z.object({
 });
 
 export const mediaCreateSchema = z.object({
-  spotId: z.uuid(),
-  sessionId: z.uuid().optional(),
   cloudinaryResult: mediaCloudinaryResultSchema,
   capturedAt: z.coerce.date().optional(),
-  price: z.number().min(0).optional(),
 });
 
 export const mediaUpdateSchema = z.object({
@@ -51,8 +48,6 @@ export const mediaPublishSchema = z.object({
 });
 
 export const registerDriveImportSchema = z.object({
-  spotId: z.uuid(),
-  sessionId: z.uuid().optional(),
   remoteFileId: z.string().min(1),
   mimeType: z.string().min(1),
   accessToken: z.string().min(1),

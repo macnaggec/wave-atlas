@@ -13,7 +13,7 @@ export interface LightboxMedia {
   resource?: { resource_type: string };
   /** Present on PublishedMedia */
   type?: 'PHOTO' | 'VIDEO';
-  price: number;
+  price: number | null;
   capturedAt: Date;
   photographerId: string;
 }
@@ -62,17 +62,17 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
             <Group gap="xs">
               <Badge
                 size="lg"
-                variant={item.price > 0 ? 'filled' : 'light'}
-                color={item.price > 0 ? 'blue' : 'gray'}
+                variant={(item.price ?? 0) > 0 ? 'filled' : 'light'}
+                color={(item.price ?? 0) > 0 ? 'blue' : 'gray'}
               >
-                {formatPrice(item.price)}
+                {formatPrice(item.price ?? 0)}
               </Badge>
               <Text size="sm" c="dimmed">
                 {new Date(item.capturedAt).toLocaleDateString()}
               </Text>
             </Group>
 
-            {item.price > 0 && !isOwn && onCartToggle && (
+            {(item.price ?? 0) > 0 && !isOwn && onCartToggle && (
               <Button
                 variant={isInCart ? 'light' : 'subtle'}
                 color={isInCart ? 'red' : 'green'}

@@ -45,7 +45,7 @@ export function SessionDetail({ session }: SessionDetailProps) {
           capturedAt: item.capturedAt instanceof Date ? item.capturedAt.toISOString() : String(item.capturedAt),
           thumbnailUrl: item.thumbnailUrl,
           lightboxUrl: item.lightboxUrl,
-          priceCents: item.price,
+          priceCents: item.price ?? 0,
         });
       }
     },

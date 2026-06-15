@@ -1,25 +1,22 @@
 import { useMemo } from 'react';
-import { useSessionlessDrafts } from 'entities/Media';
+import { useMyDrafts } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { GalleryCard } from './types';
 
 /**
  * Merges server state (TanStack Query drafts) with client state (active Zustand uploads)
- * into a unified gallery-card view for a specific spot.
- *
- * sessionId may be null in the deferred-session flow (upload before time entry).
- * In that case draftMedia will be [] and the queue is driven purely by Zustand.
+ * into a unified gallery-card view.
  *
  * Returns GalleryCard[] — a discriminated union that keeps pipeline items and
  * server-only drafts as distinct types, never conflated via synthetic defaults.
  */
-export function useUploadQueue(spotId: string, sessionId: string | null) {
-  const { data: draftMedia = [] } = useSessionlessDrafts(spotId, { enabled: sessionId === null });
+export function useUploadQueue() {
+  const { data: draftMedia = [] } = useMyDrafts();
   const uploadQueue = useUploadStore(state => state.uploadQueue);
 
   const activeUploads = useMemo(
-    () => uploadQueue.filter(item => item.spotId === spotId && item.status !== 'cancelled'),
-    [uploadQueue, spotId]
+    () => uploadQueue.filter(item => item.status !== 'cancelled'),
+    [uploadQueue]
   );
 
   const queue = useMemo((): GalleryCard[] => {
