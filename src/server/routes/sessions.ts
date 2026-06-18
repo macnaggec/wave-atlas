@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
-import { mediaRepository } from 'server/repositories/MediaRepository';
-import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
+import { surfSessionService } from 'server/services/SurfSessionService';
+import { mediaService } from 'server/services/MediaService';
+import { MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
 
 export const sessionsRouter = router({
   /** Create a session and atomically attach + publish the specified draft media items. */
@@ -12,15 +13,17 @@ export const sessionsRouter = router({
         spotId: z.uuid(),
         startsAt: z.coerce.date(),
         endsAt: z.coerce.date(),
-        mediaIds: z.array(z.string().uuid()).min(1),
+        mediaIds: z.array(z.string().uuid()).min(1).refine(
+          (ids) => new Set(ids).size === ids.length,
+          'Duplicate media IDs are not allowed',
+        ),
         photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
         videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
       }),
     )
     .mutation(({ input, ctx }) =>
-      surfSessionRepository.createAndPublish({
+      surfSessionService.createAndPublish(ctx.user.id, {
         spotId: input.spotId,
-        photographerId: ctx.user.id,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
         mediaIds: input.mediaIds,
@@ -39,9 +42,8 @@ export const sessionsRouter = router({
       }),
     )
     .mutation(({ input, ctx }) =>
-      surfSessionRepository.create({
+      surfSessionService.create(ctx.user.id, {
         spotId: input.spotId,
-        photographerId: ctx.user.id,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
       }),
@@ -88,12 +90,12 @@ export const sessionsRouter = router({
   /** Published media items for a session. */
   media: publicProcedure
     .input(z.uuid())
-    .query(({ input: sessionId }) => mediaRepository.findPublishedBySession(sessionId)),
+    .query(({ input: sessionId }) => mediaService.findPublishedBySession(sessionId)),
 
   /** Publish all draft media in a session and mark the session as published. */
   publish: protectedProcedure
     .input(z.uuid())
     .mutation(({ input: sessionId, ctx }) =>
-      surfSessionRepository.publish(sessionId, ctx.user.id),
+      surfSessionService.publish(ctx.user.id, sessionId),
     ),
 });
