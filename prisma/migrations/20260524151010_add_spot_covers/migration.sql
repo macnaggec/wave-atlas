@@ -1,1 +1,0 @@
--- This migration was applied directly to the database; stub file created for history reconciliation.

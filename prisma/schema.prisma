@@ -90,14 +90,18 @@ model MediaItem {
   deletedAt          DateTime?         @map("deleted_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   thumbnailUrl       String            @map("thumbnail_url")
-  import_source      MediaImportSource @default(DIRECT)
-  remote_file_id     String?
+  importSource       MediaImportSource @default(DIRECT) @map("import_source")
+  remoteFileId       String?           @map("remote_file_id")
   photographer       User              @relation("PhotographerMedia", fields: [photographerId], references: [id])
   spot               Spot?             @relation(fields: [spotId], references: [id])
   sessionMedia       SessionMedia[]
   orderItems         OrderItem[]
   purchases          Purchase[]
 
+  @@index([photographerId, status, deletedAt, createdAt], map: "media_items_photographer_status_deleted_created_idx")
+  @@index([photographerId, status, deletedAt, capturedAt], map: "media_items_photographer_status_deleted_captured_idx")
+  @@index([spotId, status, deletedAt, capturedAt], map: "media_items_spot_status_deleted_captured_idx")
+  @@index([spotId, photographerId, status, deletedAt, createdAt], map: "media_items_spot_photographer_status_deleted_created_idx")
   @@map("media_items")
 }
 
@@ -118,11 +122,11 @@ model Spot {
   lat              Decimal?           @db.Decimal(10, 8)
   lng              Decimal?           @db.Decimal(11, 8)
   searchRadius     Int?               @map("search_radius")
-  status           String             @default("verified")
+  status           SpotStatus         @default(verified)
   creatorId        String?            @map("creator_id")
   createdAt        DateTime           @default(now()) @map("created_at")
   aliases          String[]
-  cover_url        String?
+  coverUrl         String?            @map("cover_url")
   mediaItems       MediaItem[]
   surfSessions     SurfSession[]
   creator          User?              @relation("UserCreatedSpots", fields: [creatorId], references: [id])
@@ -144,6 +148,9 @@ model SurfSession {
   photographer User           @relation("PhotographerSurfSessions", fields: [photographerId], references: [id])
   sessionMedia SessionMedia[]
 
+  @@index([status, createdAt], map: "surf_sessions_status_created_idx")
+  @@index([spotId, status, createdAt], map: "surf_sessions_spot_status_created_idx")
+  @@index([photographerId, createdAt], map: "surf_sessions_photographer_created_idx")
   @@map("surf_sessions")
 }
 
@@ -272,6 +279,11 @@ enum PayoutStatus {
   PROCESSING
   COMPLETED
   REJECTED
+}
+
+enum SpotStatus {
+  verified
+  unverified
 }
 
 enum MediaImportSource {
