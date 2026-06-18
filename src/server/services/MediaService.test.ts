@@ -98,3 +98,23 @@ describe('MediaService.publish — price guard', () => {
     ).rejects.toThrow(BadRequestError);
   });
 });
+
+// ---------------------------------------------------------------------------
+// updateMedia — price guard
+// ---------------------------------------------------------------------------
+
+describe('MediaService.updateMedia — price guard', () => {
+  it('throws BadRequestError when updating published media below the price floor', async () => {
+    mockMedia.findById.mockResolvedValue({
+      id: 'media-1',
+      photographerId: 'user-1',
+      status: MEDIA_STATUS.PUBLISHED,
+    });
+
+    await expect(
+      service.updateMedia('user-1', 'media-1', { price: 299 })
+    ).rejects.toThrow(BadRequestError);
+
+    expect(mockMedia.updateMedia).not.toHaveBeenCalled();
+  });
+});

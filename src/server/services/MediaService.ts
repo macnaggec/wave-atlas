@@ -1,9 +1,9 @@
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
-import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
-import type { MediaStatus, MediaItem } from 'entities/Media';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
+import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
+import type { MediaStatus, MediaItem } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
@@ -109,7 +109,10 @@ export class MediaService {
   }
 
   async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem> {
-    await this.assertOwns(userId, id);
+    const media = await this.assertOwns(userId, id);
+    if (media.status === MEDIA_STATUS.PUBLISHED) {
+      assertPriceFloor(data.price);
+    }
     return this.media.updateMedia(id, data);
   }
 
