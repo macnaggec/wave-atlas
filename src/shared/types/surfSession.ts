@@ -1,10 +1,18 @@
+export const SURF_SESSION_STATUS = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  DELETED: 'DELETED',
+} as const;
+
+export type SurfSessionStatus = typeof SURF_SESSION_STATUS[keyof typeof SURF_SESSION_STATUS];
+
 export type SurfSessionItem = {
   id: string;
   spotId: string;
   photographerId: string;
   startsAt: Date;
   endsAt: Date;
-  status: string;
+  status: SurfSessionStatus;
   createdAt: Date;
   spot: { id: string; name: string; location: string };
   thumbnailUrl: string | null;
