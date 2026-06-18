@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  useDeleteMedia, useDeleteOrphanAsset, useInvalidateMyDrafts, MediaItem, MEDIA_UPLOAD_LIMITS,
-  signCloudinaryDirect, createMediaDirect,
+  useDeleteMedia, useDeleteMediaBatch, MediaItem, MEDIA_UPLOAD_LIMITS,
 } from 'entities/Media';
+import { useTRPC } from 'shared/lib/trpc';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { v4 as uuidv4 } from 'uuid';
 import { notify } from 'shared/lib/notifications';
@@ -12,14 +13,14 @@ import { UploadError } from './UploadError';
 import { GalleryCard, UploadItem, CloudinaryResult, ExifMetadata } from './types';
 import { isUploading, revokeBlobUrl, isOrphanAsset } from './types';
 import { uploadToCloudinary } from './cloudinaryTransport';
+import { signCloudinaryDirect, createMediaDirect } from './mediaApi';
 
 type SignatureData = Awaited<ReturnType<typeof signCloudinaryDirect>>;
 
 // ===========================================================================
 // PIPELINE STAGE FUNCTIONS
 // Module-level — no React deps, safe to run after component unmount.
-// Uses signCloudinaryDirect / createMediaDirect (plain tRPC client calls, not
-// React hook instances) for the critical-path server calls.
+// Uses plain tRPC client calls, not React hook instances, for the critical-path server calls.
 // ===========================================================================
 
 async function extractMetadata(file: File): Promise<ExifMetadata> {
@@ -92,9 +93,11 @@ function pipelineError(id: string, error: unknown): string | null {
  * - Users cancel/retry/remove → handle gracefully
  */
 export const useUploadManager = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { mutateAsync: deleteMedia } = useDeleteMedia();
-  const { mutateAsync: deleteOrphanAsset } = useDeleteOrphanAsset();
-  const invalidateMyDrafts = useInvalidateMyDrafts();
+  const { mutate: deleteMediaBatch } = useDeleteMediaBatch();
+  const { mutateAsync: deleteOrphanAsset } = useMutation(trpc.media.deleteOrphanAsset.mutationOptions());
 
   // ========================================================================
   // UPLOAD ORCHESTRATION - How uploads happen (implementation)
@@ -139,14 +142,14 @@ export const useUploadManager = () => {
         return;
       }
       pipelineComplete(id, mediaItem.id, mediaItem.capturedAt ?? undefined);
-      void invalidateMyDrafts();
+      void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
     } catch (error: unknown) {
       const errorMessage = pipelineError(id, error);
       if (errorMessage) {
         notify.error(`${file.name}: ${errorMessage}`, 'Upload Failed');
       }
     }
-  }, [deleteOrphanAsset, deleteMedia, invalidateMyDrafts]);
+  }, [deleteOrphanAsset, deleteMedia, queryClient, trpc]);
 
   // ========================================================================
   // BUSINESS LOGIC - What users can do (high-level)
@@ -174,8 +177,8 @@ export const useUploadManager = () => {
           revokeBlobUrl(lingering.previewUrl);
           store.removeItem(lingering.id);
         }
-      } catch {
-        // notification handled by useDeleteMedia onError
+      } catch (err) {
+        notify.error(getErrorMessage(err), 'Delete Failed');
       }
       return;
     }
@@ -194,7 +197,8 @@ export const useUploadManager = () => {
     if (item.status === 'completed' && item.mediaId) {
       try {
         await deleteMedia({ id: item.mediaId });
-      } catch {
+      } catch (err) {
+        notify.error(getErrorMessage(err), 'Delete Failed');
         return;
       }
     }
@@ -222,25 +226,30 @@ export const useUploadManager = () => {
    */
   const discardAll = useCallback((allCards: GalleryCard[]) => {
     const store = useUploadStore.getState();
+    const toDeleteDb: string[] = [];
 
     allCards.forEach(card => {
       if (card.kind === 'draft') {
-        void deleteMedia({ id: card.result.id });
+        toDeleteDb.push(card.result.id);
       } else {
         const item = store.uploadQueue.find(i => i.id === card.pipelineItem.id) ?? card.pipelineItem;
         revokeBlobUrl(item.previewUrl);
         if (isUploading(item.status)) {
           try { item.abortUpload?.(); } catch { /* abort errors expected */ }
         } else if (item.status === 'completed' && item.mediaId) {
-          void deleteMedia({ id: item.mediaId });
+          toDeleteDb.push(item.mediaId);
         } else if (isOrphanAsset(item)) {
           void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
         }
       }
     });
 
+    if (toDeleteDb.length > 0) {
+      deleteMediaBatch({ ids: toDeleteDb });
+    }
+
     store.clearQueue();
-  }, [deleteMedia, deleteOrphanAsset]);
+  }, [deleteMediaBatch, deleteOrphanAsset]);
 
   // ========================================================================
   // PUBLIC API

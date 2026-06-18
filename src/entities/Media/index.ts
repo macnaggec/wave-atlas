@@ -23,8 +23,8 @@ export {
 export type { FileValidationResult, BatchValidationResult } from './lib/uploadValidation';
 export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValidation';
 
-export { signCloudinaryDirect, createMediaDirect } from './lib/mediaApi';
 export { useDeleteMedia } from './model/useDeleteMedia';
+export { useDeleteMediaBatch } from './model/useDeleteMediaBatch';
 export { useDeleteOrphanAsset } from './model/useDeleteOrphanAsset';
 export { useInvalidateMyDrafts } from './model/useInvalidateMyDrafts';
 export { useMyDraftCounts } from './model/useMyDraftCounts';

@@ -51,7 +51,7 @@ export interface DraftCardProps {
  * // With draft metadata
  * <DraftCard
  *   imageUrl={item.result.resource.url}
- *   resourceType={item.result.resource.resource_type}
+ *   resourceType={item.result.resource.resourceType}
  *   overlays={<DraftOverlays mediaItem={item.result} />}
  *   validation={{ hasError: !item.result.capturedAt }}
  * />

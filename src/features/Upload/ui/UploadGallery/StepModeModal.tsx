@@ -1,17 +1,16 @@
-import React, { FC, memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { Box, Button, Divider, Group, Loader, Menu, Modal, rem, Text, ThemeIcon } from '@mantine/core';
-import { IconAlertCircle, IconArrowRight, IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
-import { GalleryCard, getItemId } from '../../model';
+import React, { FC, memo, useMemo, useCallback, useRef } from 'react';
+import { Box, Button, Divider, Group, Loader, Menu, Modal, rem, Text } from '@mantine/core';
+import { IconAlertCircle, IconArrowRight } from '@tabler/icons-react';
+import { GalleryCard, getItemId, getUploadQueueStatus } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { UploadCardRenderer } from './UploadCardRenderer';
-import { UploadZone } from './UploadZone';
 import { handleFileSelection } from '../../lib/fileSelection';
 
 export interface StepModeModalProps {
+  opened: boolean;
+  onClose: () => void;
   items: GalleryCard[];
-  hasActiveUploads: boolean;
-  filesErrorTick?: number;
   selection: UseGallerySelectionReturn<GalleryCard>;
   onProceed?: (count: number) => void;
   /** Required — ensures Cloudinary cleanup path is never silently dropped. */
@@ -19,56 +18,21 @@ export interface StepModeModalProps {
   onRemove: (kind: GalleryCard['kind'], id: string) => Promise<void>;
   onAddFiles?: (files: File[]) => void;
   onRetry?: (id: string) => void;
-  onDriveImport?: () => void;
-  driveLoading?: boolean;
 }
 
 export const StepModeModal: FC<StepModeModalProps> = memo(({
+  opened,
+  onClose,
   items,
-  hasActiveUploads,
-  filesErrorTick,
   selection,
   onProceed,
   onDiscardAll,
   onRemove,
   onAddFiles,
   onRetry,
-  onDriveImport,
-  driveLoading,
 }) => {
-  const completedItems = useMemo(
-    () => items.filter(card => card.kind === 'draft' || (card.kind === 'uploading' && card.pipelineItem.status === 'completed')),
-    [items]
-  );
-
-  // ========================================================================
-  // MODAL OPEN STATE
-  // ========================================================================
-
-  const [internalModalOpen, setInternalModalOpen] = useState(false);
-  const handleModalChange = useCallback((open: boolean) => {
-    setInternalModalOpen(open);
-  }, []);
-
-  const [isFlashing, setIsFlashing] = useState(false);
-  const prevTickRef = useRef(0);
-  useEffect(() => {
-    if (filesErrorTick && filesErrorTick !== prevTickRef.current && items.length === 0) {
-      prevTickRef.current = filesErrorTick;
-      setIsFlashing(true);
-    }
-  }, [filesErrorTick, items.length]);
-
-  const prevItemsLengthRef = useRef(items.length);
-  useEffect(() => {
-    const prev = prevItemsLengthRef.current;
-    prevItemsLengthRef.current = items.length;
-    if (items.length > 0 && prev === 0) {
-      handleModalChange(true);
-    } else if (items.length === 0 && prev > 0) {
-      handleModalChange(false);
-    }
-  }, [items.length]);
+  const queueStatus = useMemo(() => getUploadQueueStatus(items), [items]);
+  const { completedItems, errorCards, hasActiveUploads, uploadingCount, canContinue } = queueStatus;
 
   // ========================================================================
   // FILE HANDLING
@@ -77,7 +41,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   const handleAddFiles = useCallback((files: File[]) => {
     selection.disableSelectionMode();
     onAddFiles?.(files);
-  }, [onAddFiles, selection.disableSelectionMode]);
+  }, [onAddFiles, selection]);
 
   const addMoreInputRef = useRef<HTMLInputElement>(null);
   const handleAddMoreChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,15 +56,15 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const handleCancelAll = useCallback(() => {
     onDiscardAll(items);
-    handleModalChange(false);
-  }, [items, onDiscardAll, handleModalChange]);
+    onClose();
+  }, [items, onDiscardAll, onClose]);
 
   const handleBulkDelete = useCallback(
     async (selectedCards: GalleryCard[]) => {
       await Promise.all(selectedCards.map(card => onRemove(card.kind, card.id)));
       selection.clearSelection();
     },
-    [onRemove, selection.clearSelection]
+    [onRemove, selection]
   );
 
   const renderActions = useCallback(
@@ -139,33 +103,21 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   // CONTINUE
   // ========================================================================
 
-  const hasImporting = items.some(card => card.kind === 'uploading' && card.pipelineItem.status === 'importing');
-  const errorCards = useMemo(
-    () => items.filter(card => card.kind === 'uploading' && card.pipelineItem.status === 'error'),
-    [items]
-  );
-  const canProceed = !hasActiveUploads && !hasImporting && completedItems.length > 0 && errorCards.length === 0;
-
   const handleContinue = useCallback(() => {
-    handleModalChange(false);
+    onClose();
     onProceed?.(completedItems.length);
-  }, [handleModalChange, onProceed, completedItems.length]);
+  }, [onClose, onProceed, completedItems.length]);
 
   // ========================================================================
   // RENDER
   // ========================================================================
 
-  const uploadingCount = useMemo(
-    () => items.filter(card => card.kind === 'uploading' && ['pending', 'signing', 'uploading', 'saving'].includes(card.pipelineItem.status)).length,
-    [items]
-  );
-
-  const modal = (
+  return (
     <Modal
-      opened={internalModalOpen && items.length > 0}
+      opened={opened && items.length > 0}
       onClose={() => {
-        handleModalChange(false);
-        if (items.length > 0 && canProceed) onProceed?.(completedItems.length);
+        onClose();
+        if (items.length > 0 && canContinue) onProceed?.(completedItems.length);
       }}
       closeOnClickOutside={false}
       closeOnEscape={false}
@@ -248,7 +200,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
                 {uploadingCount} of {items.length} uploading…
               </Text>
             </Group>
-          ) : canProceed ? (
+          ) : canContinue ? (
             <Button
               variant="transparent" size="xs" radius="xl"
               rightSection={<IconArrowRight size={12} />}
@@ -265,69 +217,6 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
         </Group>
       </Group>
     </Modal>
-  );
-
-  const photoCount = completedItems.filter(c => c.result?.resource?.resource_type !== 'video').length;
-  const videoCount = completedItems.filter(c => c.result?.resource?.resource_type === 'video').length;
-
-  const sectionLabel = (
-    <Group px="md" py="sm" justify="space-between">
-      {hasActiveUploads ? (
-        <Group justify="space-between" style={{ flex: 1 }}>
-          <Group gap={6} align="center">
-            <Loader size={10} />
-            <Text size="xs" c="dimmed">{uploadingCount} uploading</Text>
-            {completedItems.length > 0 && (
-              <Text size="xs" c="dimmed" style={{ opacity: 0.55 }}>· {completedItems.length} ready</Text>
-            )}
-          </Group>
-          <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={() => handleModalChange(true)}>View</Text>
-        </Group>
-      ) : completedItems.length > 0 ? (
-        <Group justify="space-between" style={{ flex: 1 }}>
-          <Group gap={8} align="center">
-            <ThemeIcon size={22} variant="transparent" style={{ color: 'var(--mantine-color-green-5)' }}>
-              <IconCheck size={20} />
-            </ThemeIcon>
-            {photoCount > 0 && (
-              <Group gap={3} align="center">
-                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  <IconPhoto size={20} />
-                </ThemeIcon>
-                <Text size="xs" c="dimmed">{photoCount}</Text>
-              </Group>
-            )}
-            {videoCount > 0 && (
-              <Group gap={3} align="center">
-                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  <IconVideo size={20} />
-                </ThemeIcon>
-                <Text size="xs" c="dimmed">{videoCount}</Text>
-              </Group>
-            )}
-          </Group>
-          <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={() => handleModalChange(true)}>View</Text>
-        </Group>
-      ) : items.length > 0 ? (
-        <Text size="xs" c="red.4">Upload failed</Text>
-      ) : null}
-    </Group>
-  );
-
-  return (
-    <>
-      {sectionLabel}
-      {items.length === 0 && (
-        <UploadZone
-          onFilesSelected={handleAddFiles}
-          onDriveImport={onDriveImport}
-          driveLoading={driveLoading}
-          flashError={isFlashing}
-          onFlashEnd={() => setIsFlashing(false)}
-        />
-      )}
-      {modal}
-    </>
   );
 });
 

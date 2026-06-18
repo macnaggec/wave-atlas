@@ -50,15 +50,15 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     : item.kind === 'uploading' ? item.pipelineItem.previewUrl : '';
 
   const resourceType = (isCompleted && mediaItem
-    ? mediaItem.resource.resource_type
+    ? mediaItem.resource.resourceType
     : item.kind === 'uploading' && isVideoFile(item.pipelineItem.file) ? 'video' : 'image') as 'image' | 'video';
 
   const playbackUrl = isCompleted && mediaItem
-    ? mediaItem.resource.playback_url
+    ? mediaItem.resource.playbackUrl
     : undefined;
 
   const alt = isCompleted && mediaItem
-    ? `Media ${mediaItem.resource.asset_id}`
+    ? `Media ${mediaItem.resource.assetId}`
     : item.kind === 'uploading' ? (item.pipelineItem.file?.name || 'Upload preview') : 'Upload preview';
 
   const overlays = isCompleted

@@ -1,8 +1,7 @@
-import { trpcClient } from 'app/lib/trpcClient';
+import { trpcClient } from 'shared/lib/trpcClient';
 import type { z } from 'zod';
-import type { mediaCreateSchema } from './mediaSchemas';
+import type { mediaCreateSchema } from 'entities/Media';
 
-/** Plain async wrappers — callable outside React lifecycle for the upload pipeline. */
 export const signCloudinaryDirect = () =>
   trpcClient.media.signCloudinary.mutate();
 

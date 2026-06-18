@@ -11,7 +11,9 @@ export { useClearUploadQueue } from './useClearUploadQueue';
 export { useUploadQueue } from './useUploadQueue';
 export { useUploadWarning } from './useUploadWarning';
 export { useGooglePicker } from './useGooglePicker';
+export { usePublishUploadSession } from './usePublishUploadSession';
 export { useUploadStore } from './uploadStore';
+export { getPublishableMediaIds, getSelectableUploadCards, getUploadQueueStatus } from './uploadQueuePolicy';
 
 // Types
 export type { UploadItem, GalleryCard, UploadStatus, CloudinaryResult, ExifMetadata } from './types';

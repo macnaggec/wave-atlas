@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useMyDrafts } from 'entities/Media';
 import { useUploadStore } from 'features/Upload/model/uploadStore';
 import { GalleryCard } from './types';
+import { getPublishableMediaIds, getSelectableUploadCards, getUploadQueueStatus } from './uploadQueuePolicy';
 
 /**
  * Merges server state (TanStack Query drafts) with client state (active Zustand uploads)
@@ -43,9 +44,15 @@ export function useUploadQueue() {
     return [...draftCards, ...activeCards];
   }, [draftMedia, activeUploads]);
 
-  const hasActiveUploads = activeUploads.some(
-    item => item.status !== 'completed' && item.status !== 'error'
-  );
+  const queueStatus = useMemo(() => getUploadQueueStatus(queue), [queue]);
+  const selectableItems = useMemo(() => getSelectableUploadCards(queue), [queue]);
+  const publishableMediaIds = useMemo(() => getPublishableMediaIds(queue), [queue]);
 
-  return { queue, hasActiveUploads };
+  return {
+    queue,
+    hasActiveUploads: queueStatus.hasActiveUploads,
+    publishableMediaIds,
+    queueStatus,
+    selectableItems,
+  };
 }

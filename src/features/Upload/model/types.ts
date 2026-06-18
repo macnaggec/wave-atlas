@@ -66,7 +66,7 @@ export function getItemId(card: GalleryCard): string {
 
 /** True if the card represents a video (checks Cloudinary result, then file MIME). */
 export function isVideoItem(card: GalleryCard): boolean {
-  if (card.kind === 'draft') return card.result.resource.resource_type === 'video';
+  if (card.kind === 'draft') return card.result.resource.resourceType === 'video';
   return (
     card.pipelineItem.cloudinaryResult?.resource_type === 'video' ||
     !!card.pipelineItem.file?.type.startsWith('video/')

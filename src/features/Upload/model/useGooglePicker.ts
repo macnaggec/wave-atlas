@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { notify } from 'shared/lib/notifications';
-import { useRegisterDriveImport, useInvalidateMyDrafts, useDeleteMedia } from 'entities/Media';
+import { useDeleteMedia } from 'entities/Media';
+import { useTRPC } from 'shared/lib/trpc';
 import { useUploadStore } from './uploadStore';
 import { UploadItem } from './types';
 
@@ -92,9 +94,10 @@ export function useGooglePicker() {
   const [isPickerInitializing, setIsPickerInitializing] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-  const { mutateAsync: registerDriveImport } = useRegisterDriveImport();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { mutateAsync: registerDriveImport } = useMutation(trpc.media.registerDriveImport.mutationOptions());
   const { mutateAsync: deleteMedia } = useDeleteMedia();
-  const invalidateMyDrafts = useInvalidateMyDrafts();
 
   const importDriveDocs = useCallback(
     async (docs: DriveDoc[], accessToken: string) => {
@@ -114,7 +117,9 @@ export function useGooglePicker() {
           const store = useUploadStore.getState();
           const wasCancelled = store.uploadQueue.find(i => i.id === skeleton.id)?.status === 'cancelled';
           if (wasCancelled) {
-            void deleteMedia({ id: mediaItem.id });
+            deleteMedia({ id: mediaItem.id }).catch((err) =>
+              console.error('[Drive import cancel] Failed to delete orphaned draft', { id: mediaItem.id, err }),
+            );
             store.removeItem(skeleton.id);
           } else {
             store.updateItem(skeleton.id, {
@@ -137,9 +142,9 @@ export function useGooglePicker() {
           }
         }
       }));
-      if (anySucceeded) void invalidateMyDrafts();
+      if (anySucceeded) void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
     },
-    [registerDriveImport, deleteMedia, invalidateMyDrafts],
+    [registerDriveImport, deleteMedia, queryClient, trpc],
   );
 
   const trigger = useCallback(async () => {

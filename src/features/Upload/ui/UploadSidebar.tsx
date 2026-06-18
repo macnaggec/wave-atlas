@@ -1,15 +1,13 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { Box, Button, Center, Divider, Group, Stack, Text, Title } from '@mantine/core';
 import { IconLogin2 } from '@tabler/icons-react';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'entities/Identity';
-import { usePublishSession } from 'entities/SurfSession';
-import { useUploadStore, useClearUploadQueue, useUploadQueue } from '../model';
+import { usePublishUploadSession, useUploadStore, useUploadQueue } from '../model';
 import type { Spot } from 'entities/Spot';
 import { UploadStep } from './steps/UploadStep';
 import { PriceStep } from './steps/PriceStep';
 import { TimeStep } from './steps/TimeStep';
-import { combineDateAndTime, minutesToTime } from './steps/helpers';
 
 function AuthGate() {
   const { open: openAuthModal } = useAuthModal();
@@ -37,55 +35,29 @@ interface UploadSidebarProps {
 
 export function UploadSidebar({ spot, onCancel, onPublishFailed }: UploadSidebarProps) {
   const { isAuthenticated, isLoading } = useUser();
-  const clearQueue = useClearUploadQueue();
   const photoPrice = useUploadStore((s) => s.photoPrice);
   const videoPrice = useUploadStore((s) => s.videoPrice);
 
   const { queue } = useUploadQueue();
 
-  const [hasTriedPublish, setHasTriedPublish] = useState(false);
-  const [filesErrorTick, setFilesErrorTick] = useState(0);
   const [sessionDate, setSessionDate] = useState<Date | null>(null);
   const [sessionRange, setSessionRange] = useState<[number, number]>([360, 600]);
 
-  const mediaIds = useMemo(() => {
-    return queue.flatMap(card => {
-      if (card.kind === 'draft') return [card.id];
-      if (card.kind === 'uploading' && card.pipelineItem.status === 'completed' && card.pipelineItem.mediaId)
-        return [card.pipelineItem.mediaId];
-      return [];
-    });
-  }, [queue]);
-
-  const { mutateAsync: createAndPublish, isPending } = usePublishSession();
-
-  const canPublish = !!spot && mediaIds.length > 0 && !!sessionDate && sessionRange[0] < sessionRange[1];
+  const { filesErrorTick, hasTriedPublish, isPending, publish } = usePublishUploadSession({
+    spot,
+    queue,
+    sessionDate,
+    sessionRange,
+    photoPrice,
+    videoPrice,
+    onCancel,
+    onPublishFailed,
+  });
 
   const handleTimeChange = useCallback((date: Date | null, range: [number, number]) => {
     setSessionDate(date);
     setSessionRange(range);
   }, []);
-
-  const handlePublish = useCallback(async () => {
-    if (!canPublish) {
-      setHasTriedPublish(true);
-      if (!spot) onPublishFailed?.();
-      if (mediaIds.length === 0) setFilesErrorTick(t => t + 1);
-      return;
-    }
-    const startsAt = combineDateAndTime(sessionDate!, minutesToTime(sessionRange[0]));
-    const endsAt = combineDateAndTime(sessionDate!, minutesToTime(sessionRange[1]));
-    await createAndPublish({
-      spotId: spot.id,
-      startsAt,
-      endsAt,
-      mediaIds,
-      photoPrice,
-      videoPrice,
-    });
-    clearQueue();
-    onCancel();
-  }, [canPublish, spot, sessionDate, sessionRange, mediaIds, photoPrice, videoPrice, createAndPublish, clearQueue, onCancel, onPublishFailed]);
 
   if (isLoading) return null;
   if (!isAuthenticated) return <AuthGate />;
@@ -113,7 +85,7 @@ export function UploadSidebar({ spot, onCancel, onPublishFailed }: UploadSidebar
             variant="transparent"
             radius="xl"
             loading={isPending}
-            onClick={() => { void handlePublish(); }}
+            onClick={() => { void publish(); }}
             style={{
               background: 'rgba(255,255,255,0.1)',
               border: '1px solid rgba(255,255,255,0.12)',
