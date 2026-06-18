@@ -7,7 +7,7 @@ import type {
   CreateCheckoutParams,
   CheckoutSessionResult,
   PaymentWebhookEvent,
-} from 'server/lib/payment/PaymentAdapter';
+} from 'server/providers/payment/PaymentAdapter';
 
 // ---------------------------------------------------------------------------
 // CryptoCloud API types

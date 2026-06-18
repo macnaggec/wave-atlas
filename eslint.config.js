@@ -132,4 +132,18 @@ export default tseslint.config(
       }],
     },
   },
+  {
+    files: ['src/server/repositories/**/*.ts'],
+    ignores: ['src/server/repositories/**/*.test.ts', 'src/server/repositories/**/*.integration.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['server/services/*', 'server/providers/*', 'server/providers/**/*'],
+            message: 'Repositories must stay persistence-only. Put workflow and provider orchestration in services.',
+          },
+        ],
+      }],
+    },
+  },
 );

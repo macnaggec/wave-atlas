@@ -4,7 +4,7 @@ import type {
   CreateCheckoutParams,
   CheckoutSessionResult,
   PaymentWebhookEvent,
-} from 'server/lib/payment/PaymentAdapter';
+} from 'server/providers/payment/PaymentAdapter';
 
 interface MockWebhookBody {
   orderId: string;

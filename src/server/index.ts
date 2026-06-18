@@ -9,7 +9,7 @@ import { trpcServer } from '@hono/trpc-server';
 import { auth } from 'server/auth';
 import { appRouter } from 'server/router';
 import { createContext } from 'server/trpc';
-import { paymentAdapter } from 'server/lib/payment/activeAdapter';
+import { paymentAdapter } from 'server/providers/payment/activeAdapter';
 import { purchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
 import { createRateLimiter } from 'server/lib/rateLimiter';
 import { getClientIp } from 'server/lib/getClientIp';

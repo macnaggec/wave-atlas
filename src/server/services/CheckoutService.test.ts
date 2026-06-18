@@ -3,7 +3,7 @@ import { CheckoutService } from 'server/services/CheckoutService';
 import type { IOrderRepository, OrderWithItems } from 'server/repositories/OrderRepository';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import type { IPurchaseRepository, PurchaseWithMedia } from 'server/repositories/PurchaseRepository';
-import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter';
+import type { PaymentAdapter } from 'server/providers/payment/PaymentAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors';
 

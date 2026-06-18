@@ -6,9 +6,8 @@
  * - Dependency Inversion: Server actions depend on this abstraction, not cloudinary SDK
  */
 
-import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl } from 'server/lib/cloudinary';
+import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl, MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
 import { InternalServerError } from 'shared/errors';
-import { MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
 
 export interface CloudinarySignatureData {
   signature: string;

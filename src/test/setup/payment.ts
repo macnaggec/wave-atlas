@@ -1,6 +1,6 @@
 import type { MockedFunction } from 'vitest'
-import type { PaymentAdapter } from 'server/lib/payment/PaymentAdapter'
-import { paymentAdapter } from 'server/lib/payment/activeAdapter'
+import type { PaymentAdapter } from 'server/providers/payment/PaymentAdapter'
+import { paymentAdapter } from 'server/providers/payment/activeAdapter'
 
 // Export a typed mock of the payment adapter.
 // Safe because the module is mocked globally in vitest.setup.ts.
