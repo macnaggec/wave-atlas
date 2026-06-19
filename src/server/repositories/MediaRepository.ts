@@ -257,7 +257,7 @@ export class MediaRepository implements IMediaRepository {
 
       const hasMore = rows.length > limit;
       const items = hasMore ? rows.slice(0, limit) : rows;
-      const nextCursor = hasMore ? rows[limit]!.id : null;
+      const nextCursor = hasMore ? items[items.length - 1]!.id : null;
 
       return { items: items.map(mapToSpotMediaItem), nextCursor };
     });

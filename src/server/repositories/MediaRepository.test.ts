@@ -76,14 +76,14 @@ describe('MediaRepository.findPublishedBySpot', () => {
     };
   }
 
-  it('returns first page of items with nextCursor when more exist', async () => {
+  it('returns the last visible item as nextCursor when more exist', async () => {
     const rows = Array.from({ length: 4 }, (_, i) => makePrismaMediaItem({ id: `media-${i}` }));
     mockFindMany.mockResolvedValue(rows);
 
     const result = await repo.findPublishedBySpot('spot-1', undefined, 3);
 
-    expect(result.items).toHaveLength(3);
-    expect(result.nextCursor).toBe('media-3');
+    expect(result.items.map((item) => item.id)).toEqual(['media-0', 'media-1', 'media-2']);
+    expect(result.nextCursor).toBe('media-2');
   });
 
   it('returns nextCursor null on last page', async () => {
