@@ -1,24 +1,35 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Card, Center, Group, Image, Loader, SimpleGrid, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useTRPC } from 'app/lib/trpc';
-import { usePurchaseDownload } from 'entities/Commerce';
+import { useEffect, useState } from 'react';
+import { useTRPC } from 'shared/lib/trpc';
+import { useCartStore, usePurchaseDownload } from 'entities/Commerce';
 import DownloadButton from 'features/Cart/ui/DownloadButton';
 import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
 import { formatPrice } from 'shared/lib/currency';
 
 export const Route = createFileRoute('/_panel/me/purchases')({
+  validateSearch: (search): { order?: string } => ({
+    order: typeof search.order === 'string' ? search.order : undefined,
+  }),
   component: PurchasesTab,
 });
 
 function PurchasesTab() {
+  const { order } = Route.useSearch();
   const trpc = useTRPC();
   const { data: purchases = [], isLoading } = useQuery(trpc.checkout.myPurchases.queryOptions());
   const { download, isDownloading, isAnyDownloading } = usePurchaseDownload();
+  const removeFromCart = useCartStore((s) => s.remove);
 
   const [lightboxMediaItemId, setLightboxMediaItemId] = useState<string | null>(null);
   const lightboxPurchase = purchases.find(p => p.mediaItem.id === lightboxMediaItemId) ?? null;
+
+  useEffect(() => {
+    if (!order || isLoading || purchases.length === 0) return;
+
+    purchases.forEach((purchase) => removeFromCart(purchase.mediaItem.id));
+  }, [isLoading, order, purchases, removeFromCart]);
 
   if (isLoading) {
     return (

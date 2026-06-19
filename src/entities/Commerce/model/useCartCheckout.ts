@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 import { useCartStore } from 'entities/Commerce/model/cartStore';
 import { notify } from 'shared/lib/notifications';
 
@@ -13,13 +12,11 @@ export interface CartCheckout {
 export function useCartCheckout(): CartCheckout {
   const trpc = useTRPC();
   const items = useCartStore((s) => s.items);
-  const clear = useCartStore((s) => s.clear);
   const totalCents = useCartStore((s) => s.totalCents);
 
   const checkout = useMutation({
     ...trpc.checkout.create.mutationOptions(),
     onSuccess: ({ checkoutUrl }) => {
-      clear();
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
@@ -29,9 +26,9 @@ export function useCartCheckout(): CartCheckout {
     },
   });
 
-  const handleCheckout = useCallback(() => {
+  const handleCheckout = () => {
     checkout.mutate({ itemIds: items.map((i) => i.id) });
-  }, [checkout.mutate, items]);
+  };
 
   return {
     handleCheckout,
