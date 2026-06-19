@@ -2,14 +2,14 @@ import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
 import { IconShoppingBag, IconShare } from '@tabler/icons-react';
 import { SelectionToolbar } from 'shared/ui/BaseGallery';
-import { MediaItem, SpotMediaItem } from 'entities/Media';
+import type { MediaItem, SpotMediaItem } from 'entities/Media';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { useSpotMediaFeed, useSpotPreview } from 'entities/Spot';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
-import { useCartStore, toCartItem } from 'entities/Commerce';
+import { toCartItem, useCartStore } from 'entities/Commerce';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
-import MediaLightbox, { LightboxMedia } from './ui/MediaLightbox';
+import MediaLightbox from './ui/MediaLightbox';
 import { GalleryDateSidebar } from './ui/GalleryDateSidebar';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
 
@@ -64,6 +64,11 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  const lightboxItems = useMemo(
+    () => flatItems.map((i) => ({ ...i, type: i.resource.resourceType })),
+    [flatItems],
+  );
+
   const ownedItemIds = useMemo(
     () => new Set(flatItems.filter((i) => i.photographerId === userId).map((i) => i.id)),
     [flatItems, userId],
@@ -99,7 +104,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   );
 
   const handleCartToggle = useCallback(
-    (lightboxItem: LightboxMedia) => {
+    (lightboxItem: { id: string }) => {
       if (cartItemIds.has(lightboxItem.id)) {
         removeFromCart(lightboxItem.id);
       } else {
@@ -203,7 +208,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
       </div>
 
       <MediaLightbox
-        items={flatItems}
+        items={lightboxItems}
         initialIndex={lightboxIndex ?? 0}
         opened={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}

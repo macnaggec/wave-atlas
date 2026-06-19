@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
+import { mediaRepository } from 'server/repositories/MediaRepository';
 import { spotRepository } from 'server/repositories/SpotRepository';
 import { SPOT_STATUS } from 'shared/types';
 import type { Spot } from 'shared/types';
@@ -16,8 +17,13 @@ export const spotsRouter = router({
     .query(async ({ input: id }): Promise<Spot | null> => {
       const row = await spotRepository.findSpotById(id);
       if (!row) return null;
-      const { aliases: _aliases, ...spot } = row;
-      return spot;
+      return {
+        id: row.id,
+        name: row.name,
+        location: row.location,
+        coords: row.coords,
+        status: row.status,
+      };
     }),
 
   withinBounds: publicProcedure
@@ -89,12 +95,12 @@ export const spotsRouter = router({
       }),
     )
     .query(({ input }) =>
-      spotRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder)
+      mediaRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder)
     ),
 
   card: publicProcedure.input(z.string()).query(({ input: id }) => spotRepository.findSpotCard(id)),
 
   drafts: protectedProcedure
     .input(z.string())
-    .query(({ input: spotId, ctx }) => spotRepository.findDraftsBySpot(spotId, ctx.user.id)),
+    .query(({ input: spotId, ctx }) => mediaRepository.findDraftsBySpot(spotId, ctx.user.id)),
 });

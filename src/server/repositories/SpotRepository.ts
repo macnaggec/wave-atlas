@@ -1,12 +1,10 @@
 import { MediaItem as PrismaMediaItem, Spot as PrismaSpot } from '@prisma/client';
-import type { MediaType, MediaItem, SpotMediaItem } from 'entities/Media';
-import { MEDIA_STATUS } from 'entities/Media';
+import type { MediaType, SpotMediaItem } from 'shared/types/media';
 import type { Spot, SpotStatus } from 'shared/types';
-import { SPOT_STATUS } from 'shared/types';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
 import { mapToMediaItem } from './mappers';
-import { runQuery } from 'shared/errors/PrismaErrorMapper';
+import { runQuery } from 'server/lib/PrismaErrorMapper';
 
 function mapToSpot(spot: PrismaSpot): Spot {
   return {
@@ -14,7 +12,7 @@ function mapToSpot(spot: PrismaSpot): Spot {
     name: spot.name,
     location: spot.location,
     coords: { lat: Number(spot.lat), lng: Number(spot.lng) },
-    status: (spot.status as SpotStatus) || SPOT_STATUS.VERIFIED,
+    status: spot.status,
   };
 }
 
@@ -36,7 +34,7 @@ export interface SpotCreateInput {
   location: string;
   lat: number;
   lng: number;
-  status: string;
+  status: SpotStatus;
   creatorId: string;
 }
 
@@ -57,11 +55,6 @@ export type SpotCard = {
   media: { id: string; url: string; type: MediaType }[];
 };
 
-export type SpotMediaPage = {
-  items: SpotMediaItem[];
-  nextCursor: string | null;
-};
-
 export interface ISpotRepository {
   findSpotList(filter: SpotSearchFilter): Promise<Spot[]>;
   findSpotsByBounds(swLat: number, swLng: number, neLat: number, neLng: number): Promise<Spot[]>;
@@ -71,8 +64,6 @@ export interface ISpotRepository {
   pushSpotAlias(id: string, alias: string): Promise<void>;
   findSpotDetails(id: string): Promise<SpotDetails | null>;
   findSpotCard(id: string): Promise<SpotCard | null>;
-  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
-  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number, sortOrder?: 'asc' | 'desc'): Promise<SpotMediaPage>;
 }
 
 export class SpotRepository implements ISpotRepository {
@@ -221,39 +212,6 @@ export class SpotRepository implements ISpotRepository {
       };
     });
   }
-  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]> {
-    return runQuery(async () => {
-      const rows = await prisma.mediaItem.findMany({
-        where: { spotId, photographerId, status: MEDIA_STATUS.DRAFT, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-      });
-      return rows.map(mapToMediaItem);
-    });
-  }
-
-  findPublishedBySpot(
-    spotId: string,
-    cursor: string | undefined,
-    limit: number,
-    sortOrder: 'asc' | 'desc' = 'desc',
-  ): Promise<SpotMediaPage> {
-    return runQuery(async () => {
-      const rows = await prisma.mediaItem.findMany({
-        where: { spotId, status: 'PUBLISHED', deletedAt: null },
-        orderBy: { capturedAt: sortOrder },
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        include: { photographer: { select: { id: true, name: true } } },
-      });
-
-      const hasMore = rows.length > limit;
-      const items = hasMore ? rows.slice(0, limit) : rows;
-      const nextCursor = hasMore ? rows[limit]!.id : null;
-
-      return { items: items.map(mapToSpotMediaItem), nextCursor };
-    });
-  }
 }
 
 export const spotRepository = new SpotRepository();
-

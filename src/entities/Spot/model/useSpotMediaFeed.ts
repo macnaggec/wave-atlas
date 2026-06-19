@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 
 export function useSpotMediaFeed(spotId: string, sortOrder: 'asc' | 'desc' = 'desc') {
   const trpc = useTRPC();

@@ -1,11 +1,14 @@
 import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/client';
-import { MEDIA_STATUS, MEDIA_CLOUDINARY_TRANSFORMS } from 'entities/Media';
-import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus } from 'entities/Media';
 import { prisma } from 'server/db';
-import { runQuery } from 'shared/errors/PrismaErrorMapper';
-import { mapToMediaItem, toSignedUrl } from './mappers';
+import { runQuery } from 'server/lib/PrismaErrorMapper';
+import { MEDIA_STATUS } from 'shared/types/media';
+import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus, SpotMediaItem } from 'shared/types/media';
+import { mapToMediaItem } from './mappers';
 
-
+export type SpotMediaPage = {
+  items: SpotMediaItem[];
+  nextCursor: string | null;
+};
 
 function mapToPublishedMedia(
   row: PrismaMediaItem & { spot: { id: string; name: string } | null },
@@ -13,13 +16,22 @@ function mapToPublishedMedia(
   return {
     id: row.id,
     type: row.type,
-    lightboxUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
-    thumbnailUrl: toSignedUrl(row.cloudinaryPublicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
+    lightboxUrl: row.lightboxUrl,
+    thumbnailUrl: row.thumbnailUrl,
     price: row.price!,
     capturedAt: row.capturedAt,
     spotId: row.spotId!,
     photographerId: row.photographerId,
     spot: row.spot,
+  };
+}
+
+function mapToSpotMediaItem(
+  row: PrismaMediaItem & { photographer: { id: string; name: string | null } | null },
+): SpotMediaItem {
+  return {
+    ...mapToMediaItem(row),
+    photographer: row.photographer,
   };
 }
 
@@ -50,12 +62,15 @@ export interface IMediaRepository {
   updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
   softDelete(id: string): Promise<MediaItem>;
   hardDelete(id: string): Promise<void>;
-  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[]>;
+  hardDeleteBatch(ids: string[]): Promise<void>;
+  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
   findPublishedBySession(sessionId: string): Promise<PublishedMedia[]>;
   hasDraftsByUser(photographerId: string): Promise<boolean>;
   findDraftsByUser(photographerId: string): Promise<MediaItem[]>;
+  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
+  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number, sortOrder?: 'asc' | 'desc'): Promise<SpotMediaPage>;
 }
 
 export class MediaRepository implements IMediaRepository {
@@ -122,23 +137,41 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[]> {
+  hardDeleteBatch(ids: string[]): Promise<void> {
+    return runQuery(async () => {
+      await prisma.$transaction(async (tx) => {
+        const drafts = await tx.mediaItem.findMany({
+          where: { id: { in: ids }, status: MEDIA_STATUS.DRAFT as MediaStatus },
+          select: { id: true },
+        });
+        if (drafts.length !== new Set(ids).size) {
+          throw new Error('Some items are no longer drafts');
+        }
+        await tx.mediaItem.deleteMany({ where: { id: { in: ids } } });
+      });
+    });
+  }
+
+  findByIds(ids: string[]): Promise<{ id: string; status: DomainMediaStatus; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { id: { in: ids } },
-        select: { id: true, status: true, price: true, photographerId: true },
+        select: { id: true, status: true, price: true, photographerId: true, cloudinaryPublicId: true, type: true },
       });
-      return rows as { id: string; status: DomainMediaStatus; price: number | null; photographerId: string }[];
+      return rows as { id: string; status: DomainMediaStatus; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[];
     });
   }
 
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, price: { not: null } },
         select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
       });
-      return rows.map(r => ({ ...r, price: r.price! }));
+      return rows.map(r => {
+        if (r.price === null) throw new Error('Invariant: null price after price filter');
+        return { ...r, price: r.price };
+      });
     });
   }
 
@@ -194,6 +227,39 @@ export class MediaRepository implements IMediaRepository {
         orderBy: { createdAt: 'asc' },
       });
       return rows.map(mapToMediaItem);
+    });
+  }
+
+  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]> {
+    return runQuery(async () => {
+      const rows = await prisma.mediaItem.findMany({
+        where: { spotId, photographerId, status: MEDIA_STATUS.DRAFT, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(mapToMediaItem);
+    });
+  }
+
+  findPublishedBySpot(
+    spotId: string,
+    cursor: string | undefined,
+    limit: number,
+    sortOrder: 'asc' | 'desc' = 'desc',
+  ): Promise<SpotMediaPage> {
+    return runQuery(async () => {
+      const rows = await prisma.mediaItem.findMany({
+        where: { spotId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
+        orderBy: { capturedAt: sortOrder },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: { photographer: { select: { id: true, name: true } } },
+      });
+
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? rows[limit]!.id : null;
+
+      return { items: items.map(mapToSpotMediaItem), nextCursor };
     });
   }
 }
