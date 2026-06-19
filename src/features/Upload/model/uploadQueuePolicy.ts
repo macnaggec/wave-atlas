@@ -19,16 +19,16 @@ export function getPublishableMediaIds(cards: GalleryCard[]): string[] {
 }
 
 export function getUploadQueueStatus(cards: GalleryCard[]) {
-  const completedItems = getSelectableUploadCards(cards);
+  const readyItems = getSelectableUploadCards(cards);
   const errorCards = cards.filter(card => card.kind === 'uploading' && card.pipelineItem.status === 'error');
   const hasActiveUploads = cards.some(isActiveUploadCard);
   const uploadingCount = cards.filter(isActiveUploadCard).length;
 
   return {
-    completedItems,
+    readyItems,
     errorCards,
     hasActiveUploads,
     uploadingCount,
-    canContinue: !hasActiveUploads && completedItems.length > 0 && errorCards.length === 0,
+    canContinue: !hasActiveUploads && readyItems.length > 0 && errorCards.length === 0,
   };
 }

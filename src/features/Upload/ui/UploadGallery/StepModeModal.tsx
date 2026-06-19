@@ -1,6 +1,6 @@
 import React, { FC, memo, useMemo, useCallback, useRef } from 'react';
 import { Box, Button, Divider, Group, Loader, Menu, Modal, rem, Text } from '@mantine/core';
-import { IconAlertCircle, IconArrowRight } from '@tabler/icons-react';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { GalleryCard, getItemId, getUploadQueueStatus } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
@@ -12,7 +12,6 @@ export interface StepModeModalProps {
   onClose: () => void;
   items: GalleryCard[];
   selection: UseGallerySelectionReturn<GalleryCard>;
-  onProceed?: (count: number) => void;
   /** Required — ensures Cloudinary cleanup path is never silently dropped. */
   onDiscardAll: (cards: GalleryCard[]) => void;
   onRemove: (kind: GalleryCard['kind'], id: string) => Promise<void>;
@@ -25,14 +24,13 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   onClose,
   items,
   selection,
-  onProceed,
   onDiscardAll,
   onRemove,
   onAddFiles,
   onRetry,
 }) => {
   const queueStatus = useMemo(() => getUploadQueueStatus(items), [items]);
-  const { completedItems, errorCards, hasActiveUploads, uploadingCount, canContinue } = queueStatus;
+  const { errorCards, hasActiveUploads, uploadingCount } = queueStatus;
 
   // ========================================================================
   // FILE HANDLING
@@ -100,25 +98,13 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   );
 
   // ========================================================================
-  // CONTINUE
-  // ========================================================================
-
-  const handleContinue = useCallback(() => {
-    onClose();
-    onProceed?.(completedItems.length);
-  }, [onClose, onProceed, completedItems.length]);
-
-  // ========================================================================
   // RENDER
   // ========================================================================
 
   return (
     <Modal
       opened={opened && items.length > 0}
-      onClose={() => {
-        onClose();
-        if (items.length > 0 && canContinue) onProceed?.(completedItems.length);
-      }}
+      onClose={onClose}
       closeOnClickOutside={false}
       closeOnEscape={false}
       size={1000}
@@ -200,20 +186,18 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
                 {uploadingCount} of {items.length} uploading…
               </Text>
             </Group>
-          ) : canContinue ? (
-            <Button
-              variant="transparent" size="xs" radius="xl"
-              rightSection={<IconArrowRight size={12} />}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)', color: '#fff' }}
-              onClick={handleContinue}
-            >
-              Continue with {completedItems.length} {completedItems.length === 1 ? 'file' : 'files'}
-            </Button>
           ) : errorCards.length > 0 ? (
             <Text size="xs" style={{ color: 'var(--mantine-color-orange-4)' }}>
               Remove or retry failed uploads to continue
             </Text>
           ) : null}
+          <Button
+            variant="transparent" size="xs" radius="xl"
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)', color: '#fff' }}
+            onClick={onClose}
+          >
+            Close
+          </Button>
         </Group>
       </Group>
     </Modal>

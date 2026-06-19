@@ -207,4 +207,45 @@ describe('usePublishUploadSession', () => {
     expect(mocks.clearQueue).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it('does not publish while any upload card is still active', async () => {
+    mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
+    const onCancel = vi.fn();
+    const queue = [
+      ...completedQueue(['media-1']),
+      {
+        kind: 'uploading',
+        id: 'upload-2',
+        pipelineItem: {
+          id: 'upload-2',
+          file: new File(['active'], 'active.jpg', { type: 'image/jpeg' }),
+          previewUrl: 'blob:active',
+          status: 'uploading',
+          progress: 50,
+        },
+      },
+    ] satisfies GalleryCard[];
+
+    const { result } = renderHook(() =>
+      usePublishUploadSession({
+        spot: { id: 'spot-1' },
+        queue,
+        sessionDate: startsDate,
+        sessionRange: [360, 600],
+        photoPrice: 300,
+        videoPrice: 500,
+        onCancel,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.publish();
+    });
+
+    expect(result.current.hasTriedPublish).toBe(true);
+    expect(result.current.filesErrorTick).toBe(1);
+    expect(mocks.createAndPublish).not.toHaveBeenCalled();
+    expect(mocks.clearQueue).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });
