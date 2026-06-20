@@ -2,9 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Center, Skeleton, Text } from '@mantine/core';
 import { useSessionMedia } from 'entities/SurfSession';
 import type { SurfSessionItem } from 'entities/SurfSession';
-import type { MediaItem } from 'entities/Media';
-import { toCartItem, useCartStore } from 'entities/Commerce';
-import { MediaLightbox, PublicCard, type LightboxMedia } from 'features/PublicGallery';
+import { useCartToggle } from 'entities/Commerce';
+import { MediaLightbox, PublicCard, type LightboxMedia, type DisplayMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 
@@ -18,29 +17,21 @@ export function SessionDetail({ session }: SessionDetailProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const { user } = useUser();
-  const cartStoreItems = useCartStore((s) => s.items);
-  const addToCart = useCartStore((s) => s.add);
-  const removeFromCart = useCartStore((s) => s.remove);
-
-  const cartItemIds = useMemo(
-    () => new Set(cartStoreItems.map((i) => i.id)),
-    [cartStoreItems],
-  );
+  const { cartItemIds, toggleCartItem } = useCartToggle(session.spot.name);
 
   const ownedItemIds = useMemo(
     () => new Set((media ?? []).filter((m) => m.photographerId === user?.id).map((m) => m.id)),
     [media, user?.id],
   );
 
+  const lightboxItems = useMemo(
+    () => (media ?? []).map((i) => ({ ...i, type: (i.type === 'VIDEO' ? 'video' : 'image') as 'image' | 'video' })),
+    [media],
+  );
+
   const handleCartToggle = useCallback(
-    (item: LightboxMedia) => {
-      if (cartItemIds.has(item.id)) {
-        removeFromCart(item.id);
-      } else {
-        addToCart(toCartItem(item, session.spot.name));
-      }
-    },
-    [cartItemIds, removeFromCart, addToCart, session.spot.name],
+    (item: Omit<LightboxMedia, 'type'>) => toggleCartItem(item),
+    [toggleCartItem],
   );
 
   return (
@@ -63,20 +54,18 @@ export function SessionDetail({ session }: SessionDetailProps) {
               renderCard={(item, { index }) => {
                 const isOwn = ownedItemIds.has(item.id);
                 const isInCart = cartItemIds.has(item.id);
-                const mediaItem: MediaItem = {
-                  ...item,
+                const displayMedia: DisplayMedia = {
+                  id: item.id,
+                  thumbnailUrl: item.thumbnailUrl,
                   resource: {
-                    resource_type: item.type === 'VIDEO' ? 'video' : 'image',
+                    resourceType: item.type === 'VIDEO' ? 'video' : 'image',
                     url: item.thumbnailUrl,
-                    asset_id: item.id,
+                    assetId: item.id,
                   },
-                  cloudinaryPublicId: '',
-                  status: 'PUBLISHED',
-                  createdAt: item.capturedAt,
                 };
                 return (
                   <PublicCard
-                    mediaItem={mediaItem}
+                    mediaItem={displayMedia}
                     actions={item.price > 0 && !isOwn ? ['cart'] : []}
                     activeActions={isInCart ? ['cart'] : []}
                     onAction={() => handleCartToggle(item)}
@@ -95,9 +84,9 @@ export function SessionDetail({ session }: SessionDetailProps) {
         )}
       </div>
 
-      {media && media.length > 0 && (
+      {lightboxItems.length > 0 && (
         <MediaLightbox
-          items={media}
+          items={lightboxItems}
           initialIndex={lightboxIndex ?? 0}
           opened={lightboxIndex !== null}
           onClose={() => setLightboxIndex(null)}
