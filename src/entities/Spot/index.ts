@@ -8,7 +8,6 @@ export { useCreateSpot } from './model/useCreateSpot';
 export { useNearbySpots } from './model/useNearbySpots';
 export { useSelectedSpot } from './model/useSelectedSpot';
 export { useSpotCard } from './model/useSpotCard';
-export { useSpotDetails } from './model/useSpotDetails';
 export { useSpotMediaFeed } from './model/useSpotMediaFeed';
 export { useSpotPreview } from './model/useSpotPreview';
 export { useMapSpots } from './model/useMapSpots';

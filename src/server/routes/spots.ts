@@ -76,15 +76,6 @@ export const spotsRouter = router({
       return { ok: true };
     }),
 
-  details: publicProcedure
-    .input(z.string())
-    .query(async ({ input: id }) => {
-      const spot = await spotRepository.findSpotDetails(id);
-      if (!spot) return null;
-
-      return spot;
-    }),
-
   mediaFeed: publicProcedure
     .input(
       z.object({

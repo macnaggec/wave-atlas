@@ -1,9 +1,8 @@
-import { MediaItem as PrismaMediaItem, Spot as PrismaSpot } from '@prisma/client';
-import type { MediaType, SpotMediaItem } from 'shared/types/media';
+import { Spot as PrismaSpot } from '@prisma/client';
+import type { MediaType } from 'shared/types/media';
 import type { Spot, SpotStatus } from 'shared/types';
 import { prisma } from 'server/db';
 import { haversineDistance, EARTH_RADIUS_M } from 'shared/lib/geoUtils';
-import { mapToMediaItem } from './mappers';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
 
 function mapToSpot(spot: PrismaSpot): Spot {
@@ -13,15 +12,6 @@ function mapToSpot(spot: PrismaSpot): Spot {
     location: spot.location,
     coords: { lat: Number(spot.lat), lng: Number(spot.lng) },
     status: spot.status,
-  };
-}
-
-function mapToSpotMediaItem(
-  row: PrismaMediaItem & { photographer: { id: string; name: string | null } | null },
-): SpotMediaItem {
-  return {
-    ...mapToMediaItem(row),
-    photographer: row.photographer,
   };
 }
 
@@ -41,12 +31,6 @@ export interface SpotCreateInput {
 /** Spot with its `aliases` array — needed for the addAlias route. */
 export type SpotRow = Spot & { aliases: string[] };
 
-export type SpotDetails = Spot & {
-  lat: number | null;
-  lng: number | null;
-  mediaItems: SpotMediaItem[];
-};
-
 export type SpotCard = {
   id: string;
   name: string;
@@ -62,7 +46,6 @@ export interface ISpotRepository {
   findSpotById(id: string): Promise<SpotRow | null>;
   createSpot(data: SpotCreateInput): Promise<Spot>;
   pushSpotAlias(id: string, alias: string): Promise<void>;
-  findSpotDetails(id: string): Promise<SpotDetails | null>;
   findSpotCard(id: string): Promise<SpotCard | null>;
 }
 
@@ -152,32 +135,6 @@ export class SpotRepository implements ISpotRepository {
         where: { id },
         data: { aliases: { push: alias } },
       });
-    });
-  }
-
-  findSpotDetails(id: string): Promise<SpotDetails | null> {
-    return runQuery(async () => {
-      const spot = await prisma.spot.findUnique({
-        where: { id },
-        include: {
-          mediaItems: {
-            where: { status: 'PUBLISHED', deletedAt: null },
-            orderBy: { capturedAt: 'desc' },
-            include: {
-              photographer: { select: { id: true, name: true } },
-            },
-          },
-        },
-      });
-
-      if (!spot) return null;
-
-      return {
-        ...mapToSpot(spot),
-        lat: spot.lat ? Number(spot.lat) : null,
-        lng: spot.lng ? Number(spot.lng) : null,
-        mediaItems: spot.mediaItems.map(mapToSpotMediaItem),
-      };
     });
   }
 
