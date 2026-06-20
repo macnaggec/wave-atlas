@@ -3,8 +3,7 @@ import { Center, Skeleton, Text } from '@mantine/core';
 import { useSessionMedia } from 'entities/SurfSession';
 import type { SurfSessionItem } from 'entities/SurfSession';
 import type { MediaItem } from 'entities/Media';
-import { useCartStore } from 'entities/Commerce';
-import { formatShortDate } from 'shared/lib/dateUtils';
+import { toCartItem, useCartStore } from 'entities/Commerce';
 import { MediaLightbox, PublicCard, type LightboxMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
 import { BaseGallery } from 'shared/ui/BaseGallery';
@@ -38,15 +37,7 @@ export function SessionDetail({ session }: SessionDetailProps) {
       if (cartItemIds.has(item.id)) {
         removeFromCart(item.id);
       } else {
-        addToCart({
-          id: item.id,
-          label: `${session.spot.name} · ${formatShortDate(item.capturedAt)}`,
-          spotName: session.spot.name,
-          capturedAt: item.capturedAt instanceof Date ? item.capturedAt.toISOString() : String(item.capturedAt),
-          thumbnailUrl: item.thumbnailUrl,
-          lightboxUrl: item.lightboxUrl,
-          priceCents: item.price ?? 0,
-        });
+        addToCart(toCartItem(item, session.spot.name));
       }
     },
     [cartItemIds, removeFromCart, addToCart, session.spot.name],
