@@ -1,4 +1,5 @@
 // @ts-check
+import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -8,8 +9,7 @@ const serverClientIntegrationRestriction = {
   message: 'Server code must use server/trpc and server-safe shared contracts, not browser tRPC/query clients.',
 };
 
-/** @type {import('typescript-eslint').Config} */
-export default tseslint.config(
+export default defineConfig(
   ...tseslint.configs.recommended,
   {
     ignores: [
