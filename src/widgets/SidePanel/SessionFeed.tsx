@@ -1,38 +1,8 @@
 import { motion } from 'framer-motion';
 import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
 import { IconPhoto, IconMapPin } from '@tabler/icons-react';
-import type { SurfSessionItem } from 'entities/SurfSession';
-import { useSessionFeed } from 'entities/SurfSession';
+import { useSessionFeed, type SessionFeedFilter, type SurfSessionItem } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
-
-// ─── Filter types & helpers (exported for AppShell) ───────────────────────────
-
-export type ActiveFilter = 'today' | 'yesterday' | 'last7' | { date: Date } | null;
-
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-function endOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
-}
-
-export function toDateRange(filter: ActiveFilter): { dateFrom?: Date; dateTo?: Date } {
-  if (!filter) return {};
-  const today = new Date();
-  if (filter === 'today') return { dateFrom: startOfDay(today), dateTo: endOfDay(today) };
-  if (filter === 'yesterday') {
-    const y = new Date(today);
-    y.setDate(y.getDate() - 1);
-    return { dateFrom: startOfDay(y), dateTo: endOfDay(y) };
-  }
-  if (filter === 'last7') {
-    const from = new Date(today);
-    from.setDate(from.getDate() - 7);
-    return { dateFrom: startOfDay(from), dateTo: endOfDay(today) };
-  }
-  return { dateFrom: startOfDay(filter.date), dateTo: endOfDay(filter.date) };
-}
 
 // ─── Session card ──────────────────────────────────────────────────────────────
 
@@ -82,19 +52,17 @@ function SessionCard({ session, onClick }: { session: SurfSessionItem; onClick: 
 
 interface SessionFeedProps {
   expanded?: boolean;
-  activeFilter?: ActiveFilter;
+  activeFilter?: SessionFeedFilter;
   onSessionClick?: (session: SurfSessionItem) => void;
   /** Route-driven spot filter — takes precedence over mapStore.selection. */
   spotId?: string;
 }
 
 export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: spotIdProp }: SessionFeedProps) {
-  const selectedSpotId = spotIdProp ?? null;
-  const dateRange = toDateRange(activeFilter ?? null);
   const columns = expanded ? 3 : 1;
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
-    useSessionFeed({ spotId: selectedSpotId, ...dateRange });
+    useSessionFeed({ spotId: spotIdProp, filter: activeFilter });
 
   const sessions = data?.pages.flatMap((p) => p.items) ?? [];
 

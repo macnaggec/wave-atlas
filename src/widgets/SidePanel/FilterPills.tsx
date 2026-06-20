@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Popover } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { IconCalendar } from '@tabler/icons-react';
-import type { ActiveFilter } from './SessionFeed';
+import type { SessionFeedFilter } from 'entities/SurfSession';
 
 const pillStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.08)',
@@ -28,14 +28,14 @@ const pillActiveStyle: React.CSSProperties = {
   color: '#fff',
 };
 
-export function FilterPills({ active, onChange }: { active: ActiveFilter; onChange: (f: ActiveFilter) => void }) {
+export function FilterPills({ active, onChange }: { active: SessionFeedFilter; onChange: (f: SessionFeedFilter) => void }) {
   const [open, setOpen] = useState(false);
   const isCustom = active !== null && typeof active === 'object';
   const customLabel = isCustom
     ? (active as { date: Date }).date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null;
 
-  function renderPill(label: string, key: Exclude<ActiveFilter, null | { date: Date }>) {
+  function renderPill(label: string, key: Exclude<SessionFeedFilter, null | { date: Date }>) {
     const isActive = active === key;
     return (
       <button style={{ ...pillStyle, ...(isActive ? pillActiveStyle : {}) }} onClick={() => onChange(isActive ? null : key)}>

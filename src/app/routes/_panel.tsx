@@ -4,21 +4,20 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useUploadStore } from 'features/Upload/model';
 import { useMyDraftCounts } from 'entities/Media';
 import { Skeleton, Text } from '@mantine/core';
-import type { SurfSessionItem } from 'entities/SurfSession';
+import type { SessionFeedFilter, SurfSessionItem } from 'entities/SurfSession';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'entities/Commerce';
 import { CartDrawerHeader } from 'features/Cart/ui/CartDrawerHeader';
 import { ScopeSwitcher } from 'widgets/SidePanel/ScopeSwitcher';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { FilterPills } from 'widgets/SidePanel/FilterPills';
-import type { ActiveFilter } from 'widgets/SidePanel/SessionFeed';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
 // ─── Contexts — shared with child routes ─────────────────────────────────────
 
 interface PanelFilterCtx {
-  activeFilter: ActiveFilter;
-  setActiveFilter: (f: ActiveFilter) => void;
+  activeFilter: SessionFeedFilter;
+  setActiveFilter: (f: SessionFeedFilter) => void;
 }
 
 const PanelFilterContext = createContext<PanelFilterCtx>({
@@ -43,7 +42,7 @@ export const Route = createFileRoute('/_panel')({
 });
 
 function PanelLayout() {
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
+  const [activeFilter, setActiveFilter] = useState<SessionFeedFilter>(null);
   return (
     <PanelFilterContext.Provider value={{ activeFilter, setActiveFilter }}>
       <PanelFrame>
