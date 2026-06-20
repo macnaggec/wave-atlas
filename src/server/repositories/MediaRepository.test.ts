@@ -31,14 +31,18 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('MediaRepository.findByIdsForFulfillment', () => {
-  it('passes price: { not: null } to the where clause to exclude unpublished items', async () => {
+  it('queries only published, undeleted, priced media', async () => {
     mockFindMany.mockResolvedValue([]);
 
     await repo.findByIdsForFulfillment(['media-1', 'media-2']);
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ price: { not: null } }),
+        where: expect.objectContaining({
+          status: 'PUBLISHED',
+          deletedAt: null,
+          price: { not: null },
+        }),
       }),
     );
   });

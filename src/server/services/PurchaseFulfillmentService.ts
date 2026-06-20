@@ -36,6 +36,12 @@ export class PurchaseFulfillmentService {
     // itemIds come from OrderItem rows — not trusted from the external webhook payload
     const itemIds = order.items.map((item) => item.mediaItemId);
     const mediaItems = await this.media.findByIdsForFulfillment(itemIds);
+    const availableIds = new Set(mediaItems.map((item) => item.id));
+    const unavailableIds = itemIds.filter((itemId) => !availableIds.has(itemId));
+
+    if (unavailableIds.length > 0) {
+      throw new Error(`Order contains unavailable media items: ${unavailableIds.join(', ')}`);
+    }
 
     const purchaseData: PurchaseInsertData[] = [];
     const earningsMap = new Map<string, number>();
@@ -79,4 +85,3 @@ export const purchaseFulfillmentService = new PurchaseFulfillmentService(
   fulfillmentRepository,
   cloudinaryService,
 );
-

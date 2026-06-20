@@ -165,7 +165,12 @@ export class MediaRepository implements IMediaRepository {
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
-        where: { id: { in: ids }, price: { not: null } },
+        where: {
+          id: { in: ids },
+          status: MEDIA_STATUS.PUBLISHED,
+          deletedAt: null,
+          price: { not: null },
+        },
         select: { id: true, price: true, photographerId: true, cloudinaryPublicId: true },
       });
       return rows.map(r => {

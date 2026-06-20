@@ -106,6 +106,22 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
     expect(mockFulfillment.commitFulfillment).not.toHaveBeenCalled();
   });
 
+  it('rejects the whole fulfillment when an ordered media item is unavailable', async () => {
+    mockOrders.findOrderByExternalId.mockResolvedValue(null);
+    mockOrders.findOrderById.mockResolvedValue(makeOrder({
+      items: [
+        { id: 'oi-1', mediaItemId: 'media-1' },
+        { id: 'oi-2', mediaItemId: 'media-2' },
+      ],
+    }));
+    mockMedia.findByIdsForFulfillment.mockResolvedValue([makeMediaItem({ id: 'media-1' })]);
+
+    await expect(service.fulfillOrder(ORDER_ID, EXTERNAL_ID)).rejects.toThrow(
+      'Order contains unavailable media items: media-2',
+    );
+    expect(mockFulfillment.commitFulfillment).not.toHaveBeenCalled();
+  });
+
   // -------------------------------------------------------------------------
   // Purchase data written inside transaction
   // -------------------------------------------------------------------------
@@ -225,5 +241,4 @@ describe('PurchaseFulfillmentService.fulfillOrder', () => {
     await expect(service.fulfillOrder(ORDER_ID, EXTERNAL_ID)).rejects.toThrow('DB connection lost');
   });
 });
-
 
