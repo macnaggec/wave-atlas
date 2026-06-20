@@ -37,12 +37,12 @@ export const spotsRouter = router({
       spotRepository.findSpotsByBounds(input.swLat, input.swLng, input.neLat, input.neLng)
     ),
 
-  /** Returns spots within 300 m of the given coordinates. Used for proximity deduplication. */
+  /** Returns spots within 300 m so the create flow can warn about a possible duplicate. */
   nearby: publicProcedure
     .input(z.object({ lat: z.number(), lng: z.number() }))
     .query(({ input }): Promise<Spot[]> => spotRepository.findSpotsNearby(input.lat, input.lng, 300)),
 
-  /** Creates a new spot. Proximity check is enforced client-side; server only persists. */
+  /** Creates a new spot. Nearby results are advisory; users may intentionally create close spots. */
   create: protectedProcedure
     .input(
       z.object({
