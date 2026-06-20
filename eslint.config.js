@@ -2,6 +2,11 @@
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
+const serverClientIntegrationRestriction = {
+  group: ['shared/lib/trpc', 'shared/lib/trpcClient', 'shared/lib/queryClient'],
+  message: 'Server code must use server/trpc and server-safe shared contracts, not browser tRPC/query clients.',
+};
+
 /** @type {import('typescript-eslint').Config} */
 export default tseslint.config(
   {
@@ -123,6 +128,9 @@ export default tseslint.config(
               ],
             },
           },
+          // shared/lib/trpc.ts and trpcClient.ts need a type-only import of AppRouter from server/router
+          // for tRPC end-to-end type safety. This is erased at compile time — no runtime coupling.
+          { from: { type: 'shared', path: 'src/shared/lib/trpc*.ts' }, allow: { to: [{ type: 'server', path: 'src/server/router.ts' }] } },
           // server: routes/services/repositories may use entity indexes (for domain types/schemas)
           // plus server-internal modules and shared kernel.
           { from: { type: 'server' },  allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }, { type: 'entity', path: 'src/entities/*/index.ts' }] } },
@@ -133,11 +141,20 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/server/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [serverClientIntegrationRestriction],
+      }],
+    },
+  },
+  {
     files: ['src/server/repositories/**/*.ts'],
     ignores: ['src/server/repositories/**/*.test.ts', 'src/server/repositories/**/*.integration.test.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
+          serverClientIntegrationRestriction,
           {
             group: ['server/services/*', 'server/providers/*', 'server/providers/**/*'],
             message: 'Repositories must stay persistence-only. Put workflow and provider orchestration in services.',
