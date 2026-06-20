@@ -27,6 +27,12 @@ export default tseslint.config(
     },
     settings: {
       'boundaries/elements': [
+        // Server tests stay inside the server dependency boundary while still being
+        // allowed to use shared contracts and test helpers.
+        { type: 'server-test', pattern: ['src/server/**/*.test.ts', 'src/server/**/*.integration.test.ts'], mode: 'full' },
+        // Test files are file-path matches, not folder elements. Keep this before
+        // app layers so non-server tests are classified as test before their containing layer.
+        { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'], mode: 'full' },
         { type: 'app',     pattern: 'src/app/**' },
         { type: 'views',   pattern: 'src/views/**' },
         { type: 'widgets', pattern: 'src/widgets/**' },
@@ -45,10 +51,6 @@ export default tseslint.config(
           capture: ['entityName'],
         },
         { type: 'shared',  pattern: 'src/shared/**' },
-        // test must come before server so that *.test.ts files inside src/server/ and
-        // src/entities/ are classified as test (and allowed full access) rather than
-        // as their containing layer (which would block src/test/** helper imports).
-        { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'] },
         { type: 'server',  pattern: 'src/server/**' },
         { type: 'types',   pattern: 'src/types/**' },
       ],
@@ -113,8 +115,6 @@ export default tseslint.config(
           },
           // entity: a slice may import its own internals freely; cross-entity imports must
           // go through the target entity's public index only (same contract rule as features).
-          // app/lib/trpc.ts (React context hooks) and app/lib/trpcClient.ts (raw HTTP client)
-          // are narrow infrastructure exceptions. QW13 will move both to shared/lib/.
           {
             from: { type: 'entity' },
             allow: {
@@ -123,17 +123,17 @@ export default tseslint.config(
                 { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' },
                 { type: 'types' },
-                { type: 'app', path: 'src/app/lib/trpc.ts' },
-                { type: 'app', path: 'src/app/lib/trpcClient.ts' },
               ],
             },
           },
           // shared/lib/trpc.ts and trpcClient.ts need a type-only import of AppRouter from server/router
           // for tRPC end-to-end type safety. This is erased at compile time — no runtime coupling.
           { from: { type: 'shared', path: 'src/shared/lib/trpc*.ts' }, allow: { to: [{ type: 'server', path: 'src/server/router.ts' }] } },
-          // server: routes/services/repositories may use entity indexes (for domain types/schemas)
-          // plus server-internal modules and shared kernel.
-          { from: { type: 'server' },  allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }, { type: 'entity', path: 'src/entities/*/index.ts' }] } },
+          // server: routes/services/repositories use server-internal modules and shared/server-safe contracts.
+          { from: { type: 'server' },  allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }] } },
+          // server tests may use server code, shared contracts, global types, and test helpers,
+          // but not client-facing app/entity/feature/widget/view layers.
+          { from: { type: 'server-test' }, allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }, { type: 'test' }] } },
           // test helpers may import anything
           { from: { type: 'test' },    allow: { to: { type: ['app', 'views', 'widgets', 'feature', 'entity', 'shared', 'server', 'types'] } } },
         ],
