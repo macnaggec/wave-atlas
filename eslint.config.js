@@ -1,6 +1,7 @@
 // @ts-check
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 const serverClientIntegrationRestriction = {
   group: ['shared/lib/trpc', 'shared/lib/trpcClient', 'shared/lib/queryClient'],
@@ -9,6 +10,7 @@ const serverClientIntegrationRestriction = {
 
 /** @type {import('typescript-eslint').Config} */
 export default tseslint.config(
+  ...tseslint.configs.recommended,
   {
     ignores: [
       'node_modules/**',
@@ -21,7 +23,7 @@ export default tseslint.config(
   },
   {
     files: ['src/**/*.ts', 'src/**/*.tsx'],
-    plugins: { boundaries },
+    plugins: { boundaries, 'react-hooks': reactHooks },
     languageOptions: {
       parser: tseslint.parser,
     },
@@ -35,7 +37,13 @@ export default tseslint.config(
         { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'], mode: 'full' },
         { type: 'app',     pattern: 'src/app/**' },
         { type: 'views',   pattern: 'src/views/**' },
-        { type: 'widgets', pattern: 'src/widgets/**' },
+        // Each widget folder is its own element; cross-widget imports are forbidden
+        // unless the caller is a higher layer using the widget's public index.
+        {
+          type: 'widgets',
+          pattern: 'src/widgets/*/**',
+          capture: ['widgetName'],
+        },
         // Each sub-folder of features/ is its own element; featureName is captured for
         // the same-feature allow rule below (C2 guard).
         {
@@ -63,6 +71,7 @@ export default tseslint.config(
       },
     },
     rules: {
+      ...reactHooks.configs.recommended.rules,
       'boundaries/dependencies': ['error', {
         default: 'disallow',
         rules: [
@@ -72,7 +81,9 @@ export default tseslint.config(
             from: { type: 'app' },
             allow: {
               to: [
-                { type: 'views' }, { type: 'widgets' }, { type: 'feature' },
+                { type: 'views' },
+                { type: 'widgets', path: 'src/widgets/*/index.ts' },
+                { type: 'feature', path: 'src/features/*/index.ts' },
                 { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' }, { type: 'server' }, { type: 'types' },
               ],
@@ -83,7 +94,8 @@ export default tseslint.config(
             from: { type: 'views' },
             allow: {
               to: [
-                { type: 'widgets' }, { type: 'feature' },
+                { type: 'widgets', path: 'src/widgets/*/index.ts' },
+                { type: 'feature', path: 'src/features/*/index.ts' },
                 { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' }, { type: 'types' },
               ],
@@ -94,9 +106,10 @@ export default tseslint.config(
             from: { type: 'widgets' },
             allow: {
               to: [
-                { type: 'feature' },
+                { type: 'feature', path: 'src/features/*/index.ts' },
                 { type: 'entity', path: 'src/entities/*/index.ts' },
                 { type: 'shared' }, { type: 'types' },
+                { type: 'widgets', captured: { widgetName: '{{widgetName}}' } },
               ],
             },
           },
@@ -160,6 +173,20 @@ export default tseslint.config(
             message: 'Repositories must stay persistence-only. Put workflow and provider orchestration in services.',
           },
         ],
+      }],
+    },
+  },
+  // shared/lib/trpc*.ts may only type-import from server modules.
+  // A runtime import would pull the server router and all its dependencies into the browser bundle.
+  {
+    files: ['src/shared/lib/trpc.ts', 'src/shared/lib/trpcClient.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['server/*', 'server/**/*'],
+          allowTypeImports: true,
+          message: 'Shared tRPC files may only type-import from server modules. Use `import type` to prevent runtime coupling.',
+        }],
       }],
     },
   },
