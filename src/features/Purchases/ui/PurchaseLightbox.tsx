@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Group } from '@mantine/core';
 import { BaseLightbox } from 'shared/ui/BaseLightbox';
-import DownloadButton from 'features/Cart/ui/DownloadButton';
+import DownloadButton from './DownloadButton';
 
 export interface PurchaseLightboxItem {
   previewUrl: string | null;

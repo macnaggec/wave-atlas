@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 import { Card, Group, Image, Text } from '@mantine/core';
-import DownloadButton from 'features/Cart/ui/DownloadButton';
 import { formatPrice } from 'shared/lib/currency';
+import DownloadButton from './DownloadButton';
 import classes from './PurchaseCard.module.css';
 
 export interface PurchaseCardItem {
@@ -47,21 +47,19 @@ function PurchaseCard({
         />
       </Card.Section>
 
-      <Group
-        justify="space-between"
-        mt="xs"
-        wrap="nowrap"
-      >
+      <Group justify="space-between" mt="xs" wrap="nowrap">
         <Text size="xs" c="dimmed">
           {formatPrice(purchase.amountPaid)}
         </Text>
-        <DownloadButton
-          mediaItemId={purchase.mediaItem.id}
-          size="sm"
-          loading={isDownloading}
-          disabled={isAnyDownloading}
-          onDownload={onDownload}
-        />
+        <span onClick={event => event.stopPropagation()}>
+          <DownloadButton
+            mediaItemId={purchase.mediaItem.id}
+            size="sm"
+            loading={isDownloading}
+            disabled={isAnyDownloading}
+            onDownload={onDownload}
+          />
+        </span>
       </Group>
     </Card>
   );

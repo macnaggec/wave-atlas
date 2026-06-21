@@ -50,20 +50,17 @@ vi.mock('entities/Commerce', async () => {
   const { useCartStore } = await import('entities/Commerce/model/cartStore');
   return {
     useCartStore,
-    usePurchaseDownload: () => ({
-      download: vi.fn(),
-      isDownloading: () => false,
-      isAnyDownloading: false,
-    }),
   };
 });
 
-vi.mock('features/Cart/ui/DownloadButton', () => ({
-  default: () => <button type="button">Download</button>,
-}));
-
-vi.mock('features/Cart/ui/PurchaseLightbox', () => ({
-  default: () => null,
+vi.mock('features/Purchases', () => ({
+  PurchaseCard: () => <article>Purchase</article>,
+  PurchaseLightbox: () => null,
+  usePurchaseDownload: () => ({
+    download: vi.fn(),
+    isDownloading: () => false,
+    isAnyDownloading: false,
+  }),
 }));
 
 describe('PurchasesTab', () => {

@@ -14,8 +14,7 @@ export interface DownloadButtonProps {
 /**
  * DownloadButton — triggers a signed download for a purchased media item.
  *
- * Calls `onDownload` with the media item id. When `stopPropagation` is true,
- * prevents the click from bubbling to a parent card.
+ * Calls `onDownload` with the media item id.
  */
 const DownloadButton = memo(function DownloadButton({
   mediaItemId,
@@ -25,7 +24,7 @@ const DownloadButton = memo(function DownloadButton({
   onDownload,
 }: DownloadButtonProps) {
   const handleClick = useCallback(
-    (_e: MouseEvent<HTMLButtonElement>) => {
+    (_event: MouseEvent<HTMLButtonElement>) => {
       onDownload(mediaItemId);
     },
     [mediaItemId, onDownload],
