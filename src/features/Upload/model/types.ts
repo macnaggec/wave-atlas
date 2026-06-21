@@ -68,7 +68,7 @@ export function getItemId(card: GalleryCard): string {
 export function isVideoItem(card: GalleryCard): boolean {
   if (card.kind === 'draft') return card.result.resource.resourceType === 'video';
   return (
-    card.pipelineItem.cloudinaryResult?.resource_type === 'video' ||
+    card.pipelineItem.cloudinaryResult?.resourceType === 'video' ||
     !!card.pipelineItem.file?.type.startsWith('video/')
   );
 }

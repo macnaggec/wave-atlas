@@ -100,7 +100,7 @@ function parseSuccessResponse(
     publicId: raw.public_id,
     thumbnailUrl: raw.eager?.[0]?.secure_url,
     lightboxUrl: raw.eager?.[1]?.secure_url,
-    resource_type: raw.resource_type,
+    resourceType: raw.resource_type,
   });
 
   if (!parsed.success) {

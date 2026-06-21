@@ -79,7 +79,7 @@ describe('uploadToCloudinary — XHR lifecycle', () => {
       publicId: 'wave-atlas/img',
       thumbnailUrl,
       lightboxUrl,
-      resource_type: 'image',
+      resourceType: 'image',
     });
   });
 });

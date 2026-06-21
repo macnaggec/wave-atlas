@@ -8,6 +8,7 @@
 
 import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl, MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
 import { InternalServerError } from 'shared/errors';
+import type { MediaResourceType } from 'shared/types/media';
 
 export interface CloudinarySignatureData {
   signature: string;
@@ -28,9 +29,14 @@ export interface SignedMediaAccessResult {
 
 export interface RemoteUploadResult {
   publicId: string;
-  resource_type: string;
+  resourceType: MediaResourceType;
   thumbnailUrl: string;
   lightboxUrl: string;
+}
+
+function toMediaResourceType(value: string): MediaResourceType {
+  if (value === 'image' || value === 'video') return value;
+  throw new InternalServerError('Cloudinary returned an unsupported resource type');
 }
 
 export interface ICloudinaryService {
@@ -149,7 +155,7 @@ export class CloudinaryService implements ICloudinaryService {
 
     return {
       publicId,
-      resource_type: result.resource_type,
+      resourceType: toMediaResourceType(result.resource_type),
       thumbnailUrl,
       lightboxUrl,
     };

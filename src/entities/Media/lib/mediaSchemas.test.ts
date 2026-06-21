@@ -9,24 +9,24 @@ const validBase = {
   lightboxUrl: `${BASE}t_wave_atlas_lightbox_watermark/wave-atlas/users/abc/img.jpg`,
 };
 
-describe('mediaCloudinaryResultSchema — resource_type', () => {
+describe('mediaCloudinaryResultSchema — resourceType', () => {
   it('accepts "image"', () => {
-    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resource_type: 'image' });
+    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resourceType: 'image' });
     expect(result.success).toBe(true);
   });
 
   it('accepts "video"', () => {
-    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resource_type: 'video' });
+    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resourceType: 'video' });
     expect(result.success).toBe(true);
   });
 
   it('rejects arbitrary strings', () => {
-    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resource_type: 'raw' });
+    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resourceType: 'raw' });
     expect(result.success).toBe(false);
   });
 
   it('rejects executable-looking values', () => {
-    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resource_type: 'script' });
+    const result = mediaCloudinaryResultSchema.safeParse({ ...validBase, resourceType: 'script' });
     expect(result.success).toBe(false);
   });
 });

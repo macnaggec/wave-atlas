@@ -2,7 +2,7 @@ import { MediaItem as PrismaMediaItem, MediaStatus, MediaType } from '@prisma/cl
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
 import { MEDIA_STATUS } from 'shared/types/media';
-import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus, SpotMediaItem } from 'shared/types/media';
+import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus, SpotMediaItem, MediaResourceType } from 'shared/types/media';
 import { mapToMediaItem } from './mappers';
 
 export type SpotMediaPage = {
@@ -37,7 +37,7 @@ function mapToSpotMediaItem(
 
 export type CreateMediaData = {
   photographerId: string;
-  resource_type: 'image' | 'video';
+  resourceType: MediaResourceType;
   cloudinaryPublicId: string;
   thumbnailUrl: string;
   lightboxUrl: string;
@@ -79,7 +79,7 @@ export class MediaRepository implements IMediaRepository {
       const row = await prisma.mediaItem.create({
         data: {
           photographerId: data.photographerId,
-          type: data.resource_type === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
+          type: data.resourceType === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
           cloudinaryPublicId: data.cloudinaryPublicId,
           thumbnailUrl: data.thumbnailUrl,
           lightboxUrl: data.lightboxUrl,

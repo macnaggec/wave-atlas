@@ -16,7 +16,7 @@ export const mediaCloudinaryResultSchema = z.object({
   publicId: z.string().min(1),
   thumbnailUrl: mediaCloudinaryUrlSchema,
   lightboxUrl: mediaCloudinaryUrlSchema,
-  resource_type: z.enum([MEDIA_RESOURCE_TYPE.IMAGE, MEDIA_RESOURCE_TYPE.VIDEO]),
+  resourceType: z.enum([MEDIA_RESOURCE_TYPE.IMAGE, MEDIA_RESOURCE_TYPE.VIDEO]),
 });
 
 export const mediaCreateSchema = z.object({

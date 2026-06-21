@@ -3,18 +3,29 @@
 import React, { FC, memo, useCallback } from 'react';
 import { ActionIcon, Badge, Group } from '@mantine/core';
 import { IconShoppingCartPlus, IconShoppingCartMinus, IconHeart, IconShare, IconFlag } from '@tabler/icons-react';
-import { MediaItem } from 'entities/Media';
 import { BaseCard } from 'shared/ui/BaseGallery';
 import type { PublicCardAction } from '../../model/types';
 
 export type { PublicCardAction };
+
+/** Minimal display contract for PublicCard — only fields the card actually renders. */
+export interface DisplayMedia {
+  id: string;
+  thumbnailUrl: string;
+  resource: {
+    resourceType: 'image' | 'video';
+    url: string;
+    playbackUrl?: string;
+    assetId: string;
+  };
+}
 
 /**
  * Props for PublicCard component
  */
 export interface PublicCardProps {
   /** Media item to display */
-  mediaItem: MediaItem;
+  mediaItem: DisplayMedia;
 
   /** Actions to display (cart, favorites, share, report) */
   actions?: PublicCardAction[];
@@ -99,7 +110,7 @@ const PublicCard: FC<PublicCardProps> = memo(({
   showOwnerBadge = false,
 }) => {
   const { resource } = mediaItem;
-  const thumbnailUrl = resource.resource_type === 'image'
+  const thumbnailUrl = resource.resourceType === 'image'
     ? mediaItem.thumbnailUrl
     : resource.url;
 
@@ -110,9 +121,9 @@ const PublicCard: FC<PublicCardProps> = memo(({
   return (
     <BaseCard
       imageUrl={thumbnailUrl}
-      resourceType={resource.resource_type}
-      playbackUrl={resource.playback_url}
-      alt={`Media ${resource.asset_id}`}
+      resourceType={resource.resourceType}
+      playbackUrl={resource.playbackUrl}
+      alt={`Media ${resource.assetId}`}
       onClick={onCardClick ? handleClick : undefined}
       overlays={showOwnerBadge ? OWNER_BADGE : undefined}
       actions={
@@ -129,6 +140,7 @@ const PublicCard: FC<PublicCardProps> = memo(({
               return (
                 <ActionIcon
                   key={actionType}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mantine variant type narrows too strictly for dynamic action configs
                   variant={resolved.variant as any}
                   color={resolved.color}
                   size="md"

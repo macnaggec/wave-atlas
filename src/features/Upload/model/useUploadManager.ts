@@ -130,7 +130,7 @@ export const useUploadManager = () => {
         useUploadStore.getState().updateItem(id, { abortUpload: abort });
         cloudResult = await promise;
         if (isDiscarded()) {
-          void deleteOrphanAsset({ publicId: cloudResult.publicId, resourceType: cloudResult.resource_type });
+          void deleteOrphanAsset({ publicId: cloudResult.publicId, resourceType: cloudResult.resourceType });
           return;
         }
         store.updateItem(id, { cloudinaryResult: cloudResult });
@@ -190,7 +190,7 @@ export const useUploadManager = () => {
     await abortIfUploading(item);
 
     if (isOrphanAsset(item)) {
-      deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type })
+      deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resourceType })
         .catch(() => notify.error('Failed to clean up upload — please contact support', 'Cleanup Error'));
     }
 
@@ -239,7 +239,7 @@ export const useUploadManager = () => {
         } else if (item.status === 'completed' && item.mediaId) {
           toDeleteDb.push(item.mediaId);
         } else if (isOrphanAsset(item)) {
-          void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+          void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resourceType });
         }
       }
     });

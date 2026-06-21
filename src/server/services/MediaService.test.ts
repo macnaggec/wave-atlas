@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MediaService } from 'server/services/MediaService';
 import type { IMediaRepository } from 'server/repositories/MediaRepository';
-import { BadRequestError } from 'shared/errors';
-import { MEDIA_STATUS } from 'entities/Media';
+import { BadRequestError, ForbiddenError } from 'shared/errors';
+import { MEDIA_STATUS } from 'shared/types/media';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -12,10 +12,14 @@ const mockMedia = {
   findById: vi.fn(),
   createMedia: vi.fn(),
   updateMedia: vi.fn(),
+  updateManyMedia: vi.fn(),
   hardDelete: vi.fn(),
   softDelete: vi.fn(),
   findDraftsBySpot: vi.fn(),
   findByIds: vi.fn(),
+  findByCloudinaryPublicId: vi.fn(),
+  findPublishedByPhotographer: vi.fn(),
+  findPublishedBySession: vi.fn(),
 };
 
 const mockCloudinary = {
@@ -30,20 +34,12 @@ const service = new MediaService(mockMedia as unknown as IMediaRepository, mockC
 // Factories
 // ---------------------------------------------------------------------------
 
-function makeDraft(overrides: { price?: number; id?: string; status?: string } = {}) {
+function makeBatchItem(overrides: { price?: number | null; id?: string; status?: string } = {}) {
   return {
     id: overrides.id ?? 'media-1',
     photographerId: 'user-1',
     status: overrides.status ?? MEDIA_STATUS.DRAFT,
-    price: overrides.price ?? 0,
-    spotId: 'spot-1',
-    thumbnailUrl: 'https://res.cloudinary.com/test/t_thumb/img.jpg',
-    lightboxUrl: 'https://res.cloudinary.com/test/t_lbw/img.jpg',
-    capturedAt: new Date(),
-    type: 'IMAGE',
-    cloudinaryPublicId: 'wave-atlas/img',
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    price: overrides.price !== undefined ? overrides.price : 0,
   };
 }
 
@@ -52,12 +48,40 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+// findPublishedByPhotographer / findPublishedBySession — delegation
+// ---------------------------------------------------------------------------
+
+describe('MediaService.findPublishedByPhotographer', () => {
+  it('delegates to the repository with the given photographerId', async () => {
+    const items = [{ id: 'media-1' }];
+    mockMedia.findPublishedByPhotographer.mockResolvedValue(items);
+
+    const result = await service.findPublishedByPhotographer('user-1');
+
+    expect(mockMedia.findPublishedByPhotographer).toHaveBeenCalledWith('user-1');
+    expect(result).toBe(items);
+  });
+});
+
+describe('MediaService.findPublishedBySession', () => {
+  it('delegates to the repository with the given sessionId', async () => {
+    const items = [{ id: 'media-2' }];
+    mockMedia.findPublishedBySession.mockResolvedValue(items);
+
+    const result = await service.findPublishedBySession('session-1');
+
+    expect(mockMedia.findPublishedBySession).toHaveBeenCalledWith('session-1');
+    expect(result).toBe(items);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // publish — price guard
 // ---------------------------------------------------------------------------
 
 describe('MediaService.publish — price guard', () => {
   it('throws BadRequestError when item has price 0 and no input price is given', async () => {
-    mockMedia.findById.mockResolvedValue(makeDraft({ price: 0 }));
+    mockMedia.findByIds.mockResolvedValue([makeBatchItem({ price: 0 })]);
 
     await expect(
       service.publish('user-1', ['media-1'], {})
@@ -65,7 +89,7 @@ describe('MediaService.publish — price guard', () => {
   });
 
   it('throws BadRequestError when item has price 200 cents and no input price is given', async () => {
-    mockMedia.findById.mockResolvedValue(makeDraft({ price: 200 }));
+    mockMedia.findByIds.mockResolvedValue([makeBatchItem({ price: 200 })]);
 
     await expect(
       service.publish('user-1', ['media-1'], {})
@@ -73,8 +97,7 @@ describe('MediaService.publish — price guard', () => {
   });
 
   it('succeeds when item already has price >= 300 cents and no input price is given', async () => {
-    mockMedia.findById.mockResolvedValue(makeDraft({ price: 300 }));
-    mockMedia.updateMedia.mockResolvedValue(makeDraft({ price: 300 }));
+    mockMedia.findByIds.mockResolvedValue([makeBatchItem({ price: 300 })]);
 
     await expect(
       service.publish('user-1', ['media-1'], {})
@@ -82,8 +105,7 @@ describe('MediaService.publish — price guard', () => {
   });
 
   it('succeeds when input price overrides the existing 0-price item with >= 300 cents', async () => {
-    mockMedia.findById.mockResolvedValue(makeDraft({ price: 0 }));
-    mockMedia.updateMedia.mockResolvedValue(makeDraft({ price: 500 }));
+    mockMedia.findByIds.mockResolvedValue([makeBatchItem({ price: 0 })]);
 
     await expect(
       service.publish('user-1', ['media-1'], { price: 500 })
@@ -91,7 +113,7 @@ describe('MediaService.publish — price guard', () => {
   });
 
   it('throws BadRequestError when item is already published', async () => {
-    mockMedia.findById.mockResolvedValue(makeDraft({ price: 500, status: MEDIA_STATUS.PUBLISHED }));
+    mockMedia.findByIds.mockResolvedValue([makeBatchItem({ price: 500, status: MEDIA_STATUS.PUBLISHED })]);
 
     await expect(
       service.publish('user-1', ['media-1'], {})
@@ -116,5 +138,47 @@ describe('MediaService.updateMedia — price guard', () => {
     ).rejects.toThrow(BadRequestError);
 
     expect(mockMedia.updateMedia).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteOrphanAsset
+// ---------------------------------------------------------------------------
+
+describe('MediaService.deleteOrphanAsset', () => {
+  it('returns without deleting when a live DB record owned by the caller exists', async () => {
+    mockMedia.findByCloudinaryPublicId.mockResolvedValue({ id: 'media-1', photographerId: 'user-1' });
+
+    await service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/img', 'image');
+
+    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
+  });
+
+  it('throws ForbiddenError when a live DB record is owned by a different user', async () => {
+    mockMedia.findByCloudinaryPublicId.mockResolvedValue({ id: 'media-1', photographerId: 'other-user' });
+
+    await expect(
+      service.deleteOrphanAsset('user-1', 'wave-atlas/users/other-user/img', 'image')
+    ).rejects.toThrow(ForbiddenError);
+
+    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
+  });
+
+  it('deletes the Cloudinary asset when the publicId is an orphan with the correct prefix', async () => {
+    mockMedia.findByCloudinaryPublicId.mockResolvedValue(null);
+
+    await service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/img', 'image');
+
+    expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('wave-atlas/users/user-1/img', 'image');
+  });
+
+  it('throws ForbiddenError when publicId contains a path traversal (..)', async () => {
+    mockMedia.findByCloudinaryPublicId.mockResolvedValue(null);
+
+    await expect(
+      service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/../admin/secret', 'image')
+    ).rejects.toThrow(ForbiddenError);
+
+    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
   });
 });

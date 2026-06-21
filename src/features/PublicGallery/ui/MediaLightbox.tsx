@@ -4,15 +4,12 @@ import { IconShoppingCartPlus, IconShoppingCartMinus } from '@tabler/icons-react
 import { formatPrice } from 'shared/lib/currency';
 import { CarouselLightbox } from 'shared/ui/CarouselLightbox';
 
-/** Minimal shape MediaLightbox needs — satisfied by both MediaItem and PublishedMedia. */
+/** Normalized shape callers must produce before passing to MediaLightbox. */
 export interface LightboxMedia {
   id: string;
   lightboxUrl: string;
   thumbnailUrl: string;
-  /** Present on MediaItem */
-  resource?: { resource_type: string };
-  /** Present on PublishedMedia */
-  type?: 'PHOTO' | 'VIDEO';
+  type: 'image' | 'video';
   price: number | null;
   capturedAt: Date;
   photographerId: string;
@@ -41,10 +38,11 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
   onCartToggle,
   ownedItemIds = new Set<string>(),
 }) => {
-  const lightboxItems = items.map((item) => {
-    const isVideo = item.resource?.resource_type === 'video' || item.type === 'VIDEO';
-    return { id: item.id, url: item.lightboxUrl, type: (isVideo ? 'video' : 'image') as 'image' | 'video' };
-  });
+  const lightboxItems = items.map((item) => ({
+    id: item.id,
+    url: item.lightboxUrl,
+    type: item.type,
+  }));
 
   return (
     <CarouselLightbox

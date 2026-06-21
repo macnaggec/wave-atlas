@@ -23,7 +23,7 @@ export function useClearUploadQueue() {
       if (isUploading(item.status)) {
         try { item.abortUpload?.(); } catch { /* abort errors expected */ }
       } else if (isOrphanAsset(item)) {
-        void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resource_type });
+        void deleteOrphanAsset({ publicId: item.cloudinaryResult.publicId, resourceType: item.cloudinaryResult.resourceType });
       }
     });
     store.clearQueue();

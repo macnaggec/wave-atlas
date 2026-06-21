@@ -3,7 +3,7 @@ import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
-import type { MediaStatus, MediaItem } from 'shared/types/media';
+import type { MediaStatus, MediaItem, MediaResourceType } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 
@@ -18,7 +18,7 @@ export type CreateMediaInput = {
     publicId: string;
     thumbnailUrl: string;
     lightboxUrl: string;
-    resource_type: string;
+    resourceType: MediaResourceType;
   };
   capturedAt?: Date;
 };
@@ -70,7 +70,7 @@ export class MediaService {
   async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
     return this.media.createMedia({
       photographerId: userId,
-      resource_type: input.cloudinaryResult.resource_type as 'image' | 'video',
+      resourceType: input.cloudinaryResult.resourceType,
       cloudinaryPublicId: input.cloudinaryResult.publicId,
       thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
       lightboxUrl: input.cloudinaryResult.lightboxUrl,
@@ -81,19 +81,19 @@ export class MediaService {
 
   async registerDriveImport(userId: string, input: RegisterDriveImportInput): Promise<MediaItem> {
     const driveUrl = `https://www.googleapis.com/drive/v3/files/${input.remoteFileId}?alt=media`;
-    const resourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
+    const requestedResourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
 
-    const { publicId, resource_type, thumbnailUrl, lightboxUrl } = await this.cloudinary.uploadFromUrl(
+    const { publicId, resourceType, thumbnailUrl, lightboxUrl } = await this.cloudinary.uploadFromUrl(
       driveUrl,
       { Authorization: `Bearer ${input.accessToken}` },
       `wave-atlas/users/${userId}`,
-      resourceType,
+      requestedResourceType,
     );
 
     try {
       return await this.media.createMedia({
         photographerId: userId,
-        resource_type: resource_type as 'image' | 'video',
+        resourceType,
         cloudinaryPublicId: publicId,
         thumbnailUrl,
         lightboxUrl,
@@ -101,7 +101,7 @@ export class MediaService {
         status: MEDIA_STATUS.DRAFT,
       });
     } catch (err) {
-      this.cloudinary.deleteAsset(publicId, resource_type as 'image' | 'video').catch(
+      this.cloudinary.deleteAsset(publicId, resourceType).catch(
         (cleanupErr) => logger.error('[MediaService] Failed to clean up orphaned Cloudinary asset', { publicId, error: cleanupErr }),
       );
       throw err;
@@ -122,7 +122,7 @@ export class MediaService {
       await this.media.hardDelete(mediaId);
       this.cloudinary.deleteAsset(
         media.cloudinaryPublicId,
-        media.resource.resource_type as 'image' | 'video',
+        media.resource.resourceType,
       ).catch((err) =>
         logger.error('[MediaService] Failed to clean up Cloudinary asset after hardDelete', { publicId: media.cloudinaryPublicId, error: err }),
       );
@@ -191,6 +191,14 @@ export class MediaService {
 
   async hasDrafts(userId: string): Promise<boolean> {
     return this.media.hasDraftsByUser(userId);
+  }
+
+  findPublishedByPhotographer(photographerId: string) {
+    return this.media.findPublishedByPhotographer(photographerId);
+  }
+
+  findPublishedBySession(sessionId: string) {
+    return this.media.findPublishedBySession(sessionId);
   }
 
   /**
