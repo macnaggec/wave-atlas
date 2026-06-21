@@ -34,7 +34,7 @@ export default defineConfig(
         { type: 'server-test', pattern: ['src/server/**/*.test.ts', 'src/server/**/*.integration.test.ts'], mode: 'full' },
         // Test files are file-path matches, not folder elements. Keep this before
         // app layers so non-server tests are classified as test before their containing layer.
-        { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'], mode: 'full' },
+        { type: 'test',    pattern: ['src/test/**', 'src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts', 'src/**/*.spec.tsx'], mode: 'full' },
         { type: 'app',     pattern: 'src/app/**' },
         { type: 'views',   pattern: 'src/views/**' },
         // Each widget folder is its own element; cross-widget imports are forbidden
@@ -72,6 +72,11 @@ export default defineConfig(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
       'boundaries/dependencies': ['error', {
         default: 'disallow',
         rules: [
@@ -148,7 +153,7 @@ export default defineConfig(
           // but not client-facing app/entity/feature/widget/view layers.
           { from: { type: 'server-test' }, allow: { to: [{ type: 'server' }, { type: 'shared' }, { type: 'types' }, { type: 'test' }] } },
           // test helpers may import anything
-          { from: { type: 'test' },    allow: { to: { type: ['app', 'views', 'widgets', 'feature', 'entity', 'shared', 'server', 'types'] } } },
+          { from: { type: 'test' },    allow: { to: { type: ['app', 'views', 'widgets', 'feature', 'entity', 'shared', 'server', 'types', 'test'] } } },
         ],
       }],
     },

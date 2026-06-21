@@ -2,9 +2,9 @@ import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react
 import type { QueryClient } from '@tanstack/react-query';
 import { Button, Center, Stack, Text, Title } from '@mantine/core';
 import { AppShell } from 'app/AppShell';
-import { AuthModalProvider } from 'features/Auth/AuthModalProvider';
+import { AuthModalProvider } from 'features/Auth';
 import { AddSpotProvider } from 'features/AddSpot';
-import { useCartSessionSync } from 'features/Cart/model/useCartSessionSync';
+import { useCartSessionSync } from 'features/Cart';
 import classes from './__root.module.css';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 

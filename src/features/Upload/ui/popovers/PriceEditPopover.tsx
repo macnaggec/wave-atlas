@@ -73,6 +73,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
 
   useEffect(() => {
     if (opened) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: initialise draft price when popover opens
       setDraftPrice(value >= MIN_PRICE ? value : MIN_PRICE);
     }
   }, [opened, value]);

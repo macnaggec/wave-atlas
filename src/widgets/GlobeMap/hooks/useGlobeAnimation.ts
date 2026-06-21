@@ -45,6 +45,7 @@ export function useGlobeAnimation(
 
     // Only spin when zoomed out beyond threshold
     if (currentZoom > maxSpinZoom) {
+      // eslint-disable-next-line react-hooks/immutability -- recursive rAF via useCallback; intentional animation loop pattern
       requestAnimationFrame(spinGlobe); // Keep loop alive but don't rotate
       return;
     }

@@ -1,4 +1,4 @@
-import { Combobox, Input, Loader, useCombobox, Text, Group, CloseButton, Divider } from '@mantine/core';
+import { Combobox, Input, Loader, useCombobox, Group, CloseButton, Divider } from '@mantine/core';
 import classes from './SpotSearch.module.css';
 import { IconSearch, IconMapPin } from '@tabler/icons-react';
 import type { ReactNode } from 'react';

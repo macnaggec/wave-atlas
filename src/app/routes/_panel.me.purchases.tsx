@@ -1,12 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Card, Center, Group, Image, Loader, SimpleGrid, Text } from '@mantine/core';
+import { Center, Loader, SimpleGrid, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
-import { useCartStore, usePurchaseDownload } from 'entities/Commerce';
-import DownloadButton from 'features/Cart/ui/DownloadButton';
-import PurchaseLightbox from 'features/Cart/ui/PurchaseLightbox';
-import { formatPrice } from 'shared/lib/currency';
+import { useCartStore } from 'entities/Commerce';
+import { PurchaseCard, PurchaseLightbox, usePurchaseDownload } from 'features/Purchases';
 
 export const Route = createFileRoute('/_panel/me/purchases')({
   validateSearch: (search): { order?: string } => ({
@@ -50,39 +48,15 @@ function PurchasesTab() {
   return (
     <>
       <SimpleGrid cols={2} spacing="sm" p="sm">
-        {purchases.map((p) => (
-          <Card
-            key={p.id}
-            padding="xs"
-            radius="md"
-            withBorder
-            style={{ cursor: p.previewUrl ? 'pointer' : 'default' }}
-            onClick={() => p.previewUrl && setLightboxMediaItemId(p.mediaItem.id)}
-          >
-            <Card.Section>
-              <Image
-                src={p.mediaItem.thumbnailUrl}
-                height={120}
-                fit="cover"
-                alt="Purchased media"
-              />
-            </Card.Section>
-
-            <Group justify="space-between" mt="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed">
-                {formatPrice(p.amountPaid)}
-              </Text>
-              <span onClick={e => e.stopPropagation()}>
-                <DownloadButton
-                  mediaItemId={p.mediaItem.id}
-                  size="sm"
-                  loading={isDownloading(p.mediaItem.id)}
-                  disabled={isAnyDownloading}
-                  onDownload={download}
-                />
-              </span>
-            </Group>
-          </Card>
+        {purchases.map((purchase) => (
+          <PurchaseCard
+            key={purchase.id}
+            purchase={purchase}
+            isDownloading={isDownloading(purchase.mediaItem.id)}
+            isAnyDownloading={isAnyDownloading}
+            onDownload={download}
+            onPreview={setLightboxMediaItemId}
+          />
         ))}
       </SimpleGrid>
 

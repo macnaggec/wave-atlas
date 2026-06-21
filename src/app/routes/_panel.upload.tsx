@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './_panel.upload.module.css';
-import { trpcProxy } from 'app/lib/trpcClient';
+import { trpcProxy } from 'shared/lib/trpcClient';
 import { FeedSearch } from 'widgets/FeedDrawer';
-import { UploadSidebar } from 'features/Upload/ui';
-import { useUploadStore } from 'features/Upload/model';
+import { UploadSidebar } from 'features/Upload';
+import { useUploadStore } from 'features/Upload';
 import type { Spot } from 'entities/Spot';
-import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
+import { mapCommands } from 'widgets/GlobeMap';
 
 export const Route = createFileRoute('/_panel/upload')({
   validateSearch: (search): { spotId?: string } => ({

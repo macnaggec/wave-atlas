@@ -1,16 +1,17 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { useUploadStore } from 'features/Upload/model';
-import { useMyDraftCounts } from 'entities/Media';
+import { useUploadStore } from 'features/Upload';
+import { useTRPC } from 'shared/lib/trpc';
 import { Skeleton, Text } from '@mantine/core';
 import type { SessionFeedFilter, SurfSessionItem } from 'entities/SurfSession';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'entities/Commerce';
-import { CartDrawerHeader } from 'features/Cart/ui/CartDrawerHeader';
-import { ScopeSwitcher } from 'widgets/SidePanel/ScopeSwitcher';
+import { CartDrawerHeader } from 'features/Cart';
+import { ScopeSwitcher } from 'widgets/SidePanel';
 import { FeedSearch } from 'widgets/FeedDrawer';
-import { FilterPills } from 'widgets/SidePanel/FilterPills';
+import { FilterPills } from 'widgets/SidePanel';
 import { formatDateRange } from 'shared/lib/dateUtils';
 
 // ─── Contexts — shared with child routes ─────────────────────────────────────
@@ -63,7 +64,8 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const cartItems = useCartStore((state) => state.items);
   const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.some(i => i.status !== 'cancelled'));
   const uploadSpotId = useUploadStore((s) => s.uploadSpotId);
-  const { data: draftCounts } = useMyDraftCounts();
+  const trpc = useTRPC();
+  const { data: draftCounts } = useQuery(trpc.users.myDraftCounts.queryOptions());
   const hasDrafts = hasQueuedUploads || (draftCounts?.hasDrafts ?? false);
   const resumeSpotId = uploadSpotId;
 

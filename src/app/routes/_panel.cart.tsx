@@ -4,9 +4,7 @@ import { useCallback, useState } from 'react';
 import { useCartStore, useCartCheckout } from 'entities/Commerce';
 import type { CartItem } from 'entities/Commerce';
 import { BaseGallery } from 'shared/ui/BaseGallery';
-import CartCard from 'features/Cart/ui/CartCard';
-import CartLightbox from 'features/Cart/ui/CartLightbox';
-import { CheckoutButton } from 'features/Cart/ui/CheckoutButton';
+import { CartCard, CartLightbox, CheckoutButton } from 'features/Cart';
 
 export const Route = createFileRoute('/_panel/cart')({
   validateSearch: (search): { from?: string } => ({

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { trpcProxy } from 'app/lib/trpcClient';
-import { SessionDetail } from 'widgets/SidePanel/SessionDetail';
+import { trpcProxy } from 'shared/lib/trpcClient';
+import { SessionDetail } from 'widgets/SidePanel';
 
 export const Route = createFileRoute('/_panel/$spotId/session/$sessionId')({
   loader: async ({ context: { queryClient }, params }) =>

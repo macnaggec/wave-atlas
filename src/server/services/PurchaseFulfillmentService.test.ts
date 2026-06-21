@@ -28,7 +28,9 @@ const mockCloudinary = {
 };
 
 const service = new PurchaseFulfillmentService(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial mock objects in test
   mockOrders as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockMedia as any,
   mockFulfillment,
   mockCloudinary,

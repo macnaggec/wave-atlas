@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { SessionFeed } from 'widgets/SidePanel/SessionFeed';
+import { SessionFeed } from 'widgets/SidePanel';
 import { usePanelFilter, usePanelExpanded } from './_panel';
 import type { SurfSessionItem } from 'entities/SurfSession';
 

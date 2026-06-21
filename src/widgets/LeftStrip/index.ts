@@ -1,0 +1,1 @@
+export { LeftStrip } from './LeftStrip';

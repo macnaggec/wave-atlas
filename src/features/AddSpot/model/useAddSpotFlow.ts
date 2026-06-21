@@ -61,6 +61,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
 
   useEffect(() => {
     if (tempPin && step === 'hint') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: advance step on pin placement
       setStep('form');
       geocode(tempPin);
     }

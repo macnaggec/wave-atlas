@@ -1,5 +1,5 @@
 import { GlobeScene } from 'views/GlobeScene';
-import { LeftStrip } from 'widgets/LeftStrip/LeftStrip';
+import { LeftStrip } from 'widgets/LeftStrip';
 
 export function AppShell() {
   return (

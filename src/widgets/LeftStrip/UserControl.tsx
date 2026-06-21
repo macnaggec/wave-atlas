@@ -3,7 +3,7 @@ import { signOut } from 'shared/lib/auth';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useUser } from 'shared/hooks/useUser';
-import { useAuthModal } from 'features/Auth/AuthModalProvider';
+import { useAuthModal } from 'features/Auth';
 
 /**
  * UserControl — auth-aware top-right slot.

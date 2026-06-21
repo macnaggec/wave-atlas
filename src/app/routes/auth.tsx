@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { useAuthModal } from 'features/Auth/AuthModalProvider';
+import { useAuthModal } from 'features/Auth';
 
 export const Route = createFileRoute('/auth')({
   component: AuthRoute,

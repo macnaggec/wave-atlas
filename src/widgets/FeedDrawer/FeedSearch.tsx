@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Text } from '@mantine/core';
-import SpotSearch from 'features/SpotSearch/SpotSearch';
+import { SpotSearch } from 'features/SpotSearch';
+// eslint-disable-next-line boundaries/dependencies -- mapCommands is a cross-widget command bus; pending move to shared/lib (see TOOLING-004)
 import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
 import { useAddSpot } from 'features/AddSpot';
 import { useUser } from 'shared/hooks/useUser';
-import { useAuthModal } from 'features/Auth/AuthModalProvider';
+import { useAuthModal } from 'features/Auth';
 import type { Spot } from 'entities/Spot';
 
 interface FeedSearchProps {

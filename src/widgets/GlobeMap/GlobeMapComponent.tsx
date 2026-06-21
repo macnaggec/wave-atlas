@@ -49,10 +49,10 @@ export interface GlobeMapProps {
 
 export function GlobeMapComponent({
   spots = [],
-  initialViewState = DEFAULT_VIEW,
-  mode = 'explore',
-  onUploadConfirm,
-  onUploadCancel,
+  initialViewState: _initialViewState = DEFAULT_VIEW,
+  mode: _mode = 'explore',
+  onUploadConfirm: _onUploadConfirm,
+  onUploadCancel: _onUploadCancel,
 }: GlobeMapProps) {
   const navigate = useNavigate();
   const mapRef = useRef<MapRef>(null);
@@ -158,6 +158,7 @@ export function GlobeMapComponent({
         onMoveEnd={handleMoveEnd}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mapbox-gl type for globe projection requires any
         projection={{ name: 'globe' as any }}
         fog={globeFog}
         onLoad={handleLoad}
