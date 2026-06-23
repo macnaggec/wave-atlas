@@ -8,14 +8,6 @@ export {
 } from './constants';
 export type { MediaStatus, MediaResourceType } from './constants';
 
-export {
-  mediaCloudinaryUrlSchema,
-  mediaCloudinaryResultSchema,
-  mediaCreateSchema,
-  mediaUpdateSchema,
-  mediaBatchUpdateSchema,
-  registerDriveImportSchema,
-} from './lib/mediaSchemas';
 export type { FileValidationResult, BatchValidationResult } from './lib/uploadValidation';
 export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValidation';
 

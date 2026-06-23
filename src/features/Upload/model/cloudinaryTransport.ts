@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from 'shared/lib/logger';
-import { mediaCloudinaryResultSchema } from 'entities/Media';
+import { mediaCloudinaryResultSchema } from 'shared/validation/mediaSchemas';
 import { UploadError } from './UploadError';
 type CloudinaryResult = z.infer<typeof mediaCloudinaryResultSchema>;
 

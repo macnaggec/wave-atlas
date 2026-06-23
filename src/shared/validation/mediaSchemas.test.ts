@@ -2,11 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
 import {
   mediaBatchUpdateSchema,
+  mediaCloudinaryResultSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
 } from 'shared/validation/mediaSchemas';
 
+const CLOUDINARY_BASE = 'https://res.cloudinary.com/test-cloud/';
 const mediaId = '11111111-1111-4111-8111-111111111111';
+
+describe('mediaCloudinaryResultSchema', () => {
+  const validResult = {
+    publicId: 'wave-atlas/users/abc/img',
+    thumbnailUrl: `${CLOUDINARY_BASE}t_wave_atlas_thumbnail/wave-atlas/users/abc/img.jpg`,
+    lightboxUrl: `${CLOUDINARY_BASE}t_wave_atlas_lightbox_watermark/wave-atlas/users/abc/img.jpg`,
+  };
+
+  it.each(['image', 'video'])('accepts the %s resource type', (resourceType) => {
+    expect(mediaCloudinaryResultSchema.safeParse({ ...validResult, resourceType }).success).toBe(true);
+  });
+
+  it.each(['raw', 'script'])('rejects the %s resource type', (resourceType) => {
+    expect(mediaCloudinaryResultSchema.safeParse({ ...validResult, resourceType }).success).toBe(false);
+  });
+});
 
 describe('mediaCreateSchema', () => {
   it('rejects an uploaded asset that is not assigned to a draft session', () => {
