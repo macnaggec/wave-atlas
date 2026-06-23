@@ -7,9 +7,8 @@ export function useAddSpotAlias() {
 
   return useMutation(
     trpc.spots.addAlias.mutationOptions({
-      onSuccess: () => {
-        void queryClient.invalidateQueries({ queryKey: trpc.spots.list.queryKey() });
-        void queryClient.invalidateQueries({ queryKey: trpc.spots.withinBounds.queryKey() });
+      onSuccess: async () => {
+        await queryClient.invalidateQueries(trpc.spots.list.pathFilter());
       },
     }),
   );
