@@ -20,6 +20,7 @@ export const mediaCloudinaryResultSchema = z.object({
 });
 
 export const mediaCreateSchema = z.object({
+  draftId: z.uuid(),
   cloudinaryResult: mediaCloudinaryResultSchema,
   capturedAt: z.coerce.date().optional(),
 });
@@ -41,13 +42,8 @@ export const mediaBatchUpdateSchema = z
     error: 'Must provide at least one of: price, capturedAt, spotId',
   });
 
-export const mediaPublishSchema = z.object({
-  mediaIds: z.array(z.uuid()).min(1),
-  price: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
-  capturedAt: z.coerce.date().optional(),
-});
-
 export const registerDriveImportSchema = z.object({
+  draftId: z.uuid(),
   remoteFileId: z.string().min(1),
   mimeType: z.string().min(1),
   accessToken: z.string().min(1),

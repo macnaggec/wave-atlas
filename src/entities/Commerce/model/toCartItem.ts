@@ -1,6 +1,6 @@
-import { MediaItem } from 'entities/Media';
+import type { MediaItem } from 'entities/Media';
 import { formatShortDate } from 'shared/lib/dateUtils';
-import { CartItem } from 'entities/Commerce/model/types';
+import type { CartItem } from './types';
 
 type CartMediaItem = Pick<
   MediaItem,
@@ -11,6 +11,7 @@ export function toCartItem(item: CartMediaItem, spotName: string): CartItem {
   const capturedAt = item.capturedAt instanceof Date
     ? item.capturedAt.toISOString()
     : String(item.capturedAt);
+
   return {
     id: item.id,
     label: `${spotName} · ${formatShortDate(capturedAt)}`,

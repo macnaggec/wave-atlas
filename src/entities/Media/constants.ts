@@ -1,68 +1,7 @@
-import type { Cents } from 'shared/types/coordinates';
-
-export const MEDIA_STATUS = {
-  DRAFT: 'DRAFT',
-  PUBLISHED: 'PUBLISHED',
-  DELETED: 'DELETED',
-  DRIVE_PENDING: 'DRIVE_PENDING',
-} as const;
-
-
-export const MEDIA_RESOURCE_TYPE = {
-  IMAGE: 'image',
-  VIDEO: 'video',
-} as const;
-
-export const MEDIA_UPLOAD_CONFIG = {
-  FOLDER: 'wave-atlas/raw',
-} as const;
-
-/**
- * Cloudinary Named Transformation identifiers.
- * Define these in Cloudinary dashboard:
- * Transformations → Named Transformations → Add
- *
- *  wave_atlas_thumbnail          → c_fill,w_400,h_300,q_auto,f_auto
- *  wave_atlas_lightbox_watermark → c_limit,w_800,q_auto,f_auto/l_watermark_xzn2p9,o_30,fl_tiled,fl_layer_apply
- *  wave_atlas_lightbox           → c_limit,w_800,q_auto,f_auto
- *
- * Named transformations are always permitted through Strict Transformations.
- */
-export const MEDIA_CLOUDINARY_TRANSFORMS = {
-  /** Gallery card: cropped thumbnail, no watermark */
-  THUMBNAIL: 't_wave_atlas_thumbnail',
-  /** Lightbox preview: width-limited with tiled watermark — public, unauthenticated */
-  LIGHTBOX_WATERMARK: 't_wave_atlas_lightbox_watermark',
-  /**
-   * Full-quality lightbox: same sizing but no watermark.
-   * Applied server-side only, after ownership check (purchased or own upload). Never exposed as a public URL.
-   * Cloudinary dashboard: c_limit,w_800,q_auto,f_auto
-   */
-  LIGHTBOX: 't_wave_atlas_lightbox',
-} as const;
-
-/**
- * Eager transforms used on every upload (direct and remote import).
- * '|'-separated = two independent Cloudinary outputs: eager[0] = thumbnail, eager[1] = watermarked lightbox.
- * (',' would chain them into a single pipeline — one output — and eager[1] would be undefined.)
- */
-export const MEDIA_UPLOAD_EAGER_TRANSFORMS = [
-  MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-  MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
-].join('|');
-
-export const MEDIA_UPLOAD_LIMITS = {
-  // File size limits (bytes)
-  MAX_FILE_SIZE_IMAGE: 10 * 1024 * 1024, // 10MB (Cloudinary free tier)
-  MAX_FILE_SIZE_VIDEO: 50 * 1024 * 1024, // 50MB (conservative for bandwidth)
-
-  // Batch limits
-  MAX_FILES_PER_BATCH: 20, // UI performance + preview generation
-  MAX_BATCH_SIZE: 200 * 1024 * 1024, // 200MB total per batch
-} as const;
-
-/** Minimum media price in cents. All published media must cost at least $3.00. */
-export const MIN_MEDIA_PRICE_CENTS: Cents = 300;
-
-export type MediaStatus = typeof MEDIA_STATUS[keyof typeof MEDIA_STATUS];
-export type MediaResourceType = typeof MEDIA_RESOURCE_TYPE[keyof typeof MEDIA_RESOURCE_TYPE];
+export {
+  MEDIA_STATUS,
+  MEDIA_RESOURCE_TYPE,
+  MEDIA_UPLOAD_LIMITS,
+  MIN_MEDIA_PRICE_CENTS,
+} from 'shared/types/media';
+export type { MediaStatus, MediaResourceType } from 'shared/types/media';

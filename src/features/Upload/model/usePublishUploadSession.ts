@@ -1,10 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { usePublishSession } from 'entities/SurfSession';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { notify } from 'shared/lib/notifications';
-import { useTRPC } from 'shared/lib/trpc';
-import { combineDateAndTime, minutesToTime } from '../ui/steps/helpers';
 import type { GalleryCard } from './types';
 import { useClearUploadQueue } from './useClearUploadQueue';
 import { getPublishableMediaIds, getUploadQueueStatus } from './uploadQueuePolicy';
@@ -14,6 +11,7 @@ type PublishSpot = {
 } | null;
 
 export type UsePublishUploadSessionOptions = {
+  draftId: string;
   spot: PublishSpot;
   queue: GalleryCard[];
   sessionDate: Date | null;
@@ -25,19 +23,16 @@ export type UsePublishUploadSessionOptions = {
 };
 
 export function usePublishUploadSession({
+  draftId,
   spot,
   queue,
   sessionDate,
   sessionRange,
-  photoPrice,
-  videoPrice,
   onCancel,
   onPublishFailed,
 }: UsePublishUploadSessionOptions) {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const clearQueue = useClearUploadQueue();
-  const { mutateAsync: createAndPublish, isPending } = usePublishSession();
+  const { mutateAsync: publishDraft, isPending } = usePublishSession();
   const [hasTriedPublish, setHasTriedPublish] = useState(false);
   const [filesErrorTick, setFilesErrorTick] = useState(0);
   const queueStatus = useMemo(() => getUploadQueueStatus(queue), [queue]);
@@ -56,41 +51,23 @@ export function usePublishUploadSession({
       return;
     }
 
-    const startsAt = combineDateAndTime(sessionDate!, minutesToTime(sessionRange[0]));
-    const endsAt = combineDateAndTime(sessionDate!, minutesToTime(sessionRange[1]));
-
     try {
-      await createAndPublish({
-        spotId: spot!.id,
-        startsAt,
-        endsAt,
-        mediaIds,
-        photoPrice,
-        videoPrice,
-      });
+      await publishDraft(draftId);
     } catch (err) {
       notify.error(getErrorMessage(err), 'Publish Failed');
       return;
     }
 
-    void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
-    void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
-    void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
     clearQueue();
     onCancel();
   }, [
     canPublish,
+    draftId,
     spot,
     onPublishFailed,
     mediaIds,
     queueStatus.canContinue,
-    sessionDate,
-    sessionRange,
-    createAndPublish,
-    photoPrice,
-    videoPrice,
-    queryClient,
-    trpc,
+    publishDraft,
     clearQueue,
     onCancel,
   ]);

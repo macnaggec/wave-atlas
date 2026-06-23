@@ -6,22 +6,16 @@ import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
 import type { MediaStatus, MediaItem, MediaResourceType } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
+import {
+  surfSessionRepository,
+  type ISurfSessionRepository,
+} from 'server/repositories/SurfSessionRepository';
 
 function assertPriceFloor(price: number | null | undefined): void {
   if (price != null && price < MIN_MEDIA_PRICE_CENTS) {
     throw new BadRequestError(`Price must be at least $${(MIN_MEDIA_PRICE_CENTS / 100).toFixed(2)}`);
   }
 }
-
-export type CreateMediaInput = {
-  cloudinaryResult: {
-    publicId: string;
-    thumbnailUrl: string;
-    lightboxUrl: string;
-    resourceType: MediaResourceType;
-  };
-  capturedAt?: Date;
-};
 
 export type UpdateMediaInput = {
   price?: number;
@@ -34,79 +28,15 @@ export type UpdateBatchInput = {
   spotId?: string;
 };
 
-export type RegisterDriveImportInput = {
-  remoteFileId: string;
-  mimeType: string;
-  accessToken: string;
-};
-
 export class MediaService {
   constructor(
     private media: IMediaRepository,
-    private cloudinary: Pick<ICloudinaryService, 'uploadFromUrl' | 'deleteAsset' | 'generateUploadSignature'>,
+    private cloudinary: Pick<ICloudinaryService, 'deleteAsset'>,
+    private sessions: Pick<
+      ISurfSessionRepository,
+      'createDraftMedia' | 'removeDraftMedia' | 'removeDraftMediaBatch'
+    >,
   ) { }
-
-  generateUploadSignature(userId: string) {
-    return this.cloudinary.generateUploadSignature(`wave-atlas/users/${userId}`);
-  }
-
-  async deleteOrphanAsset(userId: string, publicId: string, resourceType: 'image' | 'video'): Promise<void> {
-    const existing = await this.media.findByCloudinaryPublicId(publicId);
-    if (existing) {
-      if (existing.photographerId !== userId) {
-        throw new ForbiddenError('Cannot delete asset: ownership could not be verified');
-      }
-      // Asset already has a live media record — not an orphan, nothing to delete
-      return;
-    }
-
-    const expectedPrefix = `wave-atlas/users/${userId}/`;
-    if (publicId.includes('..') || !publicId.startsWith(expectedPrefix)) {
-      throw new ForbiddenError('Cannot delete asset: ownership could not be verified');
-    }
-    await this.cloudinary.deleteAsset(publicId, resourceType);
-  }
-
-  async createMedia(userId: string, input: CreateMediaInput): Promise<MediaItem> {
-    return this.media.createMedia({
-      photographerId: userId,
-      resourceType: input.cloudinaryResult.resourceType,
-      cloudinaryPublicId: input.cloudinaryResult.publicId,
-      thumbnailUrl: input.cloudinaryResult.thumbnailUrl,
-      lightboxUrl: input.cloudinaryResult.lightboxUrl,
-      capturedAt: input.capturedAt ?? new Date(),
-      status: MEDIA_STATUS.DRAFT,
-    });
-  }
-
-  async registerDriveImport(userId: string, input: RegisterDriveImportInput): Promise<MediaItem> {
-    const driveUrl = `https://www.googleapis.com/drive/v3/files/${input.remoteFileId}?alt=media`;
-    const requestedResourceType = input.mimeType.startsWith('video/') ? 'video' : 'image';
-
-    const { publicId, resourceType, thumbnailUrl, lightboxUrl } = await this.cloudinary.uploadFromUrl(
-      driveUrl,
-      { Authorization: `Bearer ${input.accessToken}` },
-      `wave-atlas/users/${userId}`,
-      requestedResourceType,
-    );
-
-    try {
-      return await this.media.createMedia({
-        photographerId: userId,
-        resourceType,
-        cloudinaryPublicId: publicId,
-        thumbnailUrl,
-        lightboxUrl,
-        capturedAt: new Date(),
-        status: MEDIA_STATUS.DRAFT,
-      });
-    } catch (err) {
-      this.cloudinary.deleteAsset(publicId, resourceType).catch(
-        (cleanupErr) => logger.error('[MediaService] Failed to clean up orphaned Cloudinary asset', { publicId, error: cleanupErr }),
-      );
-      throw err;
-    }
-  }
 
   async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem> {
     const media = await this.assertOwns(userId, id);
@@ -119,15 +49,37 @@ export class MediaService {
   async deleteMedia(userId: string, mediaId: string): Promise<void> {
     const media = await this.assertOwns(userId, mediaId);
     if (media.status === MEDIA_STATUS.DRAFT) {
-      await this.media.hardDelete(mediaId);
+      await this.sessions.removeDraftMedia(media.sessionId, userId, mediaId);
       this.cloudinary.deleteAsset(
         media.cloudinaryPublicId,
         media.resource.resourceType,
       ).catch((err) =>
-        logger.error('[MediaService] Failed to clean up Cloudinary asset after hardDelete', { publicId: media.cloudinaryPublicId, error: err }),
+        logger.error('[MediaService] Failed to clean up Cloudinary asset after draft removal', { publicId: media.cloudinaryPublicId, error: err }),
       );
     } else {
       await this.media.softDelete(mediaId);
+    }
+  }
+
+  async deleteMediaBatch(userId: string, mediaIds: string[]): Promise<void> {
+    const items = await this.fetchOwnedBatch(userId, mediaIds);
+    for (const item of items) {
+      if (item.status !== MEDIA_STATUS.DRAFT) {
+        throw new BadRequestError(`Media ${item.id} is not a draft`);
+      }
+    }
+    const sessionIds = new Set(items.map((item) => item.sessionId));
+    if (sessionIds.size !== 1) {
+      throw new BadRequestError('Draft media must belong to one session');
+    }
+    await this.sessions.removeDraftMediaBatch(items[0]!.sessionId, userId, mediaIds);
+    for (const item of items) {
+      void this.cloudinary.deleteAsset(
+        item.cloudinaryPublicId,
+        item.type === 'VIDEO' ? 'video' : 'image',
+      ).catch((err) =>
+        logger.error('[MediaService] Failed to clean up Cloudinary asset after batch draft removal', { publicId: item.cloudinaryPublicId, error: err }),
+      );
     }
   }
 
@@ -150,39 +102,6 @@ export class MediaService {
       }
     }
     await this.media.updateManyMedia(mediaIds, data);
-  }
-
-  async unpublishBatch(userId: string, mediaIds: string[]): Promise<void> {
-    const items = await this.fetchOwnedBatch(userId, mediaIds);
-    for (const item of items) {
-      if (item.status !== MEDIA_STATUS.PUBLISHED) {
-        throw new BadRequestError(`Media ${item.id} is not published`);
-      }
-    }
-    await this.media.updateManyMedia(mediaIds, { status: MEDIA_STATUS.DRAFT });
-  }
-
-  async publish(
-    userId: string,
-    mediaIds: string[],
-    data: UpdateBatchInput,
-  ): Promise<void> {
-    const items = await this.fetchOwnedBatch(userId, mediaIds);
-
-    for (const item of items) {
-      if (item.status !== MEDIA_STATUS.DRAFT) {
-        throw new BadRequestError(`Media ${item.id} is not a draft`);
-      }
-      assertPriceFloor(data.price ?? item.price);
-    }
-
-    const updateData: { status: typeof MEDIA_STATUS.PUBLISHED; price?: number; capturedAt?: Date } = {
-      status: MEDIA_STATUS.PUBLISHED,
-    };
-    if (data.price !== undefined) updateData.price = data.price;
-    if (data.capturedAt) updateData.capturedAt = data.capturedAt;
-
-    await this.media.updateManyMedia(mediaIds, updateData);
   }
 
   async getMyDrafts(userId: string): Promise<MediaItem[]> {
@@ -209,7 +128,7 @@ export class MediaService {
   private async fetchOwnedBatch(
     userId: string,
     mediaIds: string[],
-  ): Promise<{ id: string; status: string; price: number | null; photographerId: string }[]> {
+  ): Promise<{ id: string; sessionId: string; status: string; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[]> {
     const items = await this.media.findByIds(mediaIds);
 
     const found = new Set(items.map((i) => i.id));
@@ -234,4 +153,4 @@ export class MediaService {
   }
 }
 
-export const mediaService = new MediaService(mediaRepository, cloudinaryService);
+export const mediaService = new MediaService(mediaRepository, cloudinaryService, surfSessionRepository);

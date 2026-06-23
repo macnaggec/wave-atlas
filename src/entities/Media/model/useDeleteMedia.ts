@@ -1,16 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
-import { notify } from 'shared/lib/notifications';
-import { getErrorMessage } from 'shared/lib/getErrorMessage';
+import { useTRPC } from 'shared/lib/trpc';
 
-/**
- * Mutation hook for deleting a media item.
- *
- * Single source of truth for:
- * - tRPC delete call
- * - myUploads + myDraftCounts + myDrafts query invalidation
- * - error notification
- */
 export function useDeleteMedia() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -21,9 +11,6 @@ export function useDeleteMedia() {
         void queryClient.invalidateQueries({ queryKey: trpc.users.myUploads.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.media.myDrafts.queryKey() });
-      },
-      onError: (err) => {
-        notify.error(getErrorMessage(err), 'Delete Failed');
       },
     }),
   );

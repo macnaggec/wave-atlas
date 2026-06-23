@@ -1,53 +1,27 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
-import { useUploadStore } from 'features/Upload/model';
 import { minutesToTime } from './helpers';
 
-function dateToMinutes(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
-}
-
 interface TimeStepProps {
+  date: Date | null;
+  range: [number, number];
   onChange: (date: Date | null, range: [number, number]) => void;
+  onCommit: (date: Date | null, range: [number, number]) => void;
   hasTriedPublish?: boolean;
 }
 
-export function TimeStep({ onChange, hasTriedPublish }: TimeStepProps) {
-  const queue = useUploadStore((s) => s.uploadQueue);
-  const exifDates = useMemo(() => {
-    return queue
-      .filter((item) => item.status === 'completed' && item.capturedAt)
-      .map((item) => item.capturedAt!);
-  }, [queue]);
-
-  const [date, setDate] = useState<Date | null>(() => {
-    if (exifDates.length === 0) return new Date();
-    return new Date(Math.min(...exifDates.map((d) => d.getTime())));
-  });
-
+export function TimeStep({ date, range, onChange, onCommit, hasTriedPublish }: TimeStepProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [range, setRange] = useState<[number, number]>(() => {
-    if (exifDates.length === 0) return [360, 600];
-    const start = Math.min(...exifDates.map(dateToMinutes));
-    const end = Math.max(...exifDates.map(dateToMinutes));
-    return [start, Math.max(start + 15, end)];
-  });
-
-  // Sync initial values to parent on mount so sessionDate is never null after TimeStep appears.
-  const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; });
-  useEffect(() => { onChangeRef.current(date, range); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDateChange = useCallback((val: Date | string | null) => {
     const newDate = !val ? null : typeof val === 'string' ? new Date(val) : val;
-    setDate(newDate);
     onChange(newDate, range);
-  }, [range, onChange]);
+    onCommit(newDate, range);
+  }, [range, onChange, onCommit]);
 
   const handleRangeChange = useCallback((newRange: [number, number]) => {
     setIsDragging(true);
-    setRange(newRange);
     onChange(date, newRange);
   }, [date, onChange]);
 
@@ -90,7 +64,10 @@ export function TimeStep({ onChange, hasTriedPublish }: TimeStepProps) {
           <RangeSlider
             value={range}
             onChange={handleRangeChange}
-            onChangeEnd={() => setIsDragging(false)}
+            onChangeEnd={(newRange) => {
+              setIsDragging(false);
+              onCommit(date, newRange);
+            }}
             min={0}
             max={1440}
             step={15}

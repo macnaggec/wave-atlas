@@ -6,39 +6,15 @@ import { mediaService } from 'server/services/MediaService';
 import { MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
 
 export const sessionsRouter = router({
-  /** Create a session and atomically attach + publish the specified draft media items. */
-  createAndPublish: protectedProcedure
-    .input(
-      z.object({
-        spotId: z.uuid(),
-        startsAt: z.coerce.date(),
-        endsAt: z.coerce.date(),
-        mediaIds: z.array(z.string().uuid()).min(1).refine(
-          (ids) => new Set(ids).size === ids.length,
-          'Duplicate media IDs are not allowed',
-        ),
-        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
-        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS),
-      }),
-    )
-    .mutation(({ input, ctx }) =>
-      surfSessionService.createAndPublish(ctx.user.id, {
-        spotId: input.spotId,
-        startsAt: input.startsAt,
-        endsAt: input.endsAt,
-        mediaIds: input.mediaIds,
-        photoPrice: input.photoPrice,
-        videoPrice: input.videoPrice,
-      }),
-    ),
-
-  /** Create a new surf session (spot + time window). Returns sessionId + spotId. */
+  /** Return the photographer's active upload draft, creating it when absent. */
   create: protectedProcedure
     .input(
       z.object({
-        spotId: z.uuid(),
-        startsAt: z.coerce.date(),
-        endsAt: z.coerce.date(),
+        spotId: z.uuid().nullable().optional(),
+        startsAt: z.coerce.date().nullable().optional(),
+        endsAt: z.coerce.date().nullable().optional(),
+        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
+        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
       }),
     )
     .mutation(({ input, ctx }) =>
@@ -46,7 +22,35 @@ export const sessionsRouter = router({
         spotId: input.spotId,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
+        photoPrice: input.photoPrice,
+        videoPrice: input.videoPrice,
       }),
+    ),
+
+  draft: protectedProcedure
+    .input(z.uuid())
+    .query(({ input: sessionId, ctx }) => surfSessionService.getDraft(ctx.user.id, sessionId)),
+
+  latestDraft: protectedProcedure.query(({ ctx }) =>
+    surfSessionRepository.findLatestDraftByPhotographer(ctx.user.id),
+  ),
+
+  updateDraft: protectedProcedure
+    .input(
+      z.object({
+        draftId: z.uuid(),
+        spotId: z.uuid().nullable().optional(),
+        startsAt: z.coerce.date().nullable().optional(),
+        endsAt: z.coerce.date().nullable().optional(),
+        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
+        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
+      }).refine(
+        ({ draftId: _draftId, ...changes }) => Object.values(changes).some((value) => value !== undefined),
+        'At least one draft field is required',
+      ),
+    )
+    .mutation(({ input: { draftId, ...changes }, ctx }) =>
+      surfSessionService.updateDraft(ctx.user.id, draftId, changes),
     ),
 
   /** Draft media for a specific session (authenticated, must be the owner). */
@@ -85,7 +89,7 @@ export const sessionsRouter = router({
   /** Single session by ID. */
   byId: publicProcedure
     .input(z.uuid())
-    .query(({ input: sessionId }) => surfSessionRepository.findById(sessionId)),
+    .query(({ input: sessionId }) => surfSessionRepository.findPublishedById(sessionId)),
 
   /** Published media items for a session. */
   media: publicProcedure

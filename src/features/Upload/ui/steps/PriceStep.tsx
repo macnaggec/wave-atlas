@@ -1,18 +1,26 @@
 import { Box, Group, NumberInput } from '@mantine/core';
 import { IconPhoto, IconVideo } from '@tabler/icons-react';
 import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
-import { useUploadStore } from '../../model';
 
 interface PriceStepProps {
   hasTriedPublish: boolean;
+  photoPrice: number;
+  videoPrice: number;
+  onPhotoPriceChange: (price: number) => void;
+  onVideoPriceChange: (price: number) => void;
+  onPhotoPriceCommit: (price: number) => void;
+  onVideoPriceCommit: (price: number) => void;
 }
 
-export function PriceStep({ hasTriedPublish }: PriceStepProps) {
-  const photoPrice = useUploadStore((s) => s.photoPrice);
-  const videoPrice = useUploadStore((s) => s.videoPrice);
-  const setPhotoPrice = useUploadStore((s) => s.setPhotoPrice);
-  const setVideoPrice = useUploadStore((s) => s.setVideoPrice);
-
+export function PriceStep({
+  hasTriedPublish,
+  photoPrice,
+  videoPrice,
+  onPhotoPriceChange,
+  onVideoPriceChange,
+  onPhotoPriceCommit,
+  onVideoPriceCommit,
+}: PriceStepProps) {
   const minDollars = MIN_MEDIA_PRICE_CENTS / 100;
   const photoError = hasTriedPublish && photoPrice < MIN_MEDIA_PRICE_CENTS;
   const videoError = hasTriedPublish && videoPrice < MIN_MEDIA_PRICE_CENTS;
@@ -32,7 +40,8 @@ export function PriceStep({ hasTriedPublish }: PriceStepProps) {
         <NumberInput
           size="xs"
           value={photoPrice / 100}
-          onChange={(val) => setPhotoPrice(typeof val === 'number' ? Math.round(val * 100) : MIN_MEDIA_PRICE_CENTS)}
+          onChange={(val) => onPhotoPriceChange(typeof val === 'number' ? Math.round(val * 100) : MIN_MEDIA_PRICE_CENTS)}
+          onBlur={() => onPhotoPriceCommit(photoPrice)}
           min={minDollars}
           step={1}
           decimalScale={0}
@@ -50,7 +59,8 @@ export function PriceStep({ hasTriedPublish }: PriceStepProps) {
         <NumberInput
           size="xs"
           value={videoPrice / 100}
-          onChange={(val) => setVideoPrice(typeof val === 'number' ? Math.round(val * 100) : MIN_MEDIA_PRICE_CENTS)}
+          onChange={(val) => onVideoPriceChange(typeof val === 'number' ? Math.round(val * 100) : MIN_MEDIA_PRICE_CENTS)}
+          onBlur={() => onVideoPriceCommit(videoPrice)}
           min={minDollars}
           step={1}
           decimalScale={0}

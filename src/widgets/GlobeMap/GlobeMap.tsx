@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Loader } from '@mantine/core';
-import type { GlobeMapProps, GlobeMapHandle, PageMode } from './GlobeMapComponent';
+import type { GlobeMapProps, GlobeMapHandle } from './GlobeMapComponent';
 import classes from './GlobeMap.module.css';
 
 const GlobeMapLazy = lazy(() =>
@@ -23,4 +23,4 @@ export function GlobeMap(props: GlobeMapProps) {
   );
 }
 
-export type { GlobeMapProps, GlobeMapHandle, PageMode };
+export type { GlobeMapProps, GlobeMapHandle };

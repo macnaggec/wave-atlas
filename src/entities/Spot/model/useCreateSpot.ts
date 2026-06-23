@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 import type { Spot } from '../types';
 
 export function useCreateSpot() {

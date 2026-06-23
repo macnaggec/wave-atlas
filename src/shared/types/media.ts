@@ -27,6 +27,7 @@ export type MediaResourceType = typeof MEDIA_RESOURCE_TYPE[keyof typeof MEDIA_RE
 
 export interface MediaItem {
   id: string;
+  sessionId: string;
   photographerId: string;
   /** Null on drafts; set at publish time. */
   spotId: string | null;

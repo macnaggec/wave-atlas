@@ -4,13 +4,13 @@ import type { IPurchaseRepository } from 'server/repositories/PurchaseRepository
 import { orderRepository } from 'server/repositories/OrderRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { purchaseRepository } from 'server/repositories/PurchaseRepository';
-import { MEDIA_STATUS } from 'entities/Media';
 import type { PaymentAdapter } from 'server/providers/payment/PaymentAdapter';
 import { paymentAdapter } from 'server/providers/payment/activeAdapter';
 import type { ICloudinaryService } from 'server/services/CloudinaryService';
 import { cloudinaryService } from 'server/services/CloudinaryService';
 import { BadRequestError, BadGatewayError, ForbiddenError } from 'shared/errors';
 import { logger } from 'shared/lib/logger';
+import { MEDIA_STATUS } from 'shared/types/media';
 
 const APP_URL = process.env.APP_URL!;
 
@@ -105,6 +105,13 @@ export class CheckoutService {
     if (unpublished.length > 0) {
       throw new BadRequestError(
         `Some items are no longer available: ${unpublished.map((m) => m.id).join(', ')}`,
+      );
+    }
+
+    const nullPriceItems = mediaItems.filter((m) => m.price === null);
+    if (nullPriceItems.length > 0) {
+      throw new BadRequestError(
+        `Some items have no price set: ${nullPriceItems.map((m) => m.id).join(', ')}`,
       );
     }
 

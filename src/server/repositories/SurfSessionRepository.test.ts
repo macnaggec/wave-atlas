@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MediaType } from '@prisma/client';
 
 vi.mock('server/repositories/mappers', () => ({
   mapToMediaItem: (row: { id: string }) => ({ id: row.id }),
@@ -11,6 +10,10 @@ vi.mock('server/db', () => ({
     mediaItem: {
       findMany: vi.fn(),
     },
+    surfSession: {
+      findFirst: vi.fn(),
+      updateMany: vi.fn(),
+    },
   },
 }));
 
@@ -20,108 +23,46 @@ import { BadRequestError } from 'shared/errors';
 
 const repo = new SurfSessionRepository();
 const mockTransaction = prisma.$transaction as ReturnType<typeof vi.fn>;
-const mockFindMany = prisma.mediaItem.findMany as ReturnType<typeof vi.fn>;
-
-const BASE_DATA = {
-  spotId: 'spot-uuid-1',
-  photographerId: 'user-uuid-1',
-  startsAt: new Date('2026-01-01T06:00:00Z'),
-  endsAt: new Date('2026-01-01T08:00:00Z'),
-  mediaItems: [
-    { id: 'media-1', type: MediaType.PHOTO },
-    { id: 'media-2', type: MediaType.VIDEO },
-  ],
-  photoPrice: 1000,
-  videoPrice: 2000,
-};
+const mockSessionUpdateMany = prisma.surfSession.updateMany as ReturnType<typeof vi.fn>;
+const mockSessionFindFirst = prisma.surfSession.findFirst as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ---------------------------------------------------------------------------
-// findPublishableDraftMedia
-// ---------------------------------------------------------------------------
+describe('SurfSessionRepository.updateDraft', () => {
+  it('updates only the photographer-owned draft session', async () => {
+    mockSessionUpdateMany.mockResolvedValue({ count: 1 });
 
-describe('SurfSessionRepository.findPublishableDraftMedia', () => {
-  it('queries owned undeleted draft media by id', async () => {
-    mockFindMany.mockResolvedValue([{ id: 'media-1', type: 'PHOTO' }]);
+    const updateDraft = () => (repo as unknown as {
+      updateDraft: (
+        sessionId: string,
+        photographerId: string,
+        data: { spotId: string; photoPrice: number },
+      ) => Promise<{ id: string }>;
+    }).updateDraft('session-1', 'user-1', { spotId: 'spot-1', photoPrice: 500 });
 
-    const result = await repo.findPublishableDraftMedia('user-1', ['media-1', 'media-2']);
-
-    expect(result).toEqual([{ id: 'media-1', type: 'PHOTO' }]);
-    expect(mockFindMany).toHaveBeenCalledWith({
-      where: {
-        id: { in: ['media-1', 'media-2'] },
-        photographerId: 'user-1',
-        status: 'DRAFT',
-        deletedAt: null,
-      },
-      select: { id: true, type: true },
+    await expect(Promise.resolve().then(updateDraft)).resolves.toEqual({ id: 'session-1' });
+    expect(mockSessionUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'session-1', photographerId: 'user-1', status: 'DRAFT' },
+      data: { spotId: 'spot-1', photoPrice: 500 },
     });
   });
 });
 
-// ---------------------------------------------------------------------------
-// createAndPublish
-// ---------------------------------------------------------------------------
+describe('SurfSessionRepository.findLatestDraftByPhotographer', () => {
+  it('selects the photographer\'s most recently updated draft', async () => {
+    mockSessionFindFirst.mockResolvedValue(null);
 
-describe('SurfSessionRepository.createAndPublish', () => {
-  function makeTx() {
-    return {
-      surfSession: {
-        create: vi.fn().mockResolvedValue({ id: 'session-uuid-1' }),
-      },
-      mediaItem: {
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-      sessionMedia: {
-        createMany: vi.fn().mockResolvedValue({ count: 2 }),
-      },
-    };
-  }
+    const findLatestDraft = () => (repo as unknown as {
+      findLatestDraftByPhotographer: (photographerId: string) => Promise<unknown>;
+    }).findLatestDraftByPhotographer('user-1');
 
-  it('creates a session and publishes already-validated media inside one transaction', async () => {
-    const tx = makeTx();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockTransaction.mockImplementation((fn: any) => fn(tx));
-
-    const result = await repo.createAndPublish(BASE_DATA);
-
-    expect(result).toEqual({ id: 'session-uuid-1' });
-    expect(tx.sessionMedia.createMany).toHaveBeenCalledWith({
-      data: [
-        { sessionId: 'session-uuid-1', mediaId: 'media-1' },
-        { sessionId: 'session-uuid-1', mediaId: 'media-2' },
-      ],
-    });
-    expect(tx.mediaItem.updateMany).toHaveBeenNthCalledWith(1, {
-      where: {
-        id: { in: ['media-1'] },
-        photographerId: 'user-uuid-1',
-        status: 'DRAFT',
-        deletedAt: null,
-      },
-      data: { spotId: 'spot-uuid-1', price: 1000, status: 'PUBLISHED' },
-    });
-    expect(tx.mediaItem.updateMany).toHaveBeenNthCalledWith(2, {
-      where: {
-        id: { in: ['media-2'] },
-        photographerId: 'user-uuid-1',
-        status: 'DRAFT',
-        deletedAt: null,
-      },
-      data: { spotId: 'spot-uuid-1', price: 2000, status: 'PUBLISHED' },
-    });
-  });
-
-  it('throws BadRequestError when constrained media updates miss a validated item', async () => {
-    const tx = makeTx();
-    tx.mediaItem.updateMany.mockResolvedValueOnce({ count: 0 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockTransaction.mockImplementation((fn: any) => fn(tx));
-
-    await expect(repo.createAndPublish(BASE_DATA)).rejects.toThrow(BadRequestError);
+    await expect(Promise.resolve().then(findLatestDraft)).resolves.toBeNull();
+    expect(mockSessionFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { photographerId: 'user-1', status: 'DRAFT' },
+      orderBy: { updatedAt: 'desc' },
+    }));
   });
 });
 
@@ -133,12 +74,22 @@ describe('SurfSessionRepository.publish', () => {
   function makePublishTx(sessionUpdateCount: number) {
     return {
       surfSession: {
-        update: vi.fn().mockResolvedValue({ id: 'session-1' }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'session-1',
+          spotId: 'spot-1',
+          startsAt: new Date('2026-01-01T06:00:00Z'),
+          endsAt: new Date('2026-01-01T08:00:00Z'),
+          photoPrice: 300,
+          videoPrice: 500,
+          mediaItems: [
+            { id: 'media-photo', type: 'PHOTO', photographerId: 'user-1', status: 'DRAFT', deletedAt: null },
+            { id: 'media-video', type: 'VIDEO', photographerId: 'user-1', status: 'DRAFT', deletedAt: null },
+          ],
+        }),
         updateMany: vi.fn().mockResolvedValue({ count: sessionUpdateCount }),
       },
       mediaItem: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findMany: vi.fn().mockResolvedValue([{ id: 'media-1' }]),
       },
     };
   }
@@ -150,7 +101,21 @@ describe('SurfSessionRepository.publish', () => {
 
     const result = await repo.publish('session-1', 'user-1');
 
-    expect(result).toEqual({ mediaIds: ['media-1'] });
+    expect(result).toEqual({ mediaIds: ['media-photo', 'media-video'] });
+    expect(tx.surfSession.findFirst).toHaveBeenCalledWith({
+      where: { id: 'session-1', photographerId: 'user-1', status: 'DRAFT' },
+      select: {
+        id: true,
+        spotId: true,
+        startsAt: true,
+        endsAt: true,
+        photoPrice: true,
+        videoPrice: true,
+        mediaItems: {
+          select: { id: true, type: true, photographerId: true, status: true, deletedAt: true },
+        },
+      },
+    });
     expect(tx.surfSession.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'session-1',
@@ -159,7 +124,26 @@ describe('SurfSessionRepository.publish', () => {
       },
       data: { status: 'PUBLISHED' },
     });
-    expect(tx.surfSession.update).not.toHaveBeenCalled();
+    expect(tx.mediaItem.updateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: { in: ['media-photo'] },
+        sessionId: 'session-1',
+        photographerId: 'user-1',
+        status: 'DRAFT',
+        deletedAt: null,
+      },
+      data: { spotId: 'spot-1', price: 300, status: 'PUBLISHED' },
+    });
+    expect(tx.mediaItem.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: { in: ['media-video'] },
+        sessionId: 'session-1',
+        photographerId: 'user-1',
+        status: 'DRAFT',
+        deletedAt: null,
+      },
+      data: { spotId: 'spot-1', price: 500, status: 'PUBLISHED' },
+    });
   });
 
   it('throws BadRequestError when no photographer-owned draft session is updated', async () => {
@@ -168,5 +152,27 @@ describe('SurfSessionRepository.publish', () => {
     mockTransaction.mockImplementation((fn: any) => fn(tx));
 
     await expect(repo.publish('session-1', 'user-1')).rejects.toThrow(BadRequestError);
+  });
+
+  it('rejects an invalid persisted time window before publishing media', async () => {
+    const tx = makePublishTx(1);
+    tx.surfSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      spotId: 'spot-1',
+      startsAt: new Date('2026-01-01T09:00:00Z'),
+      endsAt: new Date('2026-01-01T08:00:00Z'),
+      photoPrice: 300,
+      videoPrice: 500,
+      mediaItems: [
+        { id: 'media-photo', type: 'PHOTO', photographerId: 'user-1', status: 'DRAFT', deletedAt: null },
+      ],
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockTransaction.mockImplementation((fn: any) => fn(tx));
+
+    await expect(repo.publish('session-1', 'user-1')).rejects.toThrow(BadRequestError);
+
+    expect(tx.mediaItem.updateMany).not.toHaveBeenCalled();
+    expect(tx.surfSession.updateMany).not.toHaveBeenCalled();
   });
 });

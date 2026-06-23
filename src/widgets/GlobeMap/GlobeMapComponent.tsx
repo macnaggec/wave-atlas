@@ -1,5 +1,4 @@
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -8,7 +7,6 @@ import mapboxgl from 'mapbox-gl';
 import { Spot, useSelectedSpot } from 'entities/Spot';
 import { usePinPlacementStore } from 'features/AddSpot';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
-import { mapCommands } from './model/mapCommands';
 import { cameraService } from './model/CameraService';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
@@ -29,8 +27,6 @@ const DEFAULT_VIEW = {
   zoom: 1.5,
 };
 
-export type PageMode = 'explore' | 'upload';
-
 export interface GlobeMapHandle {
   flyTo: (center: [number, number], zoom?: number) => void;
 }
@@ -42,19 +38,14 @@ export interface GlobeMapProps {
     latitude: number;
     zoom: number;
   };
-  mode?: PageMode;
-  onUploadConfirm?: (spot: Spot) => void;
-  onUploadCancel?: () => void;
+  onSpotSelect: (spot: Spot) => void;
 }
 
 export function GlobeMapComponent({
   spots = [],
   initialViewState: _initialViewState = DEFAULT_VIEW,
-  mode: _mode = 'explore',
-  onUploadConfirm: _onUploadConfirm,
-  onUploadCancel: _onUploadCancel,
+  onSpotSelect,
 }: GlobeMapProps) {
-  const navigate = useNavigate();
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const { spotId: activeSpotId = null } = useSelectedSpot();
@@ -118,13 +109,12 @@ export function GlobeMapComponent({
   } = useMapInteraction({
     mapRef,
     spots,
-    onSpotClick: (spot) => mapCommands.selectFromPin(spot),
+    onSpotClick: (spot) => {
+      cameraService.flyTo(spot, false);
+      onSpotSelect(spot);
+    },
     onUserInteractionStart
   });
-
-  useEffect(() => {
-    mapCommands.setNavigate((opts) => void navigate(opts));
-  }, [navigate]);
 
   useEffect(() => {
     return () => cameraService.unregister();

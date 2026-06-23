@@ -1,11 +1,10 @@
 import { router, protectedProcedure } from 'server/trpc';
-import { mediaRepository } from 'server/repositories/MediaRepository';
 import { mediaService } from 'server/services/MediaService';
 import { userRepository } from 'server/repositories/UserRepository';
 
 export const usersRouter = router({
   myUploads: protectedProcedure.query(async ({ ctx }) => {
-    const items = await mediaRepository.findPublishedByPhotographer(ctx.user.id);
+    const items = await mediaService.findPublishedByPhotographer(ctx.user.id);
     return items.map((m) => ({
       id: m.id,
       type: m.type,

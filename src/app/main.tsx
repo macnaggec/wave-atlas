@@ -10,9 +10,9 @@ import '@mantine/dates/styles.css';
 import '@mantine/notifications/styles.css';
 import './app.css';
 import { router } from 'app/lib/router';
-import { TRPCProvider } from 'app/lib/trpc';
-import { queryClient } from 'app/lib/queryClient';
-import { trpcClient } from 'app/lib/trpcClient';
+import { TRPCProvider } from 'shared/lib/trpc';
+import { queryClient } from 'shared/lib/queryClient';
+import { trpcClient } from 'shared/lib/trpcClient';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

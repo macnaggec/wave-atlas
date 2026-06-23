@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 
 /** Fetches minimal spot data for the drawer header. */
 export function useSpotPreview(spotId: string, options?: { enabled?: boolean }) {

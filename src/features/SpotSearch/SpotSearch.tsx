@@ -16,7 +16,7 @@ export interface SpotSearchProps {
   /** Called when the active spot filter is cleared (✕ click or typing after a selection). */
   onClear?: () => void;
   /** When set, drives the search input and filtering state as if the spot had been selected via search. */
-  activeSpot?: Spot | null;
+  activeSpot?: Pick<Spot, 'id' | 'name' | 'location'> | null;
   autoFocus?: boolean;
 }
 

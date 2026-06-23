@@ -5,6 +5,7 @@ import type { MediaItem } from 'shared/types/media';
 export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
   return {
     id: row.id,
+    sessionId: row.sessionId,
     photographerId: row.photographerId,
     spotId: row.spotId ?? null,
     capturedAt: row.capturedAt,

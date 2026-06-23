@@ -95,48 +95,6 @@ describe('MediaService.updateMedia — price guard', () => {
 });
 
 // ---------------------------------------------------------------------------
-// deleteOrphanAsset
-// ---------------------------------------------------------------------------
-
-describe('MediaService.deleteOrphanAsset', () => {
-  it('returns without deleting when a live DB record owned by the caller exists', async () => {
-    mockMedia.findByCloudinaryPublicId.mockResolvedValue({ id: 'media-1', photographerId: 'user-1' });
-
-    await service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/img', 'image');
-
-    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
-  });
-
-  it('throws ForbiddenError when a live DB record is owned by a different user', async () => {
-    mockMedia.findByCloudinaryPublicId.mockResolvedValue({ id: 'media-1', photographerId: 'other-user' });
-
-    await expect(
-      service.deleteOrphanAsset('user-1', 'wave-atlas/users/other-user/img', 'image')
-    ).rejects.toThrow(ForbiddenError);
-
-    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
-  });
-
-  it('deletes the Cloudinary asset when the publicId is an orphan with the correct prefix', async () => {
-    mockMedia.findByCloudinaryPublicId.mockResolvedValue(null);
-
-    await service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/img', 'image');
-
-    expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('wave-atlas/users/user-1/img', 'image');
-  });
-
-  it('throws ForbiddenError when publicId contains a path traversal (..)', async () => {
-    mockMedia.findByCloudinaryPublicId.mockResolvedValue(null);
-
-    await expect(
-      service.deleteOrphanAsset('user-1', 'wave-atlas/users/user-1/../admin/secret', 'image')
-    ).rejects.toThrow(ForbiddenError);
-
-    expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // deleteMedia — cleanup semantics
 // ---------------------------------------------------------------------------
 
@@ -229,47 +187,3 @@ describe('MediaService.deleteMediaBatch — cleanup semantics', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// registerDriveImport — Drive rollback semantics
-// ---------------------------------------------------------------------------
-
-describe('MediaService.registerDriveImport — Drive rollback semantics', () => {
-  const uploadResult = {
-    publicId: 'wave-atlas/users/user-1/drive-file',
-    resourceType: 'image' as const,
-    thumbnailUrl: 'https://res.cloudinary.com/thumb',
-    lightboxUrl: 'https://res.cloudinary.com/lb',
-  };
-
-  it('attempts Cloudinary cleanup and re-throws the error when DB creation fails', async () => {
-    mockCloudinary.uploadFromUrl.mockResolvedValue(uploadResult);
-    mockSessions.createDraftMedia.mockRejectedValue(new Error('DB constraint failure'));
-    mockCloudinary.deleteAsset.mockResolvedValue(undefined);
-
-    await expect(
-      service.registerDriveImport('user-1', {
-        draftId: 'session-1',
-        remoteFileId: 'drive-file-123',
-        mimeType: 'image/jpeg',
-        accessToken: 'token-123',
-      })
-    ).rejects.toThrow('DB constraint failure');
-
-    expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith(uploadResult.publicId, uploadResult.resourceType);
-  });
-
-  it('does not suppress the original DB error when Cloudinary cleanup also fails (best-effort)', async () => {
-    mockCloudinary.uploadFromUrl.mockResolvedValue(uploadResult);
-    mockSessions.createDraftMedia.mockRejectedValue(new Error('DB failure'));
-    mockCloudinary.deleteAsset.mockRejectedValue(new Error('Cloudinary also down'));
-
-    await expect(
-      service.registerDriveImport('user-1', {
-        draftId: 'session-1',
-        remoteFileId: 'drive-file-123',
-        mimeType: 'image/jpeg',
-        accessToken: 'token-123',
-      })
-    ).rejects.toThrow('DB failure');
-  });
-});

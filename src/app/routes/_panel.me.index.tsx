@@ -13,7 +13,7 @@ import {
 } from '@mantine/core';
 import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
 

@@ -1,11 +1,15 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
-import { createContext, useContext, useState, type ReactNode } from 'react';
-import { useUploadStore } from 'features/Upload';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
 import { Skeleton, Text } from '@mantine/core';
-import type { SessionFeedFilter, SurfSessionItem } from 'entities/SurfSession';
+import {
+  useCreateSurfSessionDraft,
+  useLatestSurfSessionDraft,
+  type SessionFeedFilter,
+  type SurfSessionItem,
+} from 'entities/SurfSession';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'entities/Commerce';
 import { CartDrawerHeader } from 'features/Cart';
@@ -13,6 +17,10 @@ import { ScopeSwitcher } from 'widgets/SidePanel';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { FilterPills } from 'widgets/SidePanel';
 import { formatDateRange } from 'shared/lib/dateUtils';
+import { useUser } from 'shared/hooks/useUser';
+import { useAuthModal } from 'features/Auth';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
+import { notify } from 'shared/lib/notifications';
 
 // ─── Contexts — shared with child routes ─────────────────────────────────────
 
@@ -62,16 +70,27 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const { activeFilter, setActiveFilter } = usePanelFilter();
 
   const cartItems = useCartStore((state) => state.items);
-  const hasQueuedUploads = useUploadStore((s) => s.uploadQueue.some(i => i.status !== 'cancelled'));
-  const uploadSpotId = useUploadStore((s) => s.uploadSpotId);
+  const { isAuthenticated } = useUser();
+  const { open: openAuthModal } = useAuthModal();
   const trpc = useTRPC();
-  const { data: draftCounts } = useQuery(trpc.users.myDraftCounts.queryOptions());
-  const hasDrafts = hasQueuedUploads || (draftCounts?.hasDrafts ?? false);
-  const resumeSpotId = uploadSpotId;
+  const { data: draftCounts } = useQuery({
+    ...trpc.users.myDraftCounts.queryOptions(),
+    enabled: isAuthenticated,
+  });
+  const { data: latestDraft } = useLatestSurfSessionDraft({ enabled: isAuthenticated });
+  const { mutateAsync: createDraft, isPending: isCreatingDraft } = useCreateSurfSessionDraft();
+  const hasDrafts = !!latestDraft || (draftCounts?.hasDrafts ?? false);
 
   const cartMatch = matches.find((match) => match.routeId === '/_panel/cart');
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
   const uploadMatch = matches.find((match) => match.routeId === '/_panel/upload');
+  const uploadDraftId = uploadMatch
+    ? (uploadMatch.search as { draftId?: string }).draftId
+    : undefined;
+  const { data: activeUploadDraft } = useQuery({
+    ...trpc.sessions.draft.queryOptions(uploadDraftId ?? ''),
+    enabled: isAuthenticated && !!uploadDraftId,
+  });
   const galleryMatch = matches.find((match) => match.routeId === '/_panel/$spotId/gallery');
   const sessionDetailMatch = matches.find((match) => match.routeId === '/_panel/$spotId/session/$sessionId');
   const isDefaultIndex = matches.some((match) => match.routeId === '/_panel/');
@@ -81,6 +100,28 @@ function PanelFrame({ children }: { children: ReactNode }) {
     : undefined;
 
   const { spotId } = useParams({ strict: false });
+
+  const handleUpload = useCallback(async () => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
+    try {
+      const startsAt = new Date();
+      startsAt.setHours(6, 0, 0, 0);
+      const endsAt = new Date(startsAt);
+      endsAt.setHours(10, 0, 0, 0);
+      const draft = await createDraft({
+        spotId: spotId ?? null,
+        startsAt,
+        endsAt,
+      });
+      await navigate({ to: '/upload', search: { draftId: draft.id } });
+    } catch (error) {
+      notify.error(getErrorMessage(error), 'Unable to Start Upload');
+    }
+  }, [createDraft, isAuthenticated, navigate, openAuthModal, spotId]);
 
   const { spot: activeSpot } = useSelectedSpot();
   const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '', { enabled: !!cartFrom });
@@ -165,13 +206,8 @@ function PanelFrame({ children }: { children: ReactNode }) {
             />
           </div>
           <button
-            onClick={() => void navigate(
-              hasDrafts && resumeSpotId
-                ? { to: '/upload', search: { spotId: resumeSpotId } }
-                : spotId
-                  ? { to: '/upload', search: { spotId } }
-                  : { to: '/upload' }
-            )}
+            onClick={() => { void handleUpload(); }}
+            disabled={isCreatingDraft}
             style={{
               position: 'relative',
               background: 'rgba(255,255,255,0.1)',
@@ -180,7 +216,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
               color: 'rgba(255,255,255,0.85)',
               fontSize: 11,
               padding: '3px 10px',
-              cursor: 'pointer',
+              cursor: isCreatingDraft ? 'default' : 'pointer',
               flexShrink: 0,
               whiteSpace: 'nowrap',
             }}
@@ -234,8 +270,9 @@ function PanelFrame({ children }: { children: ReactNode }) {
         onBack={
           uploadMatch
             ? () => {
-                const search = uploadMatch.search as { spotId?: string };
-                if (search.spotId) void navigate({ to: '/$spotId', params: { spotId: search.spotId } });
+                if (activeUploadDraft?.spotId) {
+                  void navigate({ to: '/$spotId', params: { spotId: activeUploadDraft.spotId } });
+                }
                 else void navigate({ to: '/' });
               }
             : forceExpanded

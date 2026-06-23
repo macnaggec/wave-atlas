@@ -183,6 +183,14 @@ describe('CheckoutService.createCheckoutSession', () => {
     );
   });
 
+  it('throws BadRequestError when a cart item has null price', async () => {
+    mockMedia.findByIds.mockResolvedValue([makeMediaItem({ price: null as unknown as number })]);
+
+    await expect(service.createCheckoutSession(BUYER_ID, undefined, ITEM_IDS)).rejects.toThrow(
+      'Some items have no price set',
+    );
+  });
+
   it('throws BadRequestError when buyer tries to purchase their own media', async () => {
     mockMedia.findByIds.mockResolvedValue([makeMediaItem({ photographerId: BUYER_ID })]);
 

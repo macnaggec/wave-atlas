@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { Button, Text } from '@mantine/core';
 import { SpotSearch } from 'features/SpotSearch';
-// eslint-disable-next-line boundaries/dependencies -- mapCommands is a cross-widget command bus; pending move to shared/lib (see TOOLING-004)
-import { mapCommands } from 'widgets/GlobeMap/model/mapCommands';
 import { useAddSpot } from 'features/AddSpot';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth';
@@ -13,14 +12,14 @@ interface FeedSearchProps {
   placeholder?: string;
   onSpotSelect?: (spot: Spot) => void;
   /** When provided, overrides mapStore.selection for chip display. */
-  activeSpot?: Spot | null;
-  /** When provided, overrides the default mapCommands.clearAll() on chip clear. */
+  activeSpot?: Pick<Spot, 'id' | 'name' | 'location'> | null;
   onClear?: () => void;
   autoFocus?: boolean;
 }
 
 export function FeedSearch({ placeholder, onSpotSelect, activeSpot: activeSpotOverride, onClear, autoFocus }: FeedSearchProps = {}) {
   const selection = activeSpotOverride ?? null;
+  const navigate = useNavigate();
   const { startAddSpot } = useAddSpot();
   const { isAuthenticated } = useUser();
   const { open: openAuthModal } = useAuthModal();
@@ -29,9 +28,9 @@ export function FeedSearch({ placeholder, onSpotSelect, activeSpot: activeSpotOv
     if (onSpotSelect) {
       onSpotSelect(spot);
     } else {
-      mapCommands.selectFromSearch(spot);
+      void navigate({ to: '/$spotId', params: { spotId: spot.id } });
     }
-  }, [onSpotSelect]);
+  }, [navigate, onSpotSelect]);
 
   const emptyAction = useCallback(
     (search: string): ReactNode => {
@@ -56,7 +55,7 @@ export function FeedSearch({ placeholder, onSpotSelect, activeSpot: activeSpotOv
       onSpotSelect={handleSelect}
       emptyAction={emptyAction}
       placeholder={placeholder}
-      onClear={onClear ?? (() => mapCommands.clearAll())}
+      onClear={onClear ?? (() => { void navigate({ to: '/' }); })}
       activeSpot={selection}
       autoFocus={autoFocus}
     />

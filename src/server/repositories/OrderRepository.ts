@@ -1,6 +1,6 @@
 import { OrderStatus } from '@prisma/client';
 import { prisma } from 'server/db';
-import { runQuery } from 'shared/errors/PrismaErrorMapper';
+import { runQuery } from 'server/lib/PrismaErrorMapper';
 
 export type OrderWithItems = {
   id: string;

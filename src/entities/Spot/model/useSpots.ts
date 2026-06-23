@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 
 /** Fetches spots, optionally filtered by search string. Pass enabled:false to suppress until ready. */
 export function useSpots(search?: string, options?: { enabled?: boolean }) {

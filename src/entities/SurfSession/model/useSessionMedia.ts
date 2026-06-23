@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from 'app/lib/trpc';
+import { useTRPC } from 'shared/lib/trpc';
 
 export function useSessionMedia(sessionId: string) {
   const trpc = useTRPC();
