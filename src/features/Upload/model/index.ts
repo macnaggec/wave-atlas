@@ -17,4 +17,4 @@ export { getPublishableMediaIds, getSelectableUploadCards, getUploadQueueStatus 
 
 // Types
 export type { BrowserTransfer, LocalTransfer, DriveTransfer, GalleryCard, AttemptCard, DraftCard, AttemptCardStatus } from './types';
-export { getItemId, isVideoItem, revokeBlobUrl } from './types';
+export { getItemId, isVideoItem } from './types';

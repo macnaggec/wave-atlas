@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useUploadStore } from './uploadStore';
-import { revokeBlobUrl } from './types';
+import { releaseBrowserTransferResources } from './browserTransferResources';
 
 /**
  * Post-publish cleanup. Releases browser-only resources (blob URLs, XHR aborts).
@@ -9,12 +9,7 @@ import { revokeBlobUrl } from './types';
 export function useClearUploadQueue() {
   return useCallback(() => {
     const transfers = useUploadStore.getState().getAll();
-    transfers.forEach(t => {
-      if (t.source === 'local') {
-        if (t.abort) try { t.abort(); } catch { /* expected */ }
-        revokeBlobUrl(t.previewUrl);
-      }
-    });
+    transfers.forEach((transfer) => releaseBrowserTransferResources(transfer));
     useUploadStore.getState().clearTransfers();
   }, []);
 }

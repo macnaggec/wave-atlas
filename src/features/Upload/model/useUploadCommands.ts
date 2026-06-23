@@ -15,19 +15,41 @@ export function useUploadCommands(draftId: string) {
   const invalidateAttempts = () =>
     queryClient.invalidateQueries({ queryKey: trpc.uploads.listForDraft.queryKey({ draftId }) });
 
-  const beginLocal = useMutation(trpc.uploads.beginLocal.mutationOptions()).mutateAsync;
-  const finalizeLocal = useMutation(trpc.uploads.finalizeLocal.mutationOptions({
-    onSuccess: () => { void invalidateDraftMedia(); void invalidateAttempts(); },
-  })).mutateAsync;
-  const beginDrive = useMutation(trpc.uploads.beginDrive.mutationOptions()).mutateAsync;
-  const processDrive = useMutation(trpc.uploads.processDrive.mutationOptions({
-    onSuccess: () => { void invalidateDraftMedia(); void invalidateAttempts(); },
-  })).mutateAsync;
+  const invalidateDraftCounts = () =>
+    queryClient.invalidateQueries({ queryKey: trpc.users.myDraftCounts.queryKey() });
+
+  const beginLocal = useMutation(
+    trpc.uploads.beginLocal.mutationOptions()
+  ).mutateAsync;
+
+  const finalizeLocal = useMutation(
+    trpc.uploads.finalizeLocal.mutationOptions(
+      {
+        onSuccess: () => {
+          void invalidateDraftMedia(); void invalidateAttempts(); void invalidateDraftCounts();
+        },
+      })
+  ).mutateAsync;
+
+  const beginDrive = useMutation(
+    trpc.uploads.beginDrive.mutationOptions()
+  ).mutateAsync;
+
+  const processDrive = useMutation(
+    trpc.uploads.processDrive.mutationOptions({
+      onSuccess: () => { void invalidateDraftMedia(); void invalidateAttempts(); },
+      onError: () => { void invalidateAttempts(); },
+    })
+  ).mutateAsync;
+
   const discard = useMutation(trpc.uploads.discard.mutationOptions({
     onSuccess: () => { void invalidateAttempts(); },
   })).mutateAsync;
   const discardDraft = useMutation(trpc.uploads.discardDraft.mutationOptions({
     onSuccess: () => { void invalidateDraftMedia(); void invalidateAttempts(); },
+  })).mutateAsync;
+  const deleteDraftMedia = useMutation(trpc.media.delete.mutationOptions({
+    onSuccess: () => { void invalidateDraftMedia(); void invalidateDraftCounts(); },
   })).mutateAsync;
 
   const attempts = useQuery(trpc.uploads.listForDraft.queryOptions({ draftId }));
@@ -39,6 +61,7 @@ export function useUploadCommands(draftId: string) {
     processDrive,
     discard,
     discardDraft,
+    deleteDraftMedia,
     attempts: attempts.data ?? [],
     invalidateDraftMedia,
   };

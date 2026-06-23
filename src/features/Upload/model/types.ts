@@ -58,7 +58,3 @@ export function isVideoItem(card: GalleryCard): boolean {
   if (card.kind === 'draft') return card.result.resource.resourceType === 'video';
   return false; // resource type known only after finalization
 }
-
-export function revokeBlobUrl(url?: string): void {
-  if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
-}

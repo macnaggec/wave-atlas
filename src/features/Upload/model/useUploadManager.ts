@@ -47,9 +47,13 @@ export function useUploadManager(draftId: string) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
 
-  const remove = useCallback(async (_kind: 'attempt' | 'draft', id: string) => {
+  const remove = useCallback(async (kind: 'attempt' | 'draft', id: string) => {
     try {
-      await discardAttempt(id, deps);
+      if (kind === 'draft') {
+        await commands.deleteDraftMedia({ id });
+      } else {
+        await discardAttempt(id, deps);
+      }
     } catch (err) {
       notify.error(getErrorMessage(err), 'Delete Failed');
     }
@@ -57,7 +61,12 @@ export function useUploadManager(draftId: string) {
   }, [draftId]);
 
   const discardAll = useCallback(async () => {
-    await discardAllDraft(deps);
+    try {
+      await discardAllDraft(deps);
+    } catch (err) {
+      notify.error(getErrorMessage(err), 'Discard Failed');
+      throw err;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
 
@@ -70,4 +79,3 @@ export function useUploadManager(draftId: string) {
 
   return { addFiles, addDriveSelections, remove, discardAll, retry };
 }
-

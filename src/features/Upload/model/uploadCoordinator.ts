@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { uploadToCloudinary } from './cloudinaryTransport';
 import { useUploadStore } from './uploadStore';
-import { revokeBlobUrl } from './types';
+import {
+  abortBrowserTransfer,
+  releaseBrowserTransferPreview,
+  releaseBrowserTransferResources,
+} from './browserTransferResources';
 import type { UploadCommands } from './useUploadCommands';
 
 // ── Deps injected from useUploadManager ──────────────────────────────────────
@@ -66,7 +70,8 @@ export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promi
     });
 
     // Remove browser resources — MediaItem is now in Query cache.
-    revokeBlobUrl(previewUrl);
+    const completedTransfer = useUploadStore.getState().transfers.get(clientRequestId);
+    if (completedTransfer) releaseBrowserTransferResources(completedTransfer, { abort: false });
     useUploadStore.getState().removeTransfer(clientRequestId);
   } catch (err) {
     const transfer = useUploadStore.getState().transfers.get(clientRequestId);
@@ -119,34 +124,34 @@ export async function discardAttempt(
       || t.attemptId === clientRequestIdOrAttemptId,
   );
 
-  // Abort in-flight XHR immediately.
-  if (transfer?.source === 'local' && transfer.abort) {
-    try { transfer.abort(); } catch { /* expected */ }
-  }
-
-  if (transfer?.source === 'local') revokeBlobUrl(transfer.previewUrl);
+  // Stop in-flight network work immediately, but keep the preview visible until
+  // the authoritative server attempt has been discarded successfully.
+  if (transfer) abortBrowserTransfer(transfer);
 
   if (transfer?.attemptId) {
     await deps.commands.discard({ attemptId: transfer.attemptId });
+  } else if (!transfer) {
+    // No browser transfer found (e.g. page was reloaded). Treat the passed ID
+    // as a server-side attempt ID and call discard directly.
+    await deps.commands.discard({ attemptId: clientRequestIdOrAttemptId });
   }
 
   if (transfer) {
+    releaseBrowserTransferPreview(transfer);
     useUploadStore.getState().removeTransfer(transfer.clientRequestId);
   }
 }
 
 export async function discardAllDraft(deps: CoordinatorDeps): Promise<void> {
-  // Abort all in-flight local XHRs immediately.
-  useUploadStore.getState().getAll().forEach(t => {
-    if (t.source === 'local') {
-      if (t.abort) try { t.abort(); } catch { /* expected */ }
-      revokeBlobUrl(t.previewUrl);
-    }
-  });
+  const transfers = useUploadStore.getState().getAll();
 
-  // Single server transaction — awaited before UI clears.
+  // Abort all in-flight local XHRs immediately.
+  transfers.forEach(abortBrowserTransfer);
+
+  // Single server transaction — awaited before previews or UI state clear.
   await deps.commands.discardDraft({ draftId: deps.draftId });
 
+  transfers.forEach(releaseBrowserTransferPreview);
   useUploadStore.getState().clearTransfers();
 }
 
@@ -165,7 +170,13 @@ export async function retryAttempt(
   if (!transfer) return;
 
   if (transfer.source === 'local') {
+    // Discard the old server attempt (if it was created before the XHR failed)
+    // so it doesn't ghost as a second "Preparing…" card after the retry.
+    if (transfer.attemptId) {
+      await deps.commands.discard({ attemptId: transfer.attemptId });
+    }
     await startLocalUpload(transfer.file, deps);
+    releaseBrowserTransferResources(transfer, { abort: false });
     useUploadStore.getState().removeTransfer(transfer.clientRequestId);
   } else {
     // Drive retry: obtain fresh access token, then re-process.
