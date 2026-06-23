@@ -16,15 +16,11 @@ describe('UploadStatusLabel', () => {
   it('uses queue policy active counts for importing cards', () => {
     const items = [
       {
-        kind: 'uploading',
+        kind: 'attempt',
         id: 'import-1',
-        pipelineItem: {
-          id: 'import-1',
-          file: null,
-          previewUrl: 'drive:import-1',
-          status: 'importing',
-          progress: 0,
-        },
+        source: 'DRIVE' as const,
+        status: 'ACQUIRING' as const,
+        previewUrl: 'drive:import-1',
       },
     ] satisfies GalleryCard[];
 

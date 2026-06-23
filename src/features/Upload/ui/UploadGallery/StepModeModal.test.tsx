@@ -5,6 +5,7 @@ import { MantineProvider } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GalleryCard } from '../../model';
+import type { MediaItem } from 'entities/Media';
 import type { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { StepModeModal } from './StepModeModal';
 
@@ -48,29 +49,29 @@ describe('StepModeModal', () => {
     const onClose = vi.fn();
     const onDiscardAll = vi.fn();
     const onRemove = vi.fn();
+    const draftResult: MediaItem = {
+      id: 'media-1',
+      sessionId: 'session-1',
+      photographerId: 'photographer-1',
+      spotId: null,
+      capturedAt: new Date('2026-01-01T00:00:00Z'),
+      price: null,
+      lightboxUrl: 'https://cdn.example.com/media-1.jpg',
+      thumbnailUrl: 'https://cdn.example.com/media-1-thumb.jpg',
+      cloudinaryPublicId: 'media-1',
+      status: 'DRAFT',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      resource: { resourceType: 'image', url: 'https://cdn.example.com/media-1.jpg', assetId: 'asset-media-1' },
+    };
     const cards = [
+      { kind: 'draft' as const, id: 'media-1', result: draftResult },
       {
-        kind: 'uploading',
-        id: 'media-1',
-        pipelineItem: {
-          id: 'upload-1',
-          file: new File(['done'], 'done.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:done',
-          status: 'completed',
-          progress: 100,
-          mediaId: 'media-1',
-        },
-      },
-      {
-        kind: 'uploading',
+        kind: 'attempt' as const,
         id: 'upload-2',
-        pipelineItem: {
-          id: 'upload-2',
-          file: new File(['active'], 'active.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:active',
-          status: 'uploading',
-          progress: 40,
-        },
+        source: 'LOCAL' as const,
+        status: 'ACQUIRING' as const,
+        previewUrl: 'blob:active',
+        progress: 40,
       },
     ] satisfies GalleryCard[];
 

@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePublishUploadSession } from './usePublishUploadSession';
 import type { GalleryCard } from './types';
+import type { MediaItem } from 'entities/Media';
 
 const mocks = vi.hoisted(() => ({
   clearQueue: vi.fn(),
@@ -54,18 +55,32 @@ describe('usePublishUploadSession', () => {
   const endsAt = new Date(startsDate);
   endsAt.setHours(10, 0, 0, 0);
 
+  function makeMediaItem(id: string): MediaItem {
+    return {
+      id,
+      sessionId: 'session-1',
+      photographerId: 'photographer-1',
+      spotId: null,
+      capturedAt: new Date('2026-01-01T00:00:00Z'),
+      price: null,
+      lightboxUrl: `https://cdn.example.com/${id}.jpg`,
+      thumbnailUrl: `https://cdn.example.com/${id}-thumb.jpg`,
+      cloudinaryPublicId: id,
+      status: 'DRAFT',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      resource: {
+        resourceType: 'image',
+        url: `https://cdn.example.com/${id}.jpg`,
+        assetId: `asset-${id}`,
+      },
+    };
+  }
+
   function completedQueue(mediaIds: string[]): GalleryCard[] {
     return mediaIds.map((mediaId) => ({
-      kind: 'uploading',
+      kind: 'draft' as const,
       id: mediaId,
-      pipelineItem: {
-        id: `upload-${mediaId}`,
-        file: new File(['ok'], `${mediaId}.jpg`, { type: 'image/jpeg' }),
-        previewUrl: `blob:${mediaId}`,
-        status: 'completed',
-        progress: 100,
-        mediaId,
-      },
+      result: makeMediaItem(mediaId),
     }));
   }
 
@@ -73,11 +88,12 @@ describe('usePublishUploadSession', () => {
     vi.clearAllMocks();
   });
 
-  it('publishes a valid upload session and clears local upload state', async () => {
+  it('publishes a valid session and clears only transient upload state', async () => {
     mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
     const onCancel = vi.fn();
     const { result } = renderHook(() =>
       usePublishUploadSession({
+        draftId: 'draft-1',
         spot: { id: 'spot-1' },
         queue: completedQueue(['media-1', 'media-2']),
         sessionDate: startsDate,
@@ -92,25 +108,17 @@ describe('usePublishUploadSession', () => {
       await result.current.publish();
     });
 
-    expect(mocks.createAndPublish).toHaveBeenCalledWith({
-      spotId: 'spot-1',
-      startsAt,
-      endsAt,
-      mediaIds: ['media-1', 'media-2'],
-      photoPrice: 300,
-      videoPrice: 500,
-    });
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['users', 'myDraftCounts'] });
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['media', 'myDrafts'] });
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['users', 'myUploads'] });
+    expect(mocks.createAndPublish).toHaveBeenCalledWith('draft-1');
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
     expect(mocks.clearQueue).toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('marks missing spot and empty files as attempted publish errors', async () => {
+  it('does not publish while any upload card still needs user action', async () => {
     const onPublishFailed = vi.fn();
     const { result } = renderHook(() =>
       usePublishUploadSession({
+        draftId: 'draft-1',
         spot: null,
         queue: [],
         sessionDate: startsDate,
@@ -137,6 +145,7 @@ describe('usePublishUploadSession', () => {
     const onCancel = vi.fn();
     const { result } = renderHook(() =>
       usePublishUploadSession({
+        draftId: 'draft-1',
         spot: { id: 'spot-1' },
         queue: completedQueue(['media-1']),
         sessionDate: startsDate,
@@ -160,34 +169,19 @@ describe('usePublishUploadSession', () => {
     mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
     const onCancel = vi.fn();
     const queue = [
+      ...completedQueue(['media-1']),
       {
-        kind: 'uploading',
-        id: 'media-1',
-        pipelineItem: {
-          id: 'upload-1',
-          file: new File(['ok'], 'ok.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:ok',
-          status: 'completed',
-          progress: 100,
-          mediaId: 'media-1',
-        },
-      },
-      {
-        kind: 'uploading',
+        kind: 'attempt' as const,
         id: 'upload-2',
-        pipelineItem: {
-          id: 'upload-2',
-          file: new File(['failed'], 'failed.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:failed',
-          status: 'error',
-          progress: 0,
-          error: 'Upload failed',
-        },
+        source: 'LOCAL' as const,
+        status: 'FAILED' as const,
+        previewUrl: 'blob:failed',
       },
     ] satisfies GalleryCard[];
 
     const { result } = renderHook(() =>
       usePublishUploadSession({
+        draftId: 'draft-1',
         spot: { id: 'spot-1' },
         queue,
         sessionDate: startsDate,
@@ -214,20 +208,18 @@ describe('usePublishUploadSession', () => {
     const queue = [
       ...completedQueue(['media-1']),
       {
-        kind: 'uploading',
+        kind: 'attempt' as const,
         id: 'upload-2',
-        pipelineItem: {
-          id: 'upload-2',
-          file: new File(['active'], 'active.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:active',
-          status: 'uploading',
-          progress: 50,
-        },
+        source: 'LOCAL' as const,
+        status: 'ACQUIRING' as const,
+        previewUrl: 'blob:active',
+        progress: 50,
       },
     ] satisfies GalleryCard[];
 
     const { result } = renderHook(() =>
       usePublishUploadSession({
+        draftId: 'draft-1',
         spot: { id: 'spot-1' },
         queue,
         sessionDate: startsDate,

@@ -14,6 +14,9 @@ const mockRepo: IUploadAttemptRepository = {
   findByIdForPhotographer: vi.fn(),
   listForDraft: vi.fn(),
   hasBlockingAttempts: vi.fn(),
+  removeCompletedDraftMedia: vi.fn(),
+  findExpiredForReconciliation: vi.fn(),
+  markCancelled: vi.fn(),
 };
 
 const mockDirect: DirectUploadPort = {

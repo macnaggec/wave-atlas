@@ -35,6 +35,13 @@ export interface IUploadAttemptRepository {
   listForDraft(sessionId: string, photographerId: string): Promise<UploadAttemptProjection[]>;
   hasBlockingAttempts(sessionId: string): Promise<boolean>;
   removeCompletedDraftMedia(sessionId: string, photographerId: string): Promise<Array<{ cloudinaryPublicId: string; resourceType: MediaType }>>;
+  findExpiredForReconciliation(): Promise<Array<{
+    id: string;
+    cloudinaryPublicId: string;
+    expectedMediaType: MediaType;
+    status: UploadAttemptStatus;
+  }>>;
+  markCancelled(attemptId: string): Promise<void>;
 }
 
 function toProjection(row: {
@@ -232,6 +239,33 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
           cloudinaryPublicId: a.cloudinaryPublicId,
           resourceType: a.expectedMediaType,
         }));
+      });
+    });
+  }
+
+  findExpiredForReconciliation(): Promise<Array<{
+    id: string;
+    cloudinaryPublicId: string;
+    expectedMediaType: MediaType;
+    status: UploadAttemptStatus;
+  }>> {
+    return runQuery(() =>
+      prisma.uploadAttempt.findMany({
+        where: {
+          status: { in: ['READY', 'FAILED', 'CANCEL_REQUESTED', 'CLEANUP_PENDING'] },
+          expiresAt: { lt: new Date() },
+        },
+        select: { id: true, cloudinaryPublicId: true, expectedMediaType: true, status: true },
+        take: 100,
+      }),
+    );
+  }
+
+  markCancelled(attemptId: string): Promise<void> {
+    return runQuery(async () => {
+      await prisma.uploadAttempt.updateMany({
+        where: { id: attemptId, status: { in: ['CANCEL_REQUESTED', 'CLEANUP_PENDING'] } },
+        data: { status: 'CANCELLED' },
       });
     });
   }

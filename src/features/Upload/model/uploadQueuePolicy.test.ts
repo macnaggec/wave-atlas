@@ -6,6 +6,7 @@ import { getUploadQueueStatus } from './uploadQueuePolicy';
 function mediaItem(id: string): MediaItem {
   return {
     id,
+    sessionId: 'session-1',
     photographerId: 'photographer-1',
     spotId: null,
     capturedAt: new Date('2026-01-01T00:00:00Z'),
@@ -27,40 +28,21 @@ describe('getUploadQueueStatus', () => {
   it('reports saved draft and completed upload cards as ready items', () => {
     const cards = [
       { kind: 'draft', id: 'draft-1', result: mediaItem('draft-1') },
+      { kind: 'draft', id: 'media-1', result: mediaItem('media-1') },
       {
-        kind: 'uploading',
-        id: 'media-1',
-        pipelineItem: {
-          id: 'upload-1',
-          file: new File(['done'], 'done.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:done',
-          status: 'completed',
-          progress: 100,
-          mediaId: 'media-1',
-        },
-      },
-      {
-        kind: 'uploading',
+        kind: 'attempt',
         id: 'upload-2',
-        pipelineItem: {
-          id: 'upload-2',
-          file: new File(['active'], 'active.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:active',
-          status: 'uploading',
-          progress: 40,
-        },
+        source: 'LOCAL' as const,
+        status: 'ACQUIRING' as const,
+        previewUrl: 'blob:active',
+        progress: 40,
       },
       {
-        kind: 'uploading',
+        kind: 'attempt',
         id: 'upload-3',
-        pipelineItem: {
-          id: 'upload-3',
-          file: new File(['failed'], 'failed.jpg', { type: 'image/jpeg' }),
-          previewUrl: 'blob:failed',
-          status: 'error',
-          progress: 0,
-          error: 'Upload failed',
-        },
+        source: 'LOCAL' as const,
+        status: 'FAILED' as const,
+        previewUrl: 'blob:failed',
       },
     ] satisfies GalleryCard[];
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { MediaType } from '@prisma/client';
 import { ForbiddenError, NotFoundError } from 'shared/errors';
+import { logger } from 'shared/lib/logger';
 import type { IUploadAttemptRepository } from 'server/repositories/UploadAttemptRepository';
 import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort } from 'server/ports/UploadAssetStorage';
 import type { ISurfSessionRepository } from 'server/repositories/SurfSessionRepository';
@@ -26,6 +27,7 @@ export class UploadService {
     photographerId: string,
     input: { draftId: string; clientRequestId: string; declaredMimeType: string; declaredByteSize: number },
   ): Promise<DirectUploadGrant> {
+    logger.info('[upload] beginLocal', { photographerId, draftId: input.draftId, clientRequestId: input.clientRequestId });
     const draft = await this.sessions.findDraftById(input.draftId);
     if (!draft) throw new NotFoundError('Surf Session');
     if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission to upload to this session');
@@ -56,6 +58,7 @@ export class UploadService {
     photographerId: string,
     input: { attemptId: string; providerReceipt: unknown; capturedAt?: Date },
   ): Promise<{ mediaId: string }> {
+    logger.info('[upload] finalizeLocal', { photographerId, attemptId: input.attemptId });
     const attempt = await this.repo.findByIdForPhotographer(input.attemptId, photographerId);
     if (!attempt) throw new NotFoundError('UploadAttempt');
 
