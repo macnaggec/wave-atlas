@@ -34,6 +34,7 @@ export interface IUploadAttemptRepository {
   findByIdForPhotographer(attemptId: string, photographerId: string): Promise<UploadAttemptProjection | null>;
   listForDraft(sessionId: string, photographerId: string): Promise<UploadAttemptProjection[]>;
   hasBlockingAttempts(sessionId: string): Promise<boolean>;
+  removeCompletedDraftMedia(sessionId: string, photographerId: string): Promise<Array<{ cloudinaryPublicId: string; resourceType: MediaType }>>;
 }
 
 function toProjection(row: {
@@ -189,6 +190,49 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
         },
       });
       return count > 0;
+    });
+  }
+
+  removeCompletedDraftMedia(
+    sessionId: string,
+    photographerId: string,
+  ): Promise<Array<{ cloudinaryPublicId: string; resourceType: MediaType }>> {
+    return runQuery(async () => {
+      return prisma.$transaction(async (tx) => {
+        // Cancel all nonterminal attempts first.
+        await tx.uploadAttempt.updateMany({
+          where: {
+            sessionId,
+            photographerId,
+            status: { in: ['READY', 'ACQUIRING', 'FINALIZING', 'FAILED', 'CANCEL_REQUESTED'] },
+          },
+          data: { status: 'CANCEL_REQUESTED' },
+        });
+
+        // Collect COMPLETED attempt asset identities before deleting media.
+        const completedAttempts = await tx.uploadAttempt.findMany({
+          where: { sessionId, photographerId, status: 'COMPLETED' },
+          select: { id: true, cloudinaryPublicId: true, expectedMediaType: true },
+        });
+
+        if (completedAttempts.length > 0) {
+          await tx.mediaItem.deleteMany({
+            where: {
+              uploadAttemptId: { in: completedAttempts.map(a => a.id) },
+              deletedAt: null,
+            },
+          });
+          await tx.uploadAttempt.updateMany({
+            where: { id: { in: completedAttempts.map(a => a.id) } },
+            data: { status: 'CLEANUP_PENDING' },
+          });
+        }
+
+        return completedAttempts.map(a => ({
+          cloudinaryPublicId: a.cloudinaryPublicId,
+          resourceType: a.expectedMediaType,
+        }));
+      });
     });
   }
 }

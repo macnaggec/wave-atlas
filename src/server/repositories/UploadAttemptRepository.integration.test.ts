@@ -133,3 +133,28 @@ describe('cancelAttempt', () => {
     await expect(repo.cancelAttempt(attempt.id, photographerId)).resolves.not.toThrow();
   });
 });
+
+describe('removeCompletedDraftMedia', () => {
+  it('deletes all draft MediaItems and marks attempts CLEANUP_PENDING atomically', async () => {
+    const { photographerId, sessionId } = await seedPhotographerAndDraft();
+
+    // Create two COMPLETED attempts with MediaItems.
+    const [a1, a2] = await Promise.all([
+      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), sessionId, photographerId, source: 'LOCAL', status: 'COMPLETED', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
+      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), sessionId, photographerId, source: 'LOCAL', status: 'COMPLETED', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
+    ]);
+    await Promise.all([
+      prisma.mediaItem.create({ data: { sessionId, photographerId, type: 'PHOTO', cloudinaryPublicId: a1.cloudinaryPublicId, thumbnailUrl: 't', lightboxUrl: 'l', capturedAt: new Date(), uploadAttemptId: a1.id } }),
+      prisma.mediaItem.create({ data: { sessionId, photographerId, type: 'PHOTO', cloudinaryPublicId: a2.cloudinaryPublicId, thumbnailUrl: 't', lightboxUrl: 'l', capturedAt: new Date(), uploadAttemptId: a2.id } }),
+    ]);
+
+    const cancelled = await repo.removeCompletedDraftMedia(sessionId, photographerId);
+
+    expect(await prisma.mediaItem.count({ where: { sessionId, deletedAt: null } })).toBe(0);
+    expect(cancelled).toHaveLength(2);
+    for (const id of [a1.id, a2.id]) {
+      const a = await prisma.uploadAttempt.findUniqueOrThrow({ where: { id } });
+      expect(a.status).toBe('CLEANUP_PENDING');
+    }
+  });
+});

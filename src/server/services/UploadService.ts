@@ -140,14 +140,29 @@ export class UploadService {
     return this.repo.listForDraft(sessionId, photographerId);
   }
 
-  async discardAttempt(_photographerId: string, _attemptId: string): Promise<void> {
-    // Implemented in Task 14
-    throw new Error('not implemented');
+  async discardDraft(photographerId: string, draftId: string): Promise<void> {
+    const draft = await this.sessions.findDraftById(draftId);
+    if (!draft) throw new NotFoundError('Surf Session');
+    if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission');
+
+    const assetsToClean = await this.repo.removeCompletedDraftMedia(draftId, photographerId);
+
+    // Best-effort provider cleanup — failures leave CLEANUP_PENDING for reconciler.
+    await Promise.allSettled(
+      assetsToClean.map(asset =>
+        this.cleanup.deleteStoredAsset({ cloudinaryPublicId: asset.cloudinaryPublicId, resourceType: asset.resourceType }),
+      ),
+    );
   }
 
-  async discardDraft(_photographerId: string, _draftId: string): Promise<void> {
-    // Implemented in Task 14
-    throw new Error('not implemented');
+  async discardAttempt(photographerId: string, attemptId: string): Promise<void> {
+    await this.repo.cancelAttempt(attemptId, photographerId);
+    // Best-effort provider cleanup for asset that was already uploaded.
+    const attempt = await this.repo.findByIdForPhotographer(attemptId, photographerId);
+    if (attempt?.status === 'CANCEL_REQUESTED' && attempt.cloudinaryPublicId) {
+      void this.cleanup.deleteStoredAsset({ cloudinaryPublicId: attempt.cloudinaryPublicId, resourceType: 'PHOTO' })
+        .catch(() => { /* logged by reconciler */ });
+    }
   }
 }
 
