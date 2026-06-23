@@ -139,6 +139,16 @@ export class UploadService {
   listForDraft(photographerId: string, sessionId: string): Promise<UploadAttemptProjection[]> {
     return this.repo.listForDraft(sessionId, photographerId);
   }
+
+  async discardAttempt(_photographerId: string, _attemptId: string): Promise<void> {
+    // Implemented in Task 14
+    throw new Error('not implemented');
+  }
+
+  async discardDraft(_photographerId: string, _draftId: string): Promise<void> {
+    // Implemented in Task 14
+    throw new Error('not implemented');
+  }
 }
 
 import { uploadAttemptRepository } from 'server/repositories/UploadAttemptRepository';

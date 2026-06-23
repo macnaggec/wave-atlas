@@ -4,6 +4,7 @@ import { mediaRouter } from './routes/media';
 import { usersRouter } from './routes/users';
 import { checkoutRouter } from './routes/checkout';
 import { sessionsRouter } from './routes/sessions';
+import { uploadsRouter } from './routes/uploads';
 
 export const appRouter = router({
   spots: spotsRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
   users: usersRouter,
   checkout: checkoutRouter,
   sessions: sessionsRouter,
+  uploads: uploadsRouter,
 });
 
 export type AppRouter = typeof appRouter;
