@@ -54,9 +54,9 @@ export function SpotResultOption({ spot, onAliasError }: SpotResultOptionProps) 
     setAliasError(null);
   }, []);
 
-  const handleAliasKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleAliasKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') void handleSave(e as unknown as React.MouseEvent);
-  }, [handleSave]);
+  };
 
   return (
     <Combobox.Option value={spot.id}>

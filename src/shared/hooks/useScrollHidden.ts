@@ -54,5 +54,5 @@ export function useScrollHidden(
     container.addEventListener('scroll', onScroll, { passive: true });
 
     return () => container.removeEventListener('scroll', onScroll);
-  }, [locked]);
+  }, [locked, ref]);
 }

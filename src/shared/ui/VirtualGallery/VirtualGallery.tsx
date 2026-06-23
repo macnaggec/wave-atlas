@@ -47,6 +47,7 @@ function VirtualGalleryInner<T extends { id: string }>(
   const toolbarRef = useRef<HTMLDivElement>(null);
   useScrollHidden(toolbarRef, selection?.isSelectionMode ?? false);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual exposes imperative functions that React Compiler intentionally leaves un-memoized.
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => containerRef.current,

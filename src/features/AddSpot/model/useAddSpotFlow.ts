@@ -107,7 +107,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
   const handleSetLocation = useCallback((v: string) => {
     setLocation(v);
     setLocationError(null);
-  }, []);
+  }, [setLocation]);
 
   const handleSubmitForm = useCallback(async () => {
     if (!tempPin) return;

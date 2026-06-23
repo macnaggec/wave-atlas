@@ -57,9 +57,9 @@ export function GlobeMapComponent({
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),
   // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
-  // flyTo would produce. useMemo with [] so it's computed once at mount, matching how
-  // react-map-gl treats initialViewState (ignored after first render).
-  const resolvedInitialView = useMemo(() => {
+  // flyTo would produce. A lazy state initializer captures it once at mount, matching
+  // how react-map-gl treats initialViewState (ignored after first render).
+  const [resolvedInitialView] = useState(() => {
     const isDefaultCamera =
       cameraState.longitude === DEFAULT_VIEW.longitude &&
       cameraState.latitude === DEFAULT_VIEW.latitude;
@@ -76,7 +76,7 @@ export function GlobeMapComponent({
       }
     }
     return cameraState;
-  }, []); // intentional: captured once as initial camera state
+  });
 
   const {
     startSpinning,
