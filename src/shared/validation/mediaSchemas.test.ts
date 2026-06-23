@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
+import { MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 import {
   mediaBatchUpdateSchema,
   mediaCloudinaryResultSchema,

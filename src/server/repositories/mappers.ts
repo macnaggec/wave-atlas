@@ -1,5 +1,5 @@
 import { MediaItem as PrismaMediaItem, MediaType } from '@prisma/client';
-import { MEDIA_RESOURCE_TYPE } from 'shared/types/media';
+import { MEDIA_RESOURCE_TYPE } from 'shared/constants/media';
 import type { MediaItem } from 'shared/types/media';
 
 export function mapToMediaItem(row: PrismaMediaItem): MediaItem {

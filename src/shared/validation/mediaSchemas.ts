@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
+import { MEDIA_RESOURCE_TYPE, MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 
 const cloudName =
   typeof process !== 'undefined'

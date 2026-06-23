@@ -3,7 +3,7 @@ import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import { surfSessionService } from 'server/services/SurfSessionService';
 import { mediaService } from 'server/services/MediaService';
-import { MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
+import { MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 
 export const sessionsRouter = router({
   /** Return the photographer's active upload draft, creating it when absent. */

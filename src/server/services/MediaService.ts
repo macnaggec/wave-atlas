@@ -2,7 +2,7 @@ import type { IMediaRepository } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
-import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/types/media';
+import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 import type { MediaStatus, MediaItem, MediaResourceType } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';

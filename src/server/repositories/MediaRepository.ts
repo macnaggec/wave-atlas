@@ -1,7 +1,7 @@
 import { MediaItem as PrismaMediaItem } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
-import { MEDIA_STATUS } from 'shared/types/media';
+import { MEDIA_STATUS } from 'shared/constants/media';
 import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus, SpotMediaItem } from 'shared/types/media';
 import { mapToMediaItem } from './mappers';
 
