@@ -98,7 +98,7 @@ describe('PurchasesTab', () => {
   });
 
   it('removes fulfilled purchase items from the cart after a paid return', async () => {
-    const Component = Route.component as ComponentType;
+    const Component = (Route as unknown as { component: ComponentType }).component;
 
     render(<Component />);
 

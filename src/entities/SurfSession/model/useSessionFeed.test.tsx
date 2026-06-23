@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toSessionFeedDateRange, useSessionFeed } from './useSessionFeed';
 
 const mocks = vi.hoisted(() => ({
-  infiniteQueryOptions: vi.fn(() => ({ queryKey: ['sessions', 'list'] })),
+  infiniteQueryOptions: vi.fn((
+    _input: unknown,
+    _pagination: {
+      getNextPageParam: (last: { nextCursor: string | null }) => string | undefined;
+    },
+  ) => ({ queryKey: ['sessions', 'list'] })),
   useInfiniteQuery: vi.fn(() => ({})),
 }));
 
