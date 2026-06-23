@@ -4,7 +4,7 @@ import classes from './UploadCardRenderer.module.css';
 import { IconRefresh, IconX } from '@tabler/icons-react';
 import { MediaItem, MEDIA_STATUS } from 'entities/Media';
 import { formatPrice } from 'shared/lib/currency';
-import { GalleryCard, UploadStatus } from '../../model';
+import { GalleryCard, AttemptCardStatus } from '../../model';
 import DraftCard from '../cards/DraftCard';
 
 interface UploadCardRendererProps {
@@ -35,43 +35,37 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
   hasDateError,
   hideRemove,
 }) => {
-  if (item.kind === 'uploading' && item.pipelineItem.status === 'importing') {
+  if (item.kind === 'attempt' && item.status === 'ACQUIRING') {
     return <Skeleton radius="md" className={classes.importingCard} />;
   }
 
-  const mediaItem = item.result;
-
-  const isCompleted = item.kind === 'draft' || item.pipelineItem.status === 'completed';
+  const mediaItem = item.kind === 'draft' ? item.result : null;
 
   // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.
   // lightboxUrl carries the watermark transform and is for public display only.
-  const imageUrl = isCompleted && mediaItem
+  const imageUrl = mediaItem
     ? mediaItem.thumbnailUrl
-    : item.kind === 'uploading' ? item.pipelineItem.previewUrl : '';
+    : item.kind === 'attempt' ? item.previewUrl : '';
 
-  const resourceType = (isCompleted && mediaItem
+  const resourceType = (mediaItem
     ? mediaItem.resource.resourceType
-    : item.kind === 'uploading' && isVideoFile(item.pipelineItem.file) ? 'video' : 'image') as 'image' | 'video';
+    : 'image') as 'image' | 'video';
 
-  const playbackUrl = isCompleted && mediaItem
-    ? mediaItem.resource.playbackUrl
-    : undefined;
+  const playbackUrl = mediaItem?.resource.playbackUrl;
 
-  const alt = isCompleted && mediaItem
+  const alt = mediaItem
     ? `Media ${mediaItem.resource.assetId}`
-    : item.kind === 'uploading' ? (item.pipelineItem.file?.name || 'Upload preview') : 'Upload preview';
+    : 'Upload preview';
 
-  const overlays = isCompleted
+  const overlays = item.kind === 'draft'
     ? (mediaItem ? renderDraftOverlay(mediaItem) : null)
-    : item.kind === 'uploading'
-      ? renderUploadOverlay(
-          item.pipelineItem.status,
-          item.pipelineItem.progress,
-          item.pipelineItem.error,
-          item.pipelineItem.id,
-          item.pipelineItem.file ? onRetry : undefined,
-        )
-      : null;
+    : renderUploadOverlay(
+        item.status,
+        item.progress ?? 0,
+        item.errorCode,
+        item.id,
+        item.source === 'LOCAL' ? onRetry : undefined,
+      );
 
   const actionButton = !hideRemove && onRemove ? (
     <ActionIcon
@@ -103,14 +97,6 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
 });
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';
-
-const VIDEO_EXTENSIONS = /\.(mp4|mov|webm|avi|mkv)$/i;
-
-function isVideoFile(file: File | null | undefined): boolean {
-  if (!file) return false;
-  if (file.type) return file.type.startsWith('video/');
-  return VIDEO_EXTENSIONS.test(file.name);
-}
 
 function renderDraftOverlay(mediaItem: MediaItem) {
   const isDateFromExif = mediaItem.dateSource === 'exif';
@@ -144,17 +130,17 @@ function renderDraftOverlay(mediaItem: MediaItem) {
 }
 
 function renderUploadOverlay(
-  status: UploadStatus,
+  status: AttemptCardStatus,
   progress: number,
-  error: string | undefined,
+  errorCode: string | undefined,
   itemId: string,
   onRetry: ((id: string) => void) | undefined,
 ) {
-  if (error) {
+  if (status === 'FAILED' || errorCode) {
     return (
       <Stack gap={4} align="center">
-        <Tooltip label={error} multiline maw={200}>
-          <Text size="xs" c="red" lineClamp={1} ta="center">{error}</Text>
+        <Tooltip label={errorCode ?? 'Upload failed'} multiline maw={200}>
+          <Text size="xs" c="red" lineClamp={1} ta="center">{errorCode ?? 'Upload failed'}</Text>
         </Tooltip>
         {onRetry && (
           <Button
@@ -172,9 +158,9 @@ function renderUploadOverlay(
   }
 
   let label: string | null = null;
-  if (status === 'signing') label = 'Preparing…';
-  else if (status === 'saving') label = 'Saving…';
-  else if (status === 'uploading' && progress === 100) label = 'Processing…';
+  if (status === 'pending' || status === 'READY') label = progress > 0 ? `${progress}%` : 'Preparing…';
+  else if (status === 'FINALIZING') label = 'Saving…';
+  else if (progress === 100) label = 'Processing…';
   else if (progress > 0) label = `${progress}%`;
 
   return (

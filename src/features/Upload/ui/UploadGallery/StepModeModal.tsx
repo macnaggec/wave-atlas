@@ -80,10 +80,8 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
 
   const renderCard = useCallback(
     (card: GalleryCard, context: { isSelectionMode: boolean }) => {
-      const isSaving = card.kind === 'uploading' && card.pipelineItem.status === 'saving';
-      const hasDateError = (card.kind === 'draft' || card.pipelineItem.status === 'completed')
-        && !!card.result
-        && !card.result.capturedAt;
+      const isSaving = card.kind === 'attempt' && card.status === 'FINALIZING';
+      const hasDateError = card.kind === 'draft' && !card.result.capturedAt;
       return (
         <UploadCardRenderer
           item={card}

@@ -6,15 +6,17 @@ import { StepModeModal } from '../UploadGallery/StepModeModal';
 import { UploadStatusLabel } from '../UploadGallery/UploadStatusLabel';
 import { UploadZone } from '../UploadGallery/UploadZone';
 
-export function UploadStep({ filesErrorTick }: { filesErrorTick?: number }) {
-  const { queue, hasActiveUploads, selectableItems } = useUploadQueue();
+export function UploadStep({ draftId, filesErrorTick }: { draftId: string; filesErrorTick?: number }) {
+  const { queue, hasActiveUploads, selectableItems } = useUploadQueue(draftId);
   useUploadWarning(hasActiveUploads);
 
-  const { trigger: openDrivePicker, isPickerLoading } = useGooglePicker();
+  const { addFiles, addDriveSelections, remove, retry, discardAll } = useUploadManager(draftId);
+
+  const { trigger: openDrivePicker, isPickerLoading } = useGooglePicker(
+    async (selections) => addDriveSelections(selections),
+  );
 
   const selection = useGallerySelection<GalleryCard>({ items: selectableItems, getId: getItemId });
-
-  const { addFiles, remove, retry, discardAll } = useUploadManager();
 
   // -------------------------------------------------------------------------
   // Modal open state + auto-open/close

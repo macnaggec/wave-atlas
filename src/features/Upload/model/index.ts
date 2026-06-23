@@ -16,8 +16,5 @@ export { useUploadStore } from './uploadStore';
 export { getPublishableMediaIds, getSelectableUploadCards, getUploadQueueStatus } from './uploadQueuePolicy';
 
 // Types
-export type { UploadItem, GalleryCard, UploadStatus, CloudinaryResult, ExifMetadata } from './types';
-export { getItemId, isVideoItem, getMediaId } from './types';
-
-// Pipeline item utilities
-export { isUploading, revokeBlobUrl, isOrphanAsset } from './types';
+export type { BrowserTransfer, LocalTransfer, DriveTransfer, GalleryCard, AttemptCard, DraftCard, AttemptCardStatus } from './types';
+export { getItemId, isVideoItem, revokeBlobUrl } from './types';

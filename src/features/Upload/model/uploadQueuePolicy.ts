@@ -1,28 +1,23 @@
-import { getMediaId, type GalleryCard } from './types';
+import type { GalleryCard } from './types';
 
-const ACTIVE_UPLOAD_STATUSES = ['pending', 'signing', 'uploading', 'saving', 'importing'] as const;
-
-function isActiveUploadCard(card: GalleryCard): boolean {
-  return card.kind === 'uploading'
-    && ACTIVE_UPLOAD_STATUSES.includes(card.pipelineItem.status as typeof ACTIVE_UPLOAD_STATUSES[number]);
+function isActiveAttempt(card: GalleryCard): boolean {
+  return card.kind === 'attempt'
+    && ['pending', 'READY', 'ACQUIRING', 'FINALIZING'].includes(card.status);
 }
 
 export function getSelectableUploadCards(cards: GalleryCard[]): GalleryCard[] {
-  return cards.filter(card => card.kind === 'draft' || getMediaId(card) !== undefined);
+  return cards.filter(card => card.kind === 'draft');
 }
 
 export function getPublishableMediaIds(cards: GalleryCard[]): string[] {
-  return cards.flatMap(card => {
-    const mediaId = getMediaId(card);
-    return mediaId ? [mediaId] : [];
-  });
+  return cards.filter(c => c.kind === 'draft').map(c => c.id);
 }
 
 export function getUploadQueueStatus(cards: GalleryCard[]) {
   const readyItems = getSelectableUploadCards(cards);
-  const errorCards = cards.filter(card => card.kind === 'uploading' && card.pipelineItem.status === 'error');
-  const hasActiveUploads = cards.some(isActiveUploadCard);
-  const uploadingCount = cards.filter(isActiveUploadCard).length;
+  const errorCards = cards.filter(card => card.kind === 'attempt' && card.status === 'FAILED');
+  const hasActiveUploads = cards.some(isActiveAttempt);
+  const uploadingCount = cards.filter(isActiveAttempt).length;
 
   return {
     readyItems,

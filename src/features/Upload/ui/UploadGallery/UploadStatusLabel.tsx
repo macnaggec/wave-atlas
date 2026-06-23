@@ -12,8 +12,8 @@ export interface UploadStatusLabelProps {
 export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasActiveUploads, onOpen }) => {
   const { readyItems, uploadingCount } = useMemo(() => getUploadQueueStatus(items), [items]);
 
-  const photoCount = readyItems.filter(c => c.result?.resource?.resourceType !== 'video').length;
-  const videoCount = readyItems.filter(c => c.result?.resource?.resourceType === 'video').length;
+  const photoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType !== 'video').length;
+  const videoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType === 'video').length;
 
   return (
     <Group px="md" py="sm" justify="space-between">
