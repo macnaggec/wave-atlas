@@ -4,6 +4,7 @@ import type { IUploadAttemptRepository } from 'server/repositories/UploadAttempt
 import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort } from 'server/ports/UploadAssetStorage';
 import type { ISurfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import { randomUUID } from 'node:crypto';
+import { ForbiddenError } from 'shared/errors';
 
 const mockRepo: IUploadAttemptRepository = {
   beginLocalIdempotent: vi.fn(),
@@ -12,6 +13,7 @@ const mockRepo: IUploadAttemptRepository = {
   finalizeIntoDraft: vi.fn(),
   cancelAttempt: vi.fn(),
   findByIdForPhotographer: vi.fn(),
+  findDriveDetails: vi.fn(),
   listForDraft: vi.fn(),
   hasBlockingAttempts: vi.fn(),
   removeCompletedDraftMedia: vi.fn(),
@@ -76,6 +78,10 @@ describe('processDrive', () => {
   it('deletes the late asset and does not finalize when attempt is CANCEL_REQUESTED', async () => {
     const attempt = { id: attemptId, photographerId, cloudinaryPublicId: 'test/abc', status: 'CANCEL_REQUESTED', source: 'DRIVE', errorCode: null, createdAt: new Date(), clientRequestId: 'r1' } as never;
     vi.mocked(mockRepo.markAcquiring).mockResolvedValue();
+    vi.mocked(mockRepo.findDriveDetails).mockResolvedValue({
+      remoteFileId: 'drive-file-1',
+      cloudinaryPublicId: 'test/abc',
+    });
     vi.mocked(mockImport.importRemoteFile).mockResolvedValue({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO', thumbnailUrl: 't', lightboxUrl: 'l' });
     vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue(attempt);
 
@@ -83,5 +89,77 @@ describe('processDrive', () => {
 
     expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO' });
     expect(mockRepo.finalizeIntoDraft).not.toHaveBeenCalled();
+  });
+
+  it('cancels the attempt and preserves the provider error when import fails', async () => {
+    const providerError = new Error('provider down');
+    vi.mocked(mockRepo.markAcquiring).mockResolvedValue();
+    vi.mocked(mockRepo.findDriveDetails).mockResolvedValue({
+      remoteFileId: 'drive-file-1',
+      cloudinaryPublicId: 'test/abc',
+    });
+    vi.mocked(mockImport.importRemoteFile).mockRejectedValue(providerError);
+    vi.mocked(mockRepo.cancelAttempt).mockResolvedValue();
+
+    await expect(
+      service.processDrive(photographerId, { attemptId, accessToken: 'token' }),
+    ).rejects.toBe(providerError);
+
+    expect(mockRepo.cancelAttempt).toHaveBeenCalledWith(attemptId, photographerId);
+    expect(mockRepo.finalizeIntoDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe('discard cleanup', () => {
+  it('rejects another photographer\'s draft before removing its media', async () => {
+    vi.mocked(mockSessions.findDraftById).mockResolvedValue({
+      id: sessionId,
+      photographerId: 'other-user',
+    } as never);
+
+    await expect(service.discardDraft(photographerId, sessionId)).rejects.toThrow(ForbiddenError);
+
+    expect(mockRepo.removeCompletedDraftMedia).not.toHaveBeenCalled();
+  });
+
+  it('keeps authoritative draft cleanup successful when provider cleanup fails', async () => {
+    vi.mocked(mockSessions.findDraftById).mockResolvedValue({ id: sessionId, photographerId } as never);
+    vi.mocked(mockRepo.removeCompletedDraftMedia).mockResolvedValue([
+      { cloudinaryPublicId: 'test/photo', resourceType: 'PHOTO' },
+      { cloudinaryPublicId: 'test/video', resourceType: 'VIDEO' },
+    ]);
+    vi.mocked(mockCleanup.deleteStoredAsset)
+      .mockRejectedValueOnce(new Error('provider down'))
+      .mockResolvedValueOnce();
+
+    await expect(service.discardDraft(photographerId, sessionId)).resolves.toBeUndefined();
+
+    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledTimes(2);
+    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({
+      cloudinaryPublicId: 'test/photo',
+      resourceType: 'PHOTO',
+    });
+    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({
+      cloudinaryPublicId: 'test/video',
+      resourceType: 'VIDEO',
+    });
+  });
+
+  it('keeps attempt cancellation successful when provider cleanup fails', async () => {
+    vi.mocked(mockRepo.cancelAttempt).mockResolvedValue();
+    vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue({
+      id: attemptId,
+      cloudinaryPublicId: 'test/photo',
+      status: 'CANCEL_REQUESTED',
+    } as never);
+    vi.mocked(mockCleanup.deleteStoredAsset).mockRejectedValue(new Error('provider down'));
+
+    await expect(service.discardAttempt(photographerId, attemptId)).resolves.toBeUndefined();
+
+    expect(mockRepo.cancelAttempt).toHaveBeenCalledWith(attemptId, photographerId);
+    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({
+      cloudinaryPublicId: 'test/photo',
+      resourceType: 'PHOTO',
+    });
   });
 });

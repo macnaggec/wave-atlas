@@ -109,15 +109,15 @@ export class UploadService {
   ): Promise<void> {
     await this.repo.markAcquiring(input.attemptId, photographerId);
 
-    const attempt = await this.repo.findByIdForPhotographer(input.attemptId, photographerId);
-    if (!attempt) throw new NotFoundError('UploadAttempt');
+    const driveDetails = await this.repo.findDriveDetails(input.attemptId, photographerId);
+    if (!driveDetails) throw new NotFoundError('UploadAttempt');
 
     let asset;
     try {
       asset = await this.remote.importRemoteFile({
-        sourceUrl: `https://www.googleapis.com/drive/v3/files/${(attempt as any).remoteFileId}?alt=media`,
+        sourceUrl: `https://www.googleapis.com/drive/v3/files/${driveDetails.remoteFileId}?alt=media`,
         authHeaders: { Authorization: `Bearer ${input.accessToken}` },
-        target: { cloudinaryPublicId: attempt.cloudinaryPublicId, expectedMediaType: 'PHOTO', photographerId },
+        target: { cloudinaryPublicId: driveDetails.cloudinaryPublicId, expectedMediaType: 'PHOTO', photographerId },
       });
     } catch (err) {
       await this.repo.cancelAttempt(input.attemptId, photographerId);
