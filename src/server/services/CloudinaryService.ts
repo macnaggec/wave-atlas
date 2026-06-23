@@ -6,9 +6,12 @@
  * - Dependency Inversion: Server actions depend on this abstraction, not cloudinary SDK
  */
 
+import { z } from 'zod';
 import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl, MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
-import { InternalServerError } from 'shared/errors';
+import { InternalServerError, BadRequestError } from 'shared/errors';
 import type { MediaResourceType } from 'shared/types/media';
+import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort, UploadTarget, StoredAsset, StoredAssetIdentity, RemoteImportInput } from 'server/ports/UploadAssetStorage';
+import type { DirectUploadGrant } from 'shared/types/upload';
 
 export interface CloudinarySignatureData {
   signature: string;
@@ -49,11 +52,18 @@ export interface ICloudinaryService {
   tryGeneratePermanentPreviewUrl(cloudinaryPublicId: string): string | null;
 }
 
+const cloudinaryReceiptSchema = z.object({
+  public_id: z.string().min(1),
+  resource_type: z.string(),
+  bytes: z.number().optional(),
+  format: z.string().optional(),
+});
+
 /**
  * Service for Cloudinary upload signature generation
  * Validates configuration and creates signed upload parameters
  */
-export class CloudinaryService implements ICloudinaryService {
+export class CloudinaryService implements ICloudinaryService, DirectUploadPort, RemoteImportPort, AssetCleanupPort {
   /**
    * Generates signed upload parameters for client-side Cloudinary uploads
    *
@@ -114,6 +124,82 @@ export class CloudinaryService implements ICloudinaryService {
       type: 'authenticated' as const,
       eager,
     };
+  }
+
+  // ── DirectUploadPort ────────────────────────────────────────────────────────
+
+  createUploadGrant(target: UploadTarget, expiresAt: Date): DirectUploadGrant {
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    if (!apiSecret) throw new InternalServerError('Cloudinary misconfigured: missing CLOUDINARY_API_SECRET');
+
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
+    if (!cloudName || !apiKey) throw new InternalServerError('Cloudinary misconfigured: missing cloud name or API key');
+
+    const timestamp = Math.round(Date.now() / 1000);
+    const publicId = target.cloudinaryPublicId;
+    const folder = `wave-atlas/users/${target.photographerId}`;
+    const eager = [
+      MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
+      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+    ].join('|');
+    const type = 'authenticated' as const;
+
+    const paramsToSign = { timestamp, public_id: publicId, folder, eager, type };
+    const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+    return {
+      attemptId: '',  // filled in by UploadService
+      cloudinaryPublicId: publicId,
+      signature,
+      timestamp,
+      cloudName,
+      apiKey,
+      type,
+      eager,
+      expiresAt,
+    };
+  }
+
+  async verifyUploadReceipt(receipt: unknown, target: UploadTarget): Promise<StoredAsset> {
+    const parsed = cloudinaryReceiptSchema.safeParse(receipt);
+    if (!parsed.success) throw new BadRequestError('Invalid Cloudinary upload receipt');
+    const data = parsed.data;
+    if (data.public_id !== target.cloudinaryPublicId) {
+      throw new BadRequestError('Upload receipt does not match the intended target');
+    }
+    const resourceType = toMediaResourceType(data.resource_type);
+    return {
+      cloudinaryPublicId: data.public_id,
+      resourceType: resourceType === 'image' ? 'PHOTO' : 'VIDEO',
+      thumbnailUrl: this.generateDeliveryUrl(data.public_id, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
+      lightboxUrl: this.generateDeliveryUrl(data.public_id, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
+    };
+  }
+
+  // ── RemoteImportPort ────────────────────────────────────────────────────────
+
+  async importRemoteFile(input: RemoteImportInput): Promise<StoredAsset> {
+    const result = await this.uploadFromUrl(
+      input.sourceUrl,
+      input.authHeaders,
+      `wave-atlas/users/${input.target.photographerId}`,
+    );
+    return {
+      cloudinaryPublicId: result.publicId,
+      resourceType: result.resourceType === 'video' ? 'VIDEO' : 'PHOTO',
+      thumbnailUrl: result.thumbnailUrl,
+      lightboxUrl: result.lightboxUrl,
+    };
+  }
+
+  // ── AssetCleanupPort ────────────────────────────────────────────────────────
+
+  async deleteStoredAsset(asset: StoredAssetIdentity): Promise<void> {
+    await this.deleteAsset(
+      asset.cloudinaryPublicId,
+      asset.resourceType === 'VIDEO' ? 'video' : 'image',
+    );
   }
 
   /**
