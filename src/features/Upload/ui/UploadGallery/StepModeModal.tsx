@@ -13,7 +13,7 @@ export interface StepModeModalProps {
   items: GalleryCard[];
   selection: UseGallerySelectionReturn<GalleryCard>;
   /** Required — ensures Cloudinary cleanup path is never silently dropped. */
-  onDiscardAll: (cards: GalleryCard[]) => void;
+  onDiscardAll: () => Promise<void>;
   onRemove: (kind: GalleryCard['kind'], id: string) => Promise<void>;
   onAddFiles?: (files: File[]) => void;
   onRetry?: (id: string) => void;
@@ -52,10 +52,14 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   // BULK ACTIONS
   // ========================================================================
 
-  const handleCancelAll = useCallback(() => {
-    onDiscardAll(items);
-    onClose();
-  }, [items, onDiscardAll, onClose]);
+  const handleCancelAll = useCallback(async () => {
+    try {
+      await onDiscardAll();
+      onClose();
+    } catch {
+      // Modal stays open; error notification is handled inside discardAll/coordinator.
+    }
+  }, [onDiscardAll, onClose]);
 
   const handleBulkDelete = useCallback(
     async (selectedCards: GalleryCard[]) => {
