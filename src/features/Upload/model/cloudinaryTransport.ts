@@ -1,7 +1,8 @@
+import { z } from 'zod';
 import { logger } from 'shared/lib/logger';
 import { mediaCloudinaryResultSchema } from 'entities/Media';
 import { UploadError } from './UploadError';
-import type { CloudinaryResult } from './types';
+type CloudinaryResult = z.infer<typeof mediaCloudinaryResultSchema>;
 
 /**
  * Client-side Cloudinary Upload Transport
