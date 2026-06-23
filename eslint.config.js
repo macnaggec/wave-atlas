@@ -195,4 +195,21 @@ export default defineConfig(
       }],
     },
   },
+  {
+    files: ['src/features/**/*.ts', 'src/features/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['server/providers/*', 'cloudinary', '@cloudinary/*'],
+            message: 'Feature code must not import provider SDKs directly. Use a port or command hook.',
+          },
+          {
+            group: ['shared/lib/trpcClient'],
+            message: 'Feature code must use useUploadCommands (or equivalent hooks) rather than the raw tRPC client.',
+          },
+        ],
+      }],
+    },
+  },
 );
