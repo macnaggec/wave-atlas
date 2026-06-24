@@ -53,10 +53,8 @@ export interface ICloudinaryService {
 }
 
 const cloudinaryReceiptSchema = z.object({
-  public_id: z.string().min(1),
-  resource_type: z.string(),
-  bytes: z.number().optional(),
-  format: z.string().optional(),
+  publicId: z.string().min(1),
+  resourceType: z.string(),
 });
 
 /**
@@ -145,7 +143,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
     ].join('|');
     const type = 'authenticated' as const;
 
-    const paramsToSign = { timestamp, public_id: publicId, folder, eager, type };
+    const paramsToSign = { timestamp, public_id: publicId, eager, type };
     const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
 
     return {
@@ -165,15 +163,15 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
     const parsed = cloudinaryReceiptSchema.safeParse(receipt);
     if (!parsed.success) throw new BadRequestError('Invalid Cloudinary upload receipt');
     const data = parsed.data;
-    if (data.public_id !== target.cloudinaryPublicId) {
+    if (data.publicId !== target.cloudinaryPublicId) {
       throw new BadRequestError('Upload receipt does not match the intended target');
     }
-    const resourceType = toMediaResourceType(data.resource_type);
+    const resourceType = toMediaResourceType(data.resourceType);
     return {
-      cloudinaryPublicId: data.public_id,
+      cloudinaryPublicId: data.publicId,
       resourceType: resourceType === 'image' ? 'PHOTO' : 'VIDEO',
-      thumbnailUrl: this.generateDeliveryUrl(data.public_id, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
-      lightboxUrl: this.generateDeliveryUrl(data.public_id, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
+      thumbnailUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
+      lightboxUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
     };
   }
 

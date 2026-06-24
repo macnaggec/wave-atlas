@@ -10,7 +10,7 @@ const baseParams = {
   timestamp: 1234567890,
   apiKey: 'key',
   cloudName: CLOUD_NAME,
-  folder: 'wave-atlas/users/abc',
+  publicId: 'wave-atlas/users/abc/test-uuid',
   eager: 't_wave_atlas_thumbnail|t_wave_atlas_lightbox_watermark',
 };
 
