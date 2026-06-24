@@ -3,16 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
-import { Skeleton, Text } from '@mantine/core';
+import { Loader, Skeleton, Text } from '@mantine/core';
 import {
   useCreateSurfSessionDraft,
-  useLatestSurfSessionDraft,
   type SessionFeedFilter,
   type SurfSessionItem,
 } from 'entities/SurfSession';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'entities/Commerce';
 import { CartDrawerHeader } from 'features/Cart';
+import { useUploadStore } from 'features/Upload';
 import { ScopeSwitcher } from 'widgets/SidePanel';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { FilterPills } from 'widgets/SidePanel';
@@ -77,9 +77,9 @@ function PanelFrame({ children }: { children: ReactNode }) {
     ...trpc.users.myDraftCounts.queryOptions(),
     enabled: isAuthenticated,
   });
-  const { data: latestDraft } = useLatestSurfSessionDraft({ enabled: isAuthenticated });
   const { mutateAsync: createDraft, isPending: isCreatingDraft } = useCreateSurfSessionDraft();
-  const hasDrafts = !!latestDraft || (draftCounts?.hasDrafts ?? false);
+  const hasDrafts = draftCounts?.hasDrafts ?? false;
+  const hasActiveTransfers = useUploadStore((s) => s.transfers.size > 0);
 
   const cartMatch = matches.find((match) => match.routeId === '/_panel/cart');
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
@@ -221,7 +221,12 @@ function PanelFrame({ children }: { children: ReactNode }) {
               whiteSpace: 'nowrap',
             }}
           >
-            Upload
+            {hasActiveTransfers ? (
+              <>
+                <Loader size={10} color="gray" style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                Upload
+              </>
+            ) : 'Upload'}
             {hasDrafts && (
               <span style={{
                 position: 'absolute',
