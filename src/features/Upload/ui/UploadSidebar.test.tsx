@@ -42,6 +42,7 @@ vi.mock('shared/lib/notifications', () => ({
 vi.mock('../model', () => ({
   useUploadQueue: () => ({ queue: [] }),
   usePublishUploadSession: () => ({
+    canPublish: true,
     filesErrorTick: 0,
     hasTriedPublish: false,
     isPending: false,
@@ -96,7 +97,7 @@ describe('UploadSidebar draft editing', () => {
     photoPriceInput.focus();
     fireEvent.change(photoPriceInput, { target: { value: '7' } });
 
-    expect(photoPriceInput).toHaveValue('$7');
+    expect((photoPriceInput as HTMLInputElement).value).toBe('$7');
     expect(mocks.updateDraft).not.toHaveBeenCalled();
 
     photoPriceInput.blur();
@@ -138,7 +139,7 @@ describe('UploadSidebar draft editing', () => {
 
   it('keeps slider movement local until the photographer finishes the change', async () => {
     renderSidebar();
-    const [rangeStart] = screen.getAllByRole('slider');
+    const rangeStart = screen.getAllByRole('slider')[0]!;
 
     act(() => rangeStart.focus());
     fireEvent.keyDown(rangeStart, { key: 'ArrowRight' });
@@ -169,7 +170,7 @@ describe('UploadSidebar draft editing', () => {
     await waitFor(() => {
       expect(mocks.notifyError).toHaveBeenCalledWith('Network down', 'Draft Save Failed');
     });
-    expect(photoPriceInput).toHaveValue('$7');
+    expect((photoPriceInput as HTMLInputElement).value).toBe('$7');
   });
 
   it('waits for the latest draft values to save before publishing', async () => {

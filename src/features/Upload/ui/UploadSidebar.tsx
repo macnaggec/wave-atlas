@@ -40,7 +40,7 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
 
   const { queue } = useUploadQueue(draft.id);
 
-  const { filesErrorTick, hasTriedPublish, isPending, publish } = usePublishUploadSession({
+  const { canPublish, filesErrorTick, hasTriedPublish, isPending, publish } = usePublishUploadSession({
     draftId: draft.id,
     spot: draft.spot,
     queue,
@@ -85,6 +85,12 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
   }, [saveDraft]);
 
   const handlePublish = useCallback(async () => {
+    // Skip draft save when we know publish will be blocked — let publish() handle
+    // the validation feedback (spot flash, files error tick) without a server round-trip.
+    if (!canPublish) {
+      await publish();
+      return;
+    }
     const saved = await saveDraft({
       startsAt: sessionDate ? combineDateAndTime(sessionDate, minutesToTime(sessionRange[0])) : null,
       endsAt: sessionDate ? combineDateAndTime(sessionDate, minutesToTime(sessionRange[1])) : null,
@@ -93,7 +99,7 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
     });
     if (!saved) return;
     await publish();
-  }, [photoPrice, publish, saveDraft, sessionDate, sessionRange, videoPrice]);
+  }, [canPublish, photoPrice, publish, saveDraft, sessionDate, sessionRange, videoPrice]);
 
   return (
     <Stack gap={0} style={{ flex: 1 }}>
