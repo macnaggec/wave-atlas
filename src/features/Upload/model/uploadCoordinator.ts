@@ -6,6 +6,7 @@ import {
   releaseBrowserTransferPreview,
   releaseBrowserTransferResources,
 } from './browserTransferResources';
+import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import type { UploadCommands } from './useUploadCommands';
 
 // ── Deps injected from useUploadManager ──────────────────────────────────────
@@ -54,7 +55,7 @@ export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promi
       timestamp: grant.timestamp,
       apiKey: grant.apiKey,
       cloudName: grant.cloudName,
-      folder: '',           // public_id is already scoped — folder param not needed
+      publicId: grant.cloudinaryPublicId,
       eager: grant.eager,
       onProgress: (progress) =>
         useUploadStore.getState().updateTransfer(clientRequestId, { progress }),
@@ -76,8 +77,12 @@ export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promi
   } catch (err) {
     const transfer = useUploadStore.getState().transfers.get(clientRequestId);
     if (!transfer) return; // already removed (discard during upload)
-    // Leave transfer in store with current state — attempt status comes from Query.
-    useUploadStore.getState().updateTransfer(clientRequestId, { progress: 0 });
+    // Mark the transfer as failed so the UI can show the error and a retry button.
+    useUploadStore.getState().updateTransfer(clientRequestId, {
+      progress: 0,
+      abort: undefined,
+      error: getErrorMessage(err),
+    });
     throw err;
   }
 }
@@ -93,7 +98,7 @@ export async function startDriveUpload(
   useUploadStore.getState().addTransfer({
     source: 'drive',
     clientRequestId,
-    previewUrl: selection.thumbnailUrl,
+    previewUrl: '',  // Drive thumbnail URLs require auth — Cloudinary URL available after completion
   });
 
   const { attemptId } = await deps.commands.beginDrive({

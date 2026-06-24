@@ -12,6 +12,7 @@ export type LocalTransfer = {
   previewUrl: string;
   progress: number;
   abort?: () => void;
+  error?: string;             // set when the XHR or server call fails
 };
 
 export type DriveTransfer = {
