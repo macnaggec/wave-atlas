@@ -54,7 +54,10 @@ export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasA
           <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={onOpen}>View</Text>
         </Group>
       ) : items.length > 0 ? (
-        <Text size="xs" c="red.4">Upload failed</Text>
+        <Group justify="space-between" style={{ flex: 1 }}>
+          <Text size="xs" c="red.4">Upload failed</Text>
+          <Text size="xs" c="blue.4" fw={500} style={{ cursor: 'pointer' }} onClick={onOpen}>View</Text>
+        </Group>
       ) : null}
     </Group>
   );

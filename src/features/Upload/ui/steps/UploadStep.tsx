@@ -5,6 +5,7 @@ import { useGallerySelection } from 'shared/hooks/gallery';
 import { StepModeModal } from '../UploadGallery/StepModeModal';
 import { UploadStatusLabel } from '../UploadGallery/UploadStatusLabel';
 import { UploadZone } from '../UploadGallery/UploadZone';
+import styles from '../UploadGallery/UploadZone.module.css';
 
 export function UploadStep({ draftId, filesErrorTick }: { draftId: string; filesErrorTick?: number }) {
   const { queue, hasActiveUploads, selectableItems } = useUploadQueue(draftId);
@@ -33,25 +34,30 @@ export function UploadStep({ draftId, filesErrorTick }: { draftId: string; files
   }, [queue.length]);
 
   // -------------------------------------------------------------------------
-  // Flash on empty-queue publish attempt
+  // Flash on publish attempt with blocked queue (empty or still uploading)
   // -------------------------------------------------------------------------
 
   const [isFlashing, setIsFlashing] = useState(false);
   const prevTickRef = useRef(0);
   useEffect(() => {
-    if (filesErrorTick && filesErrorTick !== prevTickRef.current && queue.length === 0) {
+    if (filesErrorTick && filesErrorTick !== prevTickRef.current) {
       prevTickRef.current = filesErrorTick;
       setIsFlashing(true);
     }
-  }, [filesErrorTick, queue.length]);
+  }, [filesErrorTick]);
 
   return (
     <>
-      <UploadStatusLabel
-        items={queue}
-        hasActiveUploads={hasActiveUploads}
-        onOpen={() => setIsModalOpen(true)}
-      />
+      <div
+        className={isFlashing && queue.length > 0 ? styles.flashBorder : undefined}
+        onAnimationEnd={isFlashing && queue.length > 0 ? () => setIsFlashing(false) : undefined}
+      >
+        <UploadStatusLabel
+          items={queue}
+          hasActiveUploads={hasActiveUploads}
+          onOpen={() => setIsModalOpen(true)}
+        />
+      </div>
       {queue.length === 0 && (
         <UploadZone
           onFilesSelected={addFiles}
