@@ -193,7 +193,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
         where: {
           sessionId,
           photographerId,
-          status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          status: { notIn: ['COMPLETED', 'CANCELLED', 'CANCEL_REQUESTED', 'CLEANUP_PENDING'] },
         },
         orderBy: { createdAt: 'asc' },
       });
