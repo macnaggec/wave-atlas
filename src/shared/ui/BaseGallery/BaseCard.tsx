@@ -69,7 +69,7 @@ const BaseCard: FC<BaseCardProps> = memo(({
       onClick={onClick}
     >
       {/* Image or Video */}
-      {resourceType === 'image' && (
+      {resourceType === 'image' && imageUrl && (
         <img
           src={imageUrl}
           alt={alt}
