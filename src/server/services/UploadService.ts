@@ -59,29 +59,36 @@ export class UploadService {
     input: { attemptId: string; providerReceipt: unknown; capturedAt?: Date },
   ): Promise<{ mediaId: string }> {
     logger.info('[upload] finalizeLocal', { photographerId, attemptId: input.attemptId });
-    const attempt = await this.repo.findByIdForPhotographer(input.attemptId, photographerId);
-    if (!attempt) throw new NotFoundError('UploadAttempt');
+    try {
+      const attempt = await this.repo.findByIdForPhotographer(input.attemptId, photographerId);
+      if (!attempt) throw new NotFoundError('UploadAttempt');
 
-    const asset = await this.direct.verifyUploadReceipt(input.providerReceipt, {
-      cloudinaryPublicId: attempt.cloudinaryPublicId,
-      expectedMediaType: 'PHOTO',
-      photographerId,
-    });
+      const asset = await this.direct.verifyUploadReceipt(input.providerReceipt, {
+        cloudinaryPublicId: attempt.cloudinaryPublicId,
+        expectedMediaType: 'PHOTO',
+        photographerId,
+      });
 
-    const media = await this.repo.finalizeIntoDraft(input.attemptId, photographerId, {
-      capturedAt: input.capturedAt ?? new Date(),
-      thumbnailUrl: asset.thumbnailUrl,
-      lightboxUrl: asset.lightboxUrl,
-      resourceType: asset.resourceType,
-    });
+      const media = await this.repo.finalizeIntoDraft(input.attemptId, photographerId, {
+        capturedAt: input.capturedAt ?? new Date(),
+        thumbnailUrl: asset.thumbnailUrl,
+        lightboxUrl: asset.lightboxUrl,
+        resourceType: asset.resourceType,
+      });
 
-    return { mediaId: media.id };
+      logger.info('[upload] finalizeLocal success', { photographerId, attemptId: input.attemptId, mediaId: media.id });
+      return { mediaId: media.id };
+    } catch (err) {
+      logger.error('[upload] finalizeLocal failed', { photographerId, attemptId: input.attemptId, err });
+      throw err;
+    }
   }
 
   async beginDrive(
     photographerId: string,
     input: { draftId: string; clientRequestId: string; remoteFileId: string; declaredMimeType: string },
   ): Promise<{ attemptId: string }> {
+    logger.info('[upload] beginDrive', { photographerId, draftId: input.draftId, clientRequestId: input.clientRequestId });
     const draft = await this.sessions.findDraftById(input.draftId);
     if (!draft) throw new NotFoundError('Surf Session');
     if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission to upload to this session');
@@ -107,6 +114,7 @@ export class UploadService {
     photographerId: string,
     input: { attemptId: string; accessToken: string },
   ): Promise<void> {
+    logger.info('[upload] processDrive start', { photographerId, attemptId: input.attemptId });
     await this.repo.markAcquiring(input.attemptId, photographerId);
 
     const driveDetails = await this.repo.findDriveDetails(input.attemptId, photographerId);
@@ -120,6 +128,7 @@ export class UploadService {
         target: { cloudinaryPublicId: driveDetails.cloudinaryPublicId, expectedMediaType: 'PHOTO', photographerId },
       });
     } catch (err) {
+      logger.error('[upload] processDrive — Cloudinary import failed', { attemptId: input.attemptId, err });
       await this.repo.cancelAttempt(input.attemptId, photographerId);
       throw err;
     }
@@ -137,6 +146,7 @@ export class UploadService {
       lightboxUrl: asset.lightboxUrl,
       resourceType: asset.resourceType,
     });
+    logger.info('[upload] processDrive success', { attemptId: input.attemptId });
   }
 
   listForDraft(photographerId: string, sessionId: string): Promise<UploadAttemptProjection[]> {
@@ -144,6 +154,7 @@ export class UploadService {
   }
 
   async discardDraft(photographerId: string, draftId: string): Promise<void> {
+    logger.info('[upload] discardDraft', { photographerId, draftId });
     const draft = await this.sessions.findDraftById(draftId);
     if (!draft) throw new NotFoundError('Surf Session');
     if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission');
@@ -151,20 +162,25 @@ export class UploadService {
     const assetsToClean = await this.repo.removeCompletedDraftMedia(draftId, photographerId);
 
     // Best-effort provider cleanup — failures leave CLEANUP_PENDING for reconciler.
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       assetsToClean.map(asset =>
         this.cleanup.deleteStoredAsset({ cloudinaryPublicId: asset.cloudinaryPublicId, resourceType: asset.resourceType }),
       ),
     );
+    const failCount = results.filter(r => r.status === 'rejected').length;
+    if (failCount > 0) {
+      logger.warn('[upload] discardDraft — provider cleanup partial failure (reconciler will retry)', { draftId, failCount, total: assetsToClean.length });
+    }
   }
 
   async discardAttempt(photographerId: string, attemptId: string): Promise<void> {
+    logger.info('[upload] discardAttempt', { photographerId, attemptId });
     await this.repo.cancelAttempt(attemptId, photographerId);
     // Best-effort provider cleanup for asset that was already uploaded.
     const attempt = await this.repo.findByIdForPhotographer(attemptId, photographerId);
     if (attempt?.status === 'CANCEL_REQUESTED' && attempt.cloudinaryPublicId) {
       void this.cleanup.deleteStoredAsset({ cloudinaryPublicId: attempt.cloudinaryPublicId, resourceType: 'PHOTO' })
-        .catch(() => { /* logged by reconciler */ });
+        .catch((err) => logger.warn('[upload] discardAttempt — provider cleanup failed (reconciler will retry)', { attemptId, err }));
     }
   }
 }
