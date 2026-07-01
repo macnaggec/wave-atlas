@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobeMapComponent } from './GlobeMapComponent';
 import type { Spot } from 'entities/Spot';
+import type { LngLat } from 'shared/types/coordinates';
 
 const mocks = vi.hoisted(() => ({
   loadImages: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   saveCameraState: vi.fn(),
   startSpinning: vi.fn(),
   stopSpinning: vi.fn(),
+  tempPinMarker: vi.fn(),
 }));
 
 vi.mock('mapbox-gl', () => ({
@@ -18,11 +20,33 @@ vi.mock('mapbox-gl', () => ({
 }));
 
 vi.mock('react-map-gl', () => ({
-  default: ({ children, onLoad }: { children: ReactNode; onLoad: (event: { target: unknown }) => void }) => (
-    <button type="button" onClick={() => onLoad({ target: {} })}>
-      Load map
-      {children}
-    </button>
+  default: ({
+    children,
+    cursor,
+    interactiveLayerIds,
+    onClick,
+    onLoad,
+  }: {
+    children: ReactNode;
+    cursor?: string;
+    interactiveLayerIds?: string[];
+    onClick?: (event: { lngLat: { lng: number; lat: number } }) => void;
+    onLoad: (event: { target: unknown }) => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onLoad({ target: {} })}>
+        Load map
+        {children}
+      </button>
+      <button
+        type="button"
+        data-cursor={cursor}
+        data-interactive-layers={interactiveLayerIds?.join(',') ?? ''}
+        onClick={() => onClick?.({ lngLat: { lng: 151.2, lat: -33.85 } })}
+      >
+        Click map
+      </button>
+    </div>
   ),
   Layer: () => null,
   NavigationControl: () => null,
@@ -38,10 +62,6 @@ vi.mock('@mantine/core', () => ({
 
 vi.mock('entities/Spot', () => ({
   useSelectedSpot: () => ({ spotId: null }),
-}));
-
-vi.mock('features/AddSpot', () => ({
-  usePinPlacementStore: () => false,
 }));
 
 vi.mock('widgets/GlobeMap/model/mapStore', () => ({
@@ -97,15 +117,11 @@ vi.mock('./hooks/useMapImages', () => ({
   }),
 }));
 
-vi.mock('./hooks/usePinPlacementMode', () => ({
-  usePinPlacementMode: () => ({
-    cursor: 'crosshair',
-    onClick: vi.fn(),
-  }),
-}));
-
 vi.mock('./ui/TempPinMarker', () => ({
-  TempPinMarker: () => null,
+  TempPinMarker: (props: { tempPin: LngLat | null; isActive: boolean }) => {
+    mocks.tempPinMarker(props);
+    return null;
+  },
 }));
 
 const spots: Spot[] = [];
@@ -131,5 +147,32 @@ describe('GlobeMapComponent motion policy', () => {
     fireEvent.click(screen.getByRole('button', { name: /load map/i }));
 
     expect(mocks.startSpinning).not.toHaveBeenCalled();
+  });
+});
+
+describe('GlobeMapComponent pin placement', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reports coordinate clicks upward while pin placement is active', () => {
+    const onMapCoordinateClick = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        isPinPlacementActive={true}
+        tempPin={[151, -34]}
+        onMapCoordinateClick={onMapCoordinateClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+
+    expect(onMapCoordinateClick).toHaveBeenCalledWith([151.2, -33.85]);
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-cursor', 'crosshair');
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
+    expect(mocks.tempPinMarker).toHaveBeenCalledWith({ tempPin: [151, -34], isActive: true });
   });
 });

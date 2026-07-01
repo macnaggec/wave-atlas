@@ -1,18 +1,40 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobeScene } from './GlobeScene';
+import type { LngLat } from 'shared/types/coordinates';
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   isUpdatingDraft: false,
   navigate: vi.fn(),
   notifyError: vi.fn(),
+  pinPlacementState: {
+    isActive: false,
+    tempPin: null as LngLat | null,
+    setTempPin: vi.fn(),
+  },
   updateDraft: vi.fn(),
 }));
 
 vi.mock('widgets/GlobeMap', () => ({
-  GlobeMap: ({ onSpotSelect }: { onSpotSelect: (spot: { id: string }) => void }) => (
-    <button onClick={() => onSpotSelect({ id: 'spot-1' })}>Select Pipeline</button>
+  GlobeMap: ({
+    isPinPlacementActive,
+    onMapCoordinateClick,
+    onSpotSelect,
+    tempPin,
+  }: {
+    isPinPlacementActive?: boolean;
+    onMapCoordinateClick?: (coords: LngLat) => void;
+    onSpotSelect: (spot: { id: string }) => void;
+    tempPin?: LngLat | null;
+  }) => (
+    <div
+      data-pin-active={String(isPinPlacementActive)}
+      data-temp-pin={tempPin?.join(',') ?? ''}
+    >
+      <button onClick={() => onSpotSelect({ id: 'spot-1' })}>Select Pipeline</button>
+      <button onClick={() => onMapCoordinateClick?.([151.2, -33.85])}>Place pin</button>
+    </div>
   ),
 }));
 
@@ -21,8 +43,9 @@ vi.mock('entities/Spot', () => ({
 }));
 
 vi.mock('features/AddSpot', () => ({
-  AddSpotPanel: () => null,
-  usePinPlacementStore: () => false,
+  AddSpotPanel: () => <div>Add spot panel</div>,
+  usePinPlacementStore: (selector: (state: typeof mocks.pinPlacementState) => unknown) =>
+    selector(mocks.pinPlacementState),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -55,6 +78,8 @@ describe('GlobeScene upload spot selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isUpdatingDraft = false;
+    mocks.pinPlacementState.isActive = false;
+    mocks.pinPlacementState.tempPin = null;
   });
 
   it('shows the photographer when saving the selected spot fails', async () => {
@@ -77,5 +102,26 @@ describe('GlobeScene upload spot selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Pipeline' }));
 
     expect(mocks.updateDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe('GlobeScene pin placement', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isUpdatingDraft = false;
+    mocks.pinPlacementState.isActive = true;
+    mocks.pinPlacementState.tempPin = [151, -34];
+  });
+
+  it('passes pin-placement state to the map and owns temp pin updates from coordinate clicks', () => {
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Add spot panel')).toBeInTheDocument();
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-pin-active', 'true');
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-temp-pin', '151,-34');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Place pin' }));
+
+    expect(mocks.pinPlacementState.setTempPin).toHaveBeenCalledWith([151.2, -33.85]);
   });
 });

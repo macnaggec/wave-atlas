@@ -1,11 +1,13 @@
 import { Marker } from 'react-map-gl';
-import { usePinPlacementStore } from 'features/AddSpot';
+import type { LngLat } from 'shared/types/coordinates';
 import classes from '../GlobeMap.module.css';
 
-export function TempPinMarker() {
-  const tempPin = usePinPlacementStore((s) => s.tempPin);
-  const isActive = usePinPlacementStore((s) => s.isActive);
+interface TempPinMarkerProps {
+  tempPin: LngLat | null;
+  isActive: boolean;
+}
 
+export function TempPinMarker({ tempPin, isActive }: TempPinMarkerProps) {
   if (!tempPin || !isActive) return null;
 
   return (

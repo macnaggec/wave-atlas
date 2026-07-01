@@ -1,11 +1,11 @@
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react';
-import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent } from 'react-map-gl';
+import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent, MapMouseEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
 import { Spot, useSelectedSpot } from 'entities/Spot';
-import { usePinPlacementStore } from 'features/AddSpot';
+import type { LngLat } from 'shared/types/coordinates';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { cameraService } from './model/CameraService';
 import type { GlobeMotionPolicy } from './model/globeMotionPolicy';
@@ -13,7 +13,6 @@ import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
 import { useMapImages } from './hooks/useMapImages';
-import { usePinPlacementMode } from './hooks/usePinPlacementMode';
 import { TempPinMarker } from './ui/TempPinMarker';
 import { clusterLayer, clusterCountLayer, getUnclusteredPointLayer, getIconLayer, globeFog, SPOT_INTERACTIVE_LAYERS } from './layerStyles';
 
@@ -41,6 +40,9 @@ export interface GlobeMapProps {
   };
   onSpotSelect: (spot: Spot) => void;
   motionPolicy: GlobeMotionPolicy;
+  isPinPlacementActive?: boolean;
+  tempPin?: LngLat | null;
+  onMapCoordinateClick?: (coords: LngLat) => void;
   onUserExploreStart?: () => void;
   onUserExploreEnd?: () => void;
 }
@@ -50,6 +52,9 @@ export function GlobeMapComponent({
   initialViewState: _initialViewState = DEFAULT_VIEW,
   onSpotSelect,
   motionPolicy,
+  isPinPlacementActive = false,
+  tempPin = null,
+  onMapCoordinateClick,
   onUserExploreStart,
   onUserExploreEnd,
 }: GlobeMapProps) {
@@ -58,9 +63,6 @@ export function GlobeMapComponent({
   const { spotId: activeSpotId = null } = useSelectedSpot();
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
-
-  const isPinMode = usePinPlacementStore((s) => s.isActive);
-  const { onClick: handlePinClick, cursor: pinCursor } = usePinPlacementMode();
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),
   // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
@@ -153,6 +155,10 @@ export function GlobeMapComponent({
     loadImages();
   }, [loadImages]);
 
+  const handleCoordinateClick = useCallback((e: MapMouseEvent) => {
+    onMapCoordinateClick?.([e.lngLat.lng, e.lngLat.lat]);
+  }, [onMapCoordinateClick]);
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -174,7 +180,7 @@ export function GlobeMapComponent({
 
       <Map
         ref={mapRef}
-        cursor={isPinMode ? pinCursor : (activeSpotId ? 'default' : cursor)}
+        cursor={isPinPlacementActive ? 'crosshair' : (activeSpotId ? 'default' : cursor)}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={resolvedInitialView}
         onMoveEnd={handleMoveEnd}
@@ -184,7 +190,7 @@ export function GlobeMapComponent({
         projection={{ name: 'globe' as any }}
         fog={globeFog}
         onLoad={handleLoad}
-        onClick={isPinMode ? handlePinClick : onSpotClick}
+        onClick={isPinPlacementActive ? handleCoordinateClick : onSpotClick}
         onDragStart={handleUserInteractionStart}
         onDragEnd={handleUserInteractionEnd}
         onZoomStart={handleUserInteractionStart}
@@ -194,9 +200,9 @@ export function GlobeMapComponent({
         onMouseDown={handleUserInteractionStart}
         onTouchStart={handleUserInteractionStart}
         onWheel={handleUserInteractionStart}
-        interactiveLayerIds={isPinMode ? [] : SPOT_INTERACTIVE_LAYERS}
-        onMouseEnter={isPinMode ? undefined : onMouseEnter}
-        onMouseLeave={isPinMode ? undefined : onMouseLeave}
+        interactiveLayerIds={isPinPlacementActive ? [] : SPOT_INTERACTIVE_LAYERS}
+        onMouseEnter={isPinPlacementActive ? undefined : onMouseEnter}
+        onMouseLeave={isPinPlacementActive ? undefined : onMouseLeave}
         maxZoom={18}
         minZoom={1}
         trackResize={true}
@@ -232,7 +238,7 @@ export function GlobeMapComponent({
           </Popup>
         )}
 
-        <TempPinMarker />
+        <TempPinMarker tempPin={tempPin} isActive={isPinPlacementActive} />
 
         <NavigationControl position="bottom-right" />
       </Map>

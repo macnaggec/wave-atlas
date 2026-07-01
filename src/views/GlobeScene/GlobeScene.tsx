@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMatches, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import type { Spot } from 'entities/Spot';
+import type { LngLat } from 'shared/types/coordinates';
 import { useTRPC } from 'shared/lib/trpc';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { notify } from 'shared/lib/notifications';
@@ -60,6 +61,8 @@ function usePrefersReducedMotion() {
 export function GlobeScene() {
   const { data: spots = [] } = useMapSpots(WORLD_BOUNDS);
   const isPinMode = usePinPlacementStore((s) => s.isActive);
+  const tempPin = usePinPlacementStore((s) => s.tempPin);
+  const setTempPin = usePinPlacementStore((s) => s.setTempPin);
   const [isUserExploring, setIsUserExploring] = useState(false);
   const isDocumentHidden = useDocumentHidden();
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -103,12 +106,19 @@ export function GlobeScene() {
     }
   }, [draftId, isUpdatingDraft, navigate, queryClient, sceneMode.kind, trpc, updateDraft]);
 
+  const handleMapCoordinateClick = useCallback((coords: LngLat) => {
+    setTempPin(coords);
+  }, [setTempPin]);
+
   return (
     <div className={classes.root}>
       <GlobeMap
         spots={spots}
         onSpotSelect={handleSpotSelect}
         motionPolicy={motionPolicy}
+        isPinPlacementActive={isPinMode}
+        tempPin={tempPin}
+        onMapCoordinateClick={handleMapCoordinateClick}
         onUserExploreStart={() => setIsUserExploring(true)}
         onUserExploreEnd={() => setIsUserExploring(false)}
       />
