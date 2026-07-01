@@ -9,6 +9,7 @@ import { useTRPC } from 'shared/lib/trpc';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { notify } from 'shared/lib/notifications';
 import classes from './GlobeScene.module.css';
+import { deriveGlobeSceneMode } from './model/globeSceneMode';
 
 // Full world bounds — server filters by lat/lng; passes all valid spots until real viewport bounds are wired
 const WORLD_BOUNDS = { swLat: -90, swLng: -180, neLat: 90, neLng: 180 };
@@ -32,10 +33,18 @@ export function GlobeScene() {
   const draftId = uploadMatch
     ? (uploadMatch.search as { draftId?: string }).draftId
     : undefined;
+  const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
+  const selectedSpotId = (spotMatch?.params as { spotId?: string } | undefined)?.spotId ?? null;
+  const sceneMode = deriveGlobeSceneMode({
+    isPinPlacementActive: isPinMode,
+    isUploadSpotSelectionActive: Boolean(draftId),
+    selectedSpotId,
+    isUserExploring: false,
+  });
 
   const handleSpotSelect = useCallback(async (spot: Spot) => {
     if (isUpdatingDraft) return;
-    if (!draftId) {
+    if (sceneMode.kind !== 'uploadSpotSelection' || !draftId) {
       await navigate({ to: '/$spotId', params: { spotId: spot.id } });
       return;
     }
@@ -46,7 +55,7 @@ export function GlobeScene() {
     } catch (error) {
       notify.error(getErrorMessage(error), 'Unable to Save Spot');
     }
-  }, [draftId, isUpdatingDraft, navigate, queryClient, trpc, updateDraft]);
+  }, [draftId, isUpdatingDraft, navigate, queryClient, sceneMode.kind, trpc, updateDraft]);
 
   return (
     <div className={classes.root}>
