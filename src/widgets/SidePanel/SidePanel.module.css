@@ -1,6 +1,5 @@
 /* ── shared glass surface ─────────────────────────────────────────────────── */
-.panel,
-.tongue {
+.panel {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
@@ -22,37 +21,24 @@
   display: flex;
   flex-direction: column;
 
-  transform: translateX(0);
-  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1),
-              width    280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.panelClosed {
-  transform: translateX(100%);
-}
-
-.panelExpanded {
-  width: 75vw;
-}
-
-/* ── Top row: [expand/back] [center: header] [hide ›] ────────────────────── */
+/* ── Top row: [expand/back] [center: header] ────────────────────────────── */
 .panelTop {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
   padding: 10px 8px;
   flex-shrink: 0;
 }
 
 .headerSlot {
-  flex: 1;
   min-width: 0;
   display: flex;
   justify-content: center;
-}
-
-.topActionSlot {
-  flex-shrink: 0;
+  justify-self: center;
+  text-align: center;
 }
 
 /* ── Subheader: full-width row below top bar (e.g. search in State A) ─────── */
@@ -72,9 +58,9 @@
   position: relative; /* containing block for FloatingAction sticky positioning */
 }
 
-/* ── Top-row icon button (expand/back + hide) ─────────────────────────────── */
+/* ── Top-row icon button (expand/back) ───────────────────────────────────── */
 .topBtn {
-  flex-shrink: 0;
+  justify-self: start;
   width: 32px;
   height: 32px;
   border: none;
@@ -108,50 +94,3 @@
   pointer-events: none;
 }
 
-/* ── Tongue tab — right-edge protrusion when panel is closed ──────────────── */
-.tongue {
-  position: fixed;
-  top: 12px;
-  right: 0;
-  z-index: 200;
-  border-right: none;
-  border-radius: 12px 0 0 12px;
-
-  padding: 10px 10px;
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
-  transition: opacity 200ms ease 80ms, transform 220ms cubic-bezier(0.4, 0, 0.2, 1) 80ms,
-    background-color 150ms ease;
-}
-
-.tongue:hover {
-  background: rgba(255, 255, 255, 0.13);
-}
-
-.tongueHidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(40px);
-  transition-delay: 0ms;
-}
-
-.tongueIcon {
-  color: rgba(255, 255, 255, 0.55);
-  flex-shrink: 0;
-}
-
-.tongueLabel {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  user-select: none;
-}

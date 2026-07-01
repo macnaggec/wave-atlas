@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
-import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
 import { Loader, Skeleton, Text } from '@mantine/core';
 import {
@@ -31,13 +31,11 @@ interface PanelFilterCtx {
 
 const PanelFilterContext = createContext<PanelFilterCtx>({
   activeFilter: null,
-  setActiveFilter: () => {},
+  setActiveFilter: () => { },
 });
 
 const PanelExpandedContext = createContext(false);
-
-/** Lets child feeds report when their card layout is committed to the DOM. */
-const PanelFeedLayoutReadyContext = createContext<(ready: boolean) => void>(() => {});
+const PanelFeedLayoutReadyContext = createContext<(ready: boolean) => void>(() => { });
 
 export function usePanelFilter() {
   return useContext(PanelFilterContext);
@@ -47,7 +45,6 @@ export function usePanelExpanded() {
   return useContext(PanelExpandedContext);
 }
 
-/** Returns the callback child feeds call to report layout readiness. */
 export function usePanelFeedLayoutReadyChange() {
   return useContext(PanelFeedLayoutReadyContext);
 }
@@ -70,7 +67,6 @@ function PanelLayout() {
 }
 
 function PanelFrame({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const matches = useMatches();
@@ -137,37 +133,17 @@ function PanelFrame({ children }: { children: ReactNode }) {
     (match) => !!(match.staticData as { forceExpanded?: boolean }).forceExpanded,
   );
 
-  // Hold the panel expanded after leaving a forceExpanded route until the
-  // incoming feed's layout is committed, then collapse on the next frame.
-  const [holdExpanded, setHoldExpanded] = useState(false);
-  const feedReadyRef = useRef(false);
-  const prevForceExpandedRef = useRef(forceExpanded);
-
-  const releaseHoldOnNextFrame = useCallback(() => {
-    requestAnimationFrame(() => {
-      setHoldExpanded(false);
-    });
-  }, []);
-
-  const handleFeedLayoutChange = useCallback((ready: boolean) => {
-    feedReadyRef.current = ready;
-    if (ready && holdExpanded) {
-      releaseHoldOnNextFrame();
-    }
-  }, [holdExpanded, releaseHoldOnNextFrame]);
+  const targetExpanded = forceExpanded || (expanded && !uploadMatch);
+  const [isExpanded, setIsExpanded] = useState(targetExpanded);
+  const [feedLayoutReady, setFeedLayoutReady] = useState(false);
+  const handleFeedLayoutReadyChange = useCallback((ready: boolean) => setFeedLayoutReady(ready), []);
 
   useLayoutEffect(() => {
-    const wasForceExpanded = prevForceExpandedRef.current;
-    prevForceExpandedRef.current = forceExpanded;
-    if (wasForceExpanded && !forceExpanded) {
-      setHoldExpanded(true);
-      if (feedReadyRef.current) {
-        releaseHoldOnNextFrame();
-      }
-    }
-  }, [forceExpanded, releaseHoldOnNextFrame]);
-
-  const isExpanded = forceExpanded || holdExpanded || !!cartMatch || (expanded && !uploadMatch);
+    if (isExpanded === targetExpanded) return;
+    if (!targetExpanded && !feedLayoutReady) return;
+    const frame = requestAnimationFrame(() => setIsExpanded(targetExpanded));
+    return () => cancelAnimationFrame(frame);
+  }, [feedLayoutReady, isExpanded, targetExpanded]);
 
   const header: ReactNode = (() => {
     if (cartMatch) {
@@ -178,7 +154,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
           onBack={
             cartFrom
               ? () => void navigate({ to: '/$spotId', params: { spotId: cartFrom } })
-              : () => void navigate({ to: '/' })
+              : undefined
           }
         />
       );
@@ -279,53 +255,48 @@ function PanelFrame({ children }: { children: ReactNode }) {
   })();
 
   return (
-    <PanelFeedLayoutReadyContext.Provider value={handleFeedLayoutChange}>
-    <PanelExpandedContext.Provider value={isExpanded}>
-      {/* Compact-mode filter pills — float on the map beside the panel */}
-      {(spotMatch || isDefaultIndex) && !isExpanded && isOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 14,
-          right: 'calc(25vw + 8px)',
-          zIndex: 150,
-          display: 'flex',
-          gap: 6,
-          alignItems: 'center',
-        }}>
-          <FilterPills active={activeFilter} onChange={setActiveFilter} />
-        </div>
-      )}
-      <SidePanel
-        isOpen={isOpen}
-        onOpen={() => setIsOpen(true)}
-        onClose={() => setIsOpen(false)}
-        expanded={isExpanded}
-        onExpandToggle={forceExpanded || !!cartMatch || uploadMatch ? undefined : () => setExpanded((prev) => !prev)}
-        onBack={
-          uploadMatch
-            ? () => {
+    <PanelFeedLayoutReadyContext.Provider value={handleFeedLayoutReadyChange}>
+      <PanelExpandedContext.Provider value={isExpanded}>
+        {/* Compact-mode filter pills — float on the map beside the panel */}
+        {(spotMatch || isDefaultIndex) && !isExpanded && (
+          <div style={{
+            position: 'fixed',
+            top: 14,
+            right: 'calc(25vw + 8px)',
+            zIndex: 150,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+          }}>
+            <FilterPills active={activeFilter} onChange={setActiveFilter} />
+          </div>
+        )}
+        <SidePanel
+          expanded={isExpanded}
+          onExpandToggle={forceExpanded || uploadMatch ? undefined : () => setExpanded((prev) => !prev)}
+          onBack={
+            uploadMatch
+              ? () => {
                 if (activeUploadDraft?.spotId) {
                   void navigate({ to: '/$spotId', params: { spotId: activeUploadDraft.spotId } });
                 }
                 else void navigate({ to: '/' });
               }
-            : forceExpanded
-            ? () => {
-                if (sessionDetailMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
-                else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
-                else void navigate({ to: '/' });
-              }
-            : undefined
-        }
-        backLabel={sessionDetailMatch ? 'Back to feed' : undefined}
-        hideClose={!!uploadMatch}
-        header={header}
-        headerFullWidth={!!cartMatch}
-        subheader={subheader}
-      >
-        {children}
-      </SidePanel>
-    </PanelExpandedContext.Provider>
+              : forceExpanded
+                ? () => {
+                  if (sessionDetailMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
+                  else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
+                  else void navigate({ to: '/' });
+                }
+                : undefined
+          }
+          backLabel={sessionDetailMatch ? 'Back to feed' : undefined}
+          header={header}
+          subheader={subheader}
+        >
+          {children}
+        </SidePanel>
+      </PanelExpandedContext.Provider>
     </PanelFeedLayoutReadyContext.Provider>
   );
 }
