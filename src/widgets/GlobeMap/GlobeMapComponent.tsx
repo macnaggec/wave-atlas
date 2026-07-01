@@ -4,10 +4,9 @@ import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
-import { Spot, useSelectedSpot } from 'entities/Spot';
+import { Spot } from 'entities/Spot';
 import type { LngLat } from 'shared/types/coordinates';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
-import { cameraService } from './model/CameraService';
 import type { GlobeMotionPolicy } from './model/globeMotionPolicy';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
@@ -31,8 +30,14 @@ export interface GlobeMapHandle {
   flyTo: (center: [number, number], zoom?: number) => void;
 }
 
+interface PendingFocus {
+  spotId: string;
+  showPreview: boolean;
+}
+
 export interface GlobeMapProps {
   spots?: Spot[];
+  selectedSpotId?: string | null;
   initialViewState?: {
     longitude: number;
     latitude: number;
@@ -49,6 +54,7 @@ export interface GlobeMapProps {
 
 export function GlobeMapComponent({
   spots = [],
+  selectedSpotId = null,
   initialViewState: _initialViewState = DEFAULT_VIEW,
   onSpotSelect,
   motionPolicy,
@@ -59,8 +65,9 @@ export function GlobeMapComponent({
   onUserExploreEnd,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const pendingFocusRef = useRef<PendingFocus | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const { spotId: activeSpotId = null } = useSelectedSpot();
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
 
@@ -68,24 +75,31 @@ export function GlobeMapComponent({
   // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
   // flyTo would produce. A lazy state initializer captures it once at mount, matching
   // how react-map-gl treats initialViewState (ignored after first render).
-  const [resolvedInitialView] = useState(() => {
+  const [{ viewState: resolvedInitialView, focusedSpotId: initialFocusedSpotId }] = useState(() => {
     const isDefaultCamera =
       cameraState.longitude === DEFAULT_VIEW.longitude &&
       cameraState.latitude === DEFAULT_VIEW.latitude;
-    if (isDefaultCamera && activeSpotId) {
-      const spot = spots.find((s) => s.id === activeSpotId);
+    if (isDefaultCamera && selectedSpotId) {
+      const spot = spots.find((s) => s.id === selectedSpotId);
       if (spot) {
         return {
-          longitude: spot.coords.lng,
-          latitude: spot.coords.lat,
-          zoom: 12,
-          pitch: 0,
-          bearing: 0,
+          viewState: {
+            longitude: spot.coords.lng,
+            latitude: spot.coords.lat,
+            zoom: 12,
+            pitch: 0,
+            bearing: 0,
+          },
+          focusedSpotId: spot.id,
         };
       }
     }
-    return cameraState;
+    return {
+      viewState: cameraState,
+      focusedSpotId: null,
+    };
   });
+  const focusedRouteSpotIdRef = useRef<string | null>(initialFocusedSpotId);
 
   const {
     startSpinning,
@@ -99,16 +113,57 @@ export function GlobeMapComponent({
   });
 
   const unclusteredPointLayer = useMemo(
-    () => getUnclusteredPointLayer(activeSpotId),
-    [activeSpotId]
+    () => getUnclusteredPointLayer(selectedSpotId),
+    [selectedSpotId]
   );
   const iconLayer = useMemo(
-    () => getIconLayer(activeSpotId),
-    [activeSpotId]
+    () => getIconLayer(selectedSpotId),
+    [selectedSpotId]
   );
 
   const spotsGeoJson = useSpotGeoJson(spots);
   const { loadImages } = useMapImages(mapRef);
+
+  const executeFocusSpot = useCallback((spot: Spot, showPreview: boolean) => {
+    const map = mapInstanceRef.current;
+    if (!map) {
+      pendingFocusRef.current = { spotId: spot.id, showPreview };
+      return;
+    }
+
+    const currentZoom = map.getZoom();
+    const padding = showPreview ? { top: 300 } : { top: 0 };
+    const center: [number, number] = [spot.coords.lng, spot.coords.lat];
+
+    if (currentZoom >= 12) {
+      map.easeTo({
+        center,
+        padding,
+        duration: 600,
+        essential: true,
+      });
+      return;
+    }
+
+    map.flyTo({
+      center,
+      zoom: 12,
+      padding,
+      duration: 1000,
+      essential: true,
+    });
+  }, []);
+
+  const focusSpotById = useCallback((spotId: string, showPreview: boolean) => {
+    const spot = spots.find((candidate) => candidate.id === spotId);
+    if (!spot) return false;
+
+    executeFocusSpot(spot, showPreview);
+    if (mapInstanceRef.current) {
+      pendingFocusRef.current = null;
+    }
+    return true;
+  }, [executeFocusSpot, spots]);
 
   const {
     hoveredSpot,
@@ -120,7 +175,7 @@ export function GlobeMapComponent({
     mapRef,
     spots,
     onSpotClick: (spot) => {
-      cameraService.flyTo(spot, false);
+      executeFocusSpot(spot, false);
       onSpotSelect(spot);
     },
     onUserInteractionStart: () => {
@@ -130,7 +185,24 @@ export function GlobeMapComponent({
   });
 
   useEffect(() => {
-    return () => cameraService.unregister();
+    if (!selectedSpotId) {
+      pendingFocusRef.current = null;
+      focusedRouteSpotIdRef.current = null;
+      return;
+    }
+
+    if (focusedRouteSpotIdRef.current === selectedSpotId) return;
+
+    if (focusSpotById(selectedSpotId, true)) {
+      focusedRouteSpotIdRef.current = selectedSpotId;
+    }
+  }, [focusSpotById, selectedSpotId]);
+
+  useEffect(() => {
+    return () => {
+      mapInstanceRef.current = null;
+      pendingFocusRef.current = null;
+    };
   }, []);
 
   const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
@@ -150,10 +222,15 @@ export function GlobeMapComponent({
   }, [onUserExploreEnd, onUserInteractionEnd]);
 
   const handleLoad = useCallback((e: mapboxgl.MapboxEvent) => {
-    cameraService.register(e.target);
+    mapInstanceRef.current = e.target as mapboxgl.Map;
     setIsLoaded(true);
     loadImages();
-  }, [loadImages]);
+
+    const pendingFocus = pendingFocusRef.current;
+    if (pendingFocus) {
+      focusSpotById(pendingFocus.spotId, pendingFocus.showPreview);
+    }
+  }, [focusSpotById, loadImages]);
 
   const handleCoordinateClick = useCallback((e: MapMouseEvent) => {
     onMapCoordinateClick?.([e.lngLat.lng, e.lngLat.lat]);
@@ -180,7 +257,7 @@ export function GlobeMapComponent({
 
       <Map
         ref={mapRef}
-        cursor={isPinPlacementActive ? 'crosshair' : (activeSpotId ? 'default' : cursor)}
+        cursor={isPinPlacementActive ? 'crosshair' : (selectedSpotId ? 'default' : cursor)}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={resolvedInitialView}
         onMoveEnd={handleMoveEnd}
@@ -222,7 +299,7 @@ export function GlobeMapComponent({
           <Layer {...iconLayer} />
         </Source>
         {/* Tooltip Popup (Only when not selected) */}
-        {hoveredSpot && hoveredSpot.id !== activeSpotId && (
+        {hoveredSpot && hoveredSpot.id !== selectedSpotId && (
           <Popup
             longitude={hoveredSpot.coords.lng}
             latitude={hoveredSpot.coords.lat}

@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   startSpinning: vi.fn(),
   stopSpinning: vi.fn(),
   tempPinMarker: vi.fn(),
+  flyTo: vi.fn(),
+  easeTo: vi.fn(),
+  getZoom: vi.fn(() => 1.5),
 }));
 
 vi.mock('mapbox-gl', () => ({
@@ -23,18 +26,28 @@ vi.mock('react-map-gl', () => ({
   default: ({
     children,
     cursor,
+    initialViewState,
     interactiveLayerIds,
     onClick,
     onLoad,
   }: {
     children: ReactNode;
     cursor?: string;
+    initialViewState?: unknown;
     interactiveLayerIds?: string[];
     onClick?: (event: { lngLat: { lng: number; lat: number } }) => void;
     onLoad: (event: { target: unknown }) => void;
   }) => (
     <div>
-      <button type="button" onClick={() => onLoad({ target: {} })}>
+      <button
+        type="button"
+        data-initial-view-state={JSON.stringify(initialViewState)}
+        onClick={() => onLoad({ target: {
+          easeTo: mocks.easeTo,
+          flyTo: mocks.flyTo,
+          getZoom: mocks.getZoom,
+        } })}
+      >
         Load map
         {children}
       </button>
@@ -60,10 +73,6 @@ vi.mock('@mantine/core', () => ({
   Text: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 }));
 
-vi.mock('entities/Spot', () => ({
-  useSelectedSpot: () => ({ spotId: null }),
-}));
-
 vi.mock('widgets/GlobeMap/model/mapStore', () => ({
   useMapStore: (selector: (state: unknown) => unknown) => selector({
     cameraState: {
@@ -75,14 +84,6 @@ vi.mock('widgets/GlobeMap/model/mapStore', () => ({
     },
     saveCameraState: mocks.saveCameraState,
   }),
-}));
-
-vi.mock('./model/CameraService', () => ({
-  cameraService: {
-    flyTo: vi.fn(),
-    register: vi.fn(),
-    unregister: vi.fn(),
-  },
 }));
 
 vi.mock('./hooks/useGlobeAnimation', () => ({
@@ -102,10 +103,13 @@ vi.mock('./hooks/useSpotGeoJson', () => ({
 }));
 
 vi.mock('./hooks/useMapInteraction', () => ({
-  useMapInteraction: () => ({
+  useMapInteraction: ({ spots, onSpotClick }: { spots: Spot[]; onSpotClick?: (spot: Spot) => void }) => ({
     cursor: 'grab',
     hoveredSpot: null,
-    onMapClick: vi.fn(),
+    onMapClick: () => {
+      const spot = spots[0];
+      if (spot) onSpotClick?.(spot);
+    },
     onMouseEnter: vi.fn(),
     onMouseLeave: vi.fn(),
   }),
@@ -124,7 +128,14 @@ vi.mock('./ui/TempPinMarker', () => ({
   },
 }));
 
-const spots: Spot[] = [];
+const spots: Spot[] = [
+  {
+    id: 'spot-1',
+    name: 'Uluwatu',
+    location: 'Bali, Indonesia',
+    coords: { lng: 115.085, lat: -8.815 },
+  },
+];
 
 describe('GlobeMapComponent motion policy', () => {
   beforeEach(() => {
@@ -174,5 +185,220 @@ describe('GlobeMapComponent pin placement', () => {
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-cursor', 'crosshair');
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
     expect(mocks.tempPinMarker).toHaveBeenCalledWith({ tempPin: [151, -34], isActive: true });
+  });
+});
+
+describe('GlobeMapComponent selected spot focus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getZoom.mockReturnValue(1.5);
+  });
+
+  it('runs a pending route focus after the map loads', async () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+    expect(mocks.flyTo).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+
+    await waitFor(() => {
+      expect(mocks.flyTo).toHaveBeenCalledWith({
+        center: [115.085, -8.815],
+        zoom: 12,
+        padding: { top: 300 },
+        duration: 1000,
+        essential: true,
+      });
+    });
+  });
+
+  it('focuses a newly selected route spot once after the map has loaded', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    expect(mocks.flyTo).toHaveBeenCalledTimes(1);
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 300 },
+      duration: 1000,
+      essential: true,
+    });
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="disabled"
+      />,
+    );
+
+    expect(mocks.flyTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('focuses a selected route spot when its spot record arrives after map load', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={[]}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+    expect(mocks.flyTo).not.toHaveBeenCalled();
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 300 },
+      duration: 1000,
+      essential: true,
+    });
+  });
+
+  it('focuses a selected route spot when its spot record arrives before map load', async () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={[]}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+    expect(mocks.flyTo).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+
+    await waitFor(() => {
+      expect(mocks.flyTo).toHaveBeenCalledWith({
+        center: [115.085, -8.815],
+        zoom: 12,
+        padding: { top: 300 },
+        duration: 1000,
+        essential: true,
+      });
+    });
+  });
+
+  it('does not let an earlier local click suppress a later route focus to the same spot', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 0 },
+      duration: 1000,
+      essential: true,
+    });
+    mocks.flyTo.mockClear();
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 300 },
+      duration: 1000,
+      essential: true,
+    });
+  });
+
+  it('moves the camera to a clicked spot before reporting selection', () => {
+    const onSpotSelect = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={onSpotSelect}
+        motionPolicy="paused"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 0 },
+      duration: 1000,
+      essential: true,
+    });
+    expect(onSpotSelect).toHaveBeenCalledWith(spots[0]);
+    const flyToCallOrder = mocks.flyTo.mock.invocationCallOrder[0];
+    const selectionCallOrder = onSpotSelect.mock.invocationCallOrder[0];
+    expect(flyToCallOrder).toBeDefined();
+    expect(selectionCallOrder).toBeDefined();
+    expect(flyToCallOrder!).toBeLessThan(selectionCallOrder!);
   });
 });

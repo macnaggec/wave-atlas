@@ -93,6 +93,7 @@ export function GlobeScene() {
 
   const handleSpotSelect = useCallback(async (spot: Spot) => {
     if (isUpdatingDraft) return;
+
     if (sceneMode.kind !== 'uploadSpotSelection' || !draftId) {
       await navigate({ to: '/$spotId', params: { spotId: spot.id } });
       return;
@@ -114,6 +115,7 @@ export function GlobeScene() {
     <div className={classes.root}>
       <GlobeMap
         spots={spots}
+        selectedSpotId={selectedSpotId}
         onSpotSelect={handleSpotSelect}
         motionPolicy={motionPolicy}
         isPinPlacementActive={isPinMode}
