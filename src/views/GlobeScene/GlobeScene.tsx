@@ -1,10 +1,9 @@
-import { GlobeMap } from 'widgets/GlobeMap';
+import { GlobeMap, type MapSpotProjection } from 'widgets/GlobeMap';
 import { useMapSpots } from 'entities/Spot';
 import { AddSpotPanel, usePinPlacementStore } from 'features/AddSpot';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMatches, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState, useSyncExternalStore } from 'react';
-import type { Spot } from 'entities/Spot';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import type { LngLat } from 'shared/types/coordinates';
 import { useTRPC } from 'shared/lib/trpc';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
@@ -12,9 +11,8 @@ import { notify } from 'shared/lib/notifications';
 import classes from './GlobeScene.module.css';
 import { deriveGlobeMotionPolicy } from './model/globeMotionPolicy';
 import { deriveGlobeSceneMode } from './model/globeSceneMode';
+import { getOverviewMapBounds } from './model/overviewBoundsStrategy';
 
-// Full world bounds — server filters by lat/lng; passes all valid spots until real viewport bounds are wired
-const WORLD_BOUNDS = { swLat: -90, swLng: -180, neLat: 90, neLng: 180 };
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 function subscribeDocumentVisibility(onStoreChange: () => void) {
@@ -59,7 +57,11 @@ function usePrefersReducedMotion() {
  * Lives at layout level — never remounts on panel open/close navigations.
  */
 export function GlobeScene() {
-  const { data: spots = [] } = useMapSpots(WORLD_BOUNDS);
+  const { data: spots = [] } = useMapSpots(getOverviewMapBounds());
+  const mapSpots = useMemo<MapSpotProjection[]>(
+    () => spots.map(({ id, name, coords, status }) => ({ id, name, coords, status })),
+    [spots],
+  );
   const isPinMode = usePinPlacementStore((s) => s.isActive);
   const tempPin = usePinPlacementStore((s) => s.tempPin);
   const setTempPin = usePinPlacementStore((s) => s.setTempPin);
@@ -91,7 +93,7 @@ export function GlobeScene() {
     prefersReducedMotion,
   });
 
-  const handleSpotSelect = useCallback(async (spot: Spot) => {
+  const handleSpotSelect = useCallback(async (spot: MapSpotProjection) => {
     if (isUpdatingDraft) return;
 
     if (sceneMode.kind !== 'uploadSpotSelection' || !draftId) {
@@ -114,7 +116,7 @@ export function GlobeScene() {
   return (
     <div className={classes.root}>
       <GlobeMap
-        spots={spots}
+        spots={mapSpots}
         selectedSpotId={selectedSpotId}
         onSpotSelect={handleSpotSelect}
         motionPolicy={motionPolicy}

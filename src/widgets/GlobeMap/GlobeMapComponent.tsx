@@ -4,10 +4,10 @@ import { Loader, Paper, Text } from '@mantine/core';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
-import { Spot } from 'entities/Spot';
 import type { LngLat } from 'shared/types/coordinates';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import type { GlobeMotionPolicy } from './model/globeMotionPolicy';
+import type { MapSpotProjection } from './model/mapSpotProjection';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
@@ -36,14 +36,14 @@ interface PendingFocus {
 }
 
 export interface GlobeMapProps {
-  spots?: Spot[];
+  spots?: MapSpotProjection[];
   selectedSpotId?: string | null;
   initialViewState?: {
     longitude: number;
     latitude: number;
     zoom: number;
   };
-  onSpotSelect: (spot: Spot) => void;
+  onSpotSelect: (spot: MapSpotProjection) => void;
   motionPolicy: GlobeMotionPolicy;
   isPinPlacementActive?: boolean;
   tempPin?: LngLat | null;
@@ -124,7 +124,7 @@ export function GlobeMapComponent({
   const spotsGeoJson = useSpotGeoJson(spots);
   const { loadImages } = useMapImages(mapRef);
 
-  const executeFocusSpot = useCallback((spot: Spot, showPreview: boolean) => {
+  const executeFocusSpot = useCallback((spot: MapSpotProjection, showPreview: boolean) => {
     const map = mapInstanceRef.current;
     if (!map) {
       pendingFocusRef.current = { spotId: spot.id, showPreview };

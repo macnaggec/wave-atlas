@@ -24,3 +24,4 @@ export function GlobeMap(props: GlobeMapProps) {
 }
 
 export type { GlobeMapProps, GlobeMapHandle };
+export type { MapSpotProjection } from './model/mapSpotProjection';

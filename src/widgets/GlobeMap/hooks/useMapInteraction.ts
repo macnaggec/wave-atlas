@@ -1,11 +1,11 @@
 import { useState, useCallback, RefObject, useRef, useEffect } from 'react';
 import { MapRef, MapMouseEvent, GeoJSONSource } from 'react-map-gl';
-import { Spot } from 'entities/Spot';
+import type { MapSpotProjection } from '../model/mapSpotProjection';
 
 interface UseMapInteractionProps {
   mapRef: RefObject<MapRef | null>;
-  spots: Spot[];
-  onSpotClick?: (spot: Spot) => void;
+  spots: MapSpotProjection[];
+  onSpotClick?: (spot: MapSpotProjection) => void;
   onClearSelection?: () => void;
   onUserInteractionStart: () => void;
 }
@@ -17,7 +17,7 @@ export const useMapInteraction = ({
   onClearSelection,
   onUserInteractionStart
 }: UseMapInteractionProps) => {
-  const [hoveredSpot, setHoveredSpot] = useState<Spot | null>(null);
+  const [hoveredSpot, setHoveredSpot] = useState<MapSpotProjection | null>(null);
   const [cursor, setCursor] = useState<string>('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import type { FeatureCollection } from 'geojson';
-import { Spot, SPOT_STATUS } from 'entities/Spot';
+import { SPOT_STATUS } from 'entities/Spot';
+import type { MapSpotProjection } from '../model/mapSpotProjection';
 
-export const useSpotGeoJson = (spots: Spot[]): FeatureCollection => {
+export const useSpotGeoJson = (spots: MapSpotProjection[]): FeatureCollection => {
   return useMemo(() => {
     return {
       type: 'FeatureCollection',

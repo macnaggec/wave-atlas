@@ -95,8 +95,8 @@ export class SpotRepository implements ISpotRepository {
       .map(mapToSpot);
   }
 
-  // Note: does not handle antimeridian-crossing viewports (swLng > neLng). Safe while WORLD_BOUNDS
-  // is the only caller; needs a split query once real viewport bounds are wired (CE3 mechanism).
+  // Note: does not handle antimeridian-crossing viewports (swLng > neLng). Safe while the
+  // temporary overview bounds strategy is the only caller; needs a split query once real viewport bounds are wired.
   findSpotsByBounds(swLat: number, swLng: number, neLat: number, neLng: number): Promise<Spot[]> {
     return runQuery(async () => {
       const rows = await prisma.spot.findMany({
