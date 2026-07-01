@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useMatches, useNavigate, useParams } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
 import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
@@ -69,6 +69,7 @@ function PanelLayout() {
 function PanelFrame({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const router = useRouter();
   const matches = useMatches();
   const { activeFilter, setActiveFilter } = usePanelFilter();
 
@@ -284,7 +285,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
               }
               : forceExpanded
                 ? () => {
-                  if (sessionDetailMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
+                  if (sessionDetailMatch) router.history.back();
                   else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
                   else void navigate({ to: '/' });
                 }
