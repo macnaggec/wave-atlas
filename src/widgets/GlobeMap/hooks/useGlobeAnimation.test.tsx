@@ -16,13 +16,6 @@ function createMapRef(zoom: number): React.RefObject<MapRef | null> {
   };
 }
 
-function setDocumentHidden(hidden: boolean) {
-  Object.defineProperty(document, 'hidden', {
-    configurable: true,
-    value: hidden,
-  });
-}
-
 describe('useGlobeAnimation', () => {
   const requestAnimationFrameMock = vi.fn(() => 1);
   const cancelAnimationFrameMock = vi.fn();
@@ -33,23 +26,11 @@ describe('useGlobeAnimation', () => {
     cancelAnimationFrameMock.mockClear();
     vi.stubGlobal('requestAnimationFrame', requestAnimationFrameMock);
     vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrameMock);
-    vi.mocked(window.matchMedia).mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-    setDocumentHidden(false);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
-    setDocumentHidden(false);
   });
 
   it('does not queue another animation frame when the globe is zoomed in', () => {
@@ -71,29 +52,9 @@ describe('useGlobeAnimation', () => {
     expect(cancelAnimationFrameMock).toHaveBeenCalledWith(1);
   });
 
-  it('does not queue animation frames while the document is hidden', () => {
-    setDocumentHidden(true);
+  it('does not queue animation frames when animation is disabled', () => {
     const mapRef = createMapRef(2);
-    const { result } = renderHook(() => useGlobeAnimation(mapRef, { maxSpinZoom: 3 }));
-
-    act(() => result.current.startSpinning());
-
-    expect(requestAnimationFrameMock).not.toHaveBeenCalled();
-  });
-
-  it('does not queue animation frames when reduced motion is preferred', () => {
-    vi.mocked(window.matchMedia).mockImplementation((query) => ({
-      matches: query === '(prefers-reduced-motion: reduce)',
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-    const mapRef = createMapRef(2);
-    const { result } = renderHook(() => useGlobeAnimation(mapRef, { maxSpinZoom: 3 }));
+    const { result } = renderHook(() => useGlobeAnimation(mapRef, { enabled: false, maxSpinZoom: 3 }));
 
     act(() => result.current.startSpinning());
 

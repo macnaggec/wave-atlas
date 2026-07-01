@@ -1,6 +1,4 @@
-
-
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MapRef } from 'react-map-gl';
 
 interface UseGlobeAnimationOptions {
@@ -28,10 +26,6 @@ export function useGlobeAnimation(
   const spinTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const spinGlobeRef = useRef<() => void>(() => undefined);
-  const [isDocumentHidden, setIsDocumentHidden] = useState(() => document.hidden);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
 
   const cancelQueuedFrame = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -55,8 +49,6 @@ export function useGlobeAnimation(
       userInteractingRef.current ||
       !isSpinningRef.current ||
       !enabled ||
-      isDocumentHidden ||
-      prefersReducedMotion ||
       !mapRef.current
     ) {
       isSpinningRef.current = false;
@@ -85,21 +77,21 @@ export function useGlobeAnimation(
     map.setCenter(center);
 
     animationFrameRef.current = requestAnimationFrame(() => spinGlobeRef.current());
-  }, [enabled, isDocumentHidden, mapRef, maxSpinZoom, prefersReducedMotion, spinSpeed]);
+  }, [enabled, mapRef, maxSpinZoom, spinSpeed]);
 
   useEffect(() => {
     spinGlobeRef.current = spinGlobe;
   }, [spinGlobe]);
 
   const startSpinning = useCallback(() => {
-    if (!enabled || isDocumentHidden || prefersReducedMotion) return;
+    if (!enabled) return;
     // Don't start if user is interacting
     if (userInteractingRef.current) return;
     if (animationFrameRef.current !== null) return;
 
     isSpinningRef.current = true;
     spinGlobe();
-  }, [enabled, isDocumentHidden, prefersReducedMotion, spinGlobe]);
+  }, [enabled, spinGlobe]);
 
   const stopSpinning = useCallback(() => {
     isSpinningRef.current = false;
@@ -118,7 +110,7 @@ export function useGlobeAnimation(
 
     // Resume spinning after 3 seconds of inactivity, only if zoomed out
     spinTimeoutRef.current = setTimeout(() => {
-      if (enabled && !isDocumentHidden && !prefersReducedMotion && mapRef.current) {
+      if (enabled && mapRef.current) {
         const currentZoom = mapRef.current.getMap().getZoom();
         if (currentZoom <= maxSpinZoom) {
           startSpinning();
@@ -128,34 +120,17 @@ export function useGlobeAnimation(
   }, [
     clearResumeTimeout,
     enabled,
-    isDocumentHidden,
     mapRef,
     maxSpinZoom,
-    prefersReducedMotion,
     startSpinning,
   ]);
 
   useEffect(() => {
-    const handleVisibilityChange = () => setIsDocumentHidden(document.hidden);
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const handleMotionPreferenceChange = () => setPrefersReducedMotion(mediaQuery.matches);
-
-    mediaQuery.addEventListener('change', handleMotionPreferenceChange);
-    return () => mediaQuery.removeEventListener('change', handleMotionPreferenceChange);
-  }, []);
-
-  useEffect(() => {
-    if (!enabled || isDocumentHidden || prefersReducedMotion) {
+    if (!enabled) {
       stopSpinning();
       clearResumeTimeout();
     }
-  }, [clearResumeTimeout, enabled, isDocumentHidden, prefersReducedMotion, stopSpinning]);
+  }, [clearResumeTimeout, enabled, stopSpinning]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

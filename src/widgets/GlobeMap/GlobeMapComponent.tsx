@@ -8,6 +8,7 @@ import { Spot, useSelectedSpot } from 'entities/Spot';
 import { usePinPlacementStore } from 'features/AddSpot';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import { cameraService } from './model/CameraService';
+import type { GlobeMotionPolicy } from './model/globeMotionPolicy';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
@@ -39,12 +40,18 @@ export interface GlobeMapProps {
     zoom: number;
   };
   onSpotSelect: (spot: Spot) => void;
+  motionPolicy: GlobeMotionPolicy;
+  onUserExploreStart?: () => void;
+  onUserExploreEnd?: () => void;
 }
 
 export function GlobeMapComponent({
   spots = [],
   initialViewState: _initialViewState = DEFAULT_VIEW,
   onSpotSelect,
+  motionPolicy,
+  onUserExploreStart,
+  onUserExploreEnd,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -80,11 +87,12 @@ export function GlobeMapComponent({
 
   const {
     startSpinning,
+    stopSpinning,
     onUserInteractionStart,
     onUserInteractionEnd,
   } = useGlobeAnimation(mapRef, {
     spinSpeed: 0.3,
-    enabled: !isPinMode,
+    enabled: motionPolicy === 'ambientSpin',
     maxSpinZoom: 3,
   });
 
@@ -113,7 +121,10 @@ export function GlobeMapComponent({
       cameraService.flyTo(spot, false);
       onSpotSelect(spot);
     },
-    onUserInteractionStart
+    onUserInteractionStart: () => {
+      onUserExploreStart?.();
+      onUserInteractionStart();
+    }
   });
 
   useEffect(() => {
@@ -123,14 +134,35 @@ export function GlobeMapComponent({
   const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
     const { longitude, latitude, zoom, pitch, bearing } = e.viewState;
     saveCameraState({ longitude, latitude, zoom, pitch, bearing });
-  }, [saveCameraState]);
+    onUserExploreEnd?.();
+  }, [onUserExploreEnd, saveCameraState]);
+
+  const handleUserInteractionStart = useCallback(() => {
+    onUserExploreStart?.();
+    onUserInteractionStart();
+  }, [onUserExploreStart, onUserInteractionStart]);
+
+  const handleUserInteractionEnd = useCallback(() => {
+    onUserInteractionEnd();
+    onUserExploreEnd?.();
+  }, [onUserExploreEnd, onUserInteractionEnd]);
 
   const handleLoad = useCallback((e: mapboxgl.MapboxEvent) => {
     cameraService.register(e.target);
     setIsLoaded(true);
     loadImages();
-    startSpinning();
-  }, [startSpinning, loadImages]);
+  }, [loadImages]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (motionPolicy === 'ambientSpin') {
+      startSpinning();
+      return;
+    }
+
+    stopSpinning();
+  }, [isLoaded, motionPolicy, startSpinning, stopSpinning]);
 
   return (
     <div className={classes.globeContainer}>
@@ -153,15 +185,15 @@ export function GlobeMapComponent({
         fog={globeFog}
         onLoad={handleLoad}
         onClick={isPinMode ? handlePinClick : onSpotClick}
-        onDragStart={onUserInteractionStart}
-        onDragEnd={onUserInteractionEnd}
-        onZoomStart={onUserInteractionStart}
-        onZoomEnd={onUserInteractionEnd}
-        onRotateStart={onUserInteractionStart}
-        onRotateEnd={onUserInteractionEnd}
-        onMouseDown={onUserInteractionStart}
-        onTouchStart={onUserInteractionStart}
-        onWheel={onUserInteractionStart}
+        onDragStart={handleUserInteractionStart}
+        onDragEnd={handleUserInteractionEnd}
+        onZoomStart={handleUserInteractionStart}
+        onZoomEnd={handleUserInteractionEnd}
+        onRotateStart={handleUserInteractionStart}
+        onRotateEnd={handleUserInteractionEnd}
+        onMouseDown={handleUserInteractionStart}
+        onTouchStart={handleUserInteractionStart}
+        onWheel={handleUserInteractionStart}
         interactiveLayerIds={isPinMode ? [] : SPOT_INTERACTIVE_LAYERS}
         onMouseEnter={isPinMode ? undefined : onMouseEnter}
         onMouseLeave={isPinMode ? undefined : onMouseLeave}
