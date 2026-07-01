@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { SessionFeed } from 'widgets/SidePanel';
-import { usePanelFilter, usePanelExpanded } from './_panel';
-import type { SurfSessionItem } from 'entities/SurfSession';
+import { usePanelFeedLayoutReadyChange, usePanelFilter, usePanelExpanded } from './_panel';
 
 export const Route = createFileRoute('/_panel/$spotId/')({
   component: SpotFeed,
@@ -11,6 +10,7 @@ function SpotFeed() {
   const { spotId } = Route.useParams();
   const { activeFilter } = usePanelFilter();
   const expanded = usePanelExpanded();
+  const onLayoutReadyChange = usePanelFeedLayoutReadyChange();
   const navigate = useNavigate();
 
   return (
@@ -18,7 +18,8 @@ function SpotFeed() {
       spotId={spotId}
       activeFilter={activeFilter}
       expanded={expanded}
-      onSessionClick={(session: SurfSessionItem) =>
+      onLayoutReadyChange={onLayoutReadyChange}
+      onSessionClick={(session) =>
         void navigate({ to: '/$spotId/session/$sessionId', params: { spotId, sessionId: session.id } })
       }
     />

@@ -1,7 +1,7 @@
-import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatches, useNavigate, useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
 import { Loader, Skeleton, Text } from '@mantine/core';
 import {
@@ -36,12 +36,20 @@ const PanelFilterContext = createContext<PanelFilterCtx>({
 
 const PanelExpandedContext = createContext(false);
 
+/** Lets child feeds report when their card layout is committed to the DOM. */
+const PanelFeedLayoutReadyContext = createContext<(ready: boolean) => void>(() => {});
+
 export function usePanelFilter() {
   return useContext(PanelFilterContext);
 }
 
 export function usePanelExpanded() {
   return useContext(PanelExpandedContext);
+}
+
+/** Returns the callback child feeds call to report layout readiness. */
+export function usePanelFeedLayoutReadyChange() {
+  return useContext(PanelFeedLayoutReadyContext);
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -65,7 +73,6 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
-  const router = useRouter();
   const matches = useMatches();
   const { activeFilter, setActiveFilter } = usePanelFilter();
 
@@ -130,7 +137,37 @@ function PanelFrame({ children }: { children: ReactNode }) {
     (match) => !!(match.staticData as { forceExpanded?: boolean }).forceExpanded,
   );
 
-  const isExpanded = forceExpanded || (expanded && !uploadMatch);
+  // Hold the panel expanded after leaving a forceExpanded route until the
+  // incoming feed's layout is committed, then collapse on the next frame.
+  const [holdExpanded, setHoldExpanded] = useState(false);
+  const feedReadyRef = useRef(false);
+  const prevForceExpandedRef = useRef(forceExpanded);
+
+  const releaseHoldOnNextFrame = useCallback(() => {
+    requestAnimationFrame(() => {
+      setHoldExpanded(false);
+    });
+  }, []);
+
+  const handleFeedLayoutChange = useCallback((ready: boolean) => {
+    feedReadyRef.current = ready;
+    if (ready && holdExpanded) {
+      releaseHoldOnNextFrame();
+    }
+  }, [holdExpanded, releaseHoldOnNextFrame]);
+
+  useLayoutEffect(() => {
+    const wasForceExpanded = prevForceExpandedRef.current;
+    prevForceExpandedRef.current = forceExpanded;
+    if (wasForceExpanded && !forceExpanded) {
+      setHoldExpanded(true);
+      if (feedReadyRef.current) {
+        releaseHoldOnNextFrame();
+      }
+    }
+  }, [forceExpanded, releaseHoldOnNextFrame]);
+
+  const isExpanded = forceExpanded || holdExpanded || !!cartMatch || (expanded && !uploadMatch);
 
   const header: ReactNode = (() => {
     if (cartMatch) {
@@ -141,7 +178,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
           onBack={
             cartFrom
               ? () => void navigate({ to: '/$spotId', params: { spotId: cartFrom } })
-              : undefined
+              : () => void navigate({ to: '/' })
           }
         />
       );
@@ -151,18 +188,9 @@ function PanelFrame({ children }: { children: ReactNode }) {
       const session = sessionDetailMatch.loaderData as SurfSessionItem | null;
       if (!session) return <Skeleton height={22} width={160} radius="sm" />;
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, overflow: 'hidden' }}>
-          <button
-            onClick={() => router.history.back()}
-            style={{ background: 'none', border: 'none', color: '#63b3ed', fontSize: 12, cursor: 'pointer', padding: 0, flexShrink: 0 }}
-          >
-            Sessions
-          </button>
-          <span style={{ color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>›</span>
-          <Text size="xs" c="dimmed" truncate>
-            {formatDateRange(session.startsAt, session.endsAt)}
-          </Text>
-        </div>
+        <Text size="xs" c="dimmed" truncate>
+          {formatDateRange(session.startsAt, session.endsAt)}
+        </Text>
       );
     }
 
@@ -251,6 +279,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
   })();
 
   return (
+    <PanelFeedLayoutReadyContext.Provider value={handleFeedLayoutChange}>
     <PanelExpandedContext.Provider value={isExpanded}>
       {/* Compact-mode filter pills — float on the map beside the panel */}
       {(spotMatch || isDefaultIndex) && !isExpanded && isOpen && (
@@ -271,7 +300,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
         onOpen={() => setIsOpen(true)}
         onClose={() => setIsOpen(false)}
         expanded={isExpanded}
-        onExpandToggle={forceExpanded || uploadMatch ? undefined : () => setExpanded((prev) => !prev)}
+        onExpandToggle={forceExpanded || !!cartMatch || uploadMatch ? undefined : () => setExpanded((prev) => !prev)}
         onBack={
           uploadMatch
             ? () => {
@@ -282,18 +311,21 @@ function PanelFrame({ children }: { children: ReactNode }) {
               }
             : forceExpanded
             ? () => {
-                if (sessionDetailMatch) router.history.back();
+                if (sessionDetailMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
                 else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
                 else void navigate({ to: '/' });
               }
             : undefined
         }
+        backLabel={sessionDetailMatch ? 'Back to feed' : undefined}
         hideClose={!!uploadMatch}
         header={header}
+        headerFullWidth={!!cartMatch}
         subheader={subheader}
       >
         {children}
       </SidePanel>
     </PanelExpandedContext.Provider>
+    </PanelFeedLayoutReadyContext.Provider>
   );
 }

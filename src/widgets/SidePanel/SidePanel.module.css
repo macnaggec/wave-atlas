@@ -84,8 +84,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   color: rgba(255, 255, 255, 0.55);
   transition: background-color 150ms ease, color 150ms ease;
+}
+
+.topBtnLabeled {
+  width: auto;
+  max-width: 100%;
+  padding: 0 8px 0 6px;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .topBtn:hover {

@@ -1,8 +1,13 @@
+import { useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
 import { IconPhoto, IconMapPin } from '@tabler/icons-react';
 import { useSessionFeed, type SessionFeedFilter, type SurfSessionItem } from 'entities/SurfSession';
 import { formatDateRange } from 'shared/lib/dateUtils';
+import { SIDE_PANEL_TRANSITION } from './panelMotion';
+import styles from './SessionFeed.module.css';
+
+const SESSION_CARD_TRACK = 'calc(25vw - 25px)';
 
 // ─── Session card ──────────────────────────────────────────────────────────────
 
@@ -56,9 +61,17 @@ interface SessionFeedProps {
   onSessionClick?: (session: SurfSessionItem) => void;
   /** Route-driven spot filter — takes precedence over mapStore.selection. */
   spotId?: string;
+  /** Reports whether real cards are committed for a route-driven panel transition. */
+  onLayoutReadyChange?: (ready: boolean) => void;
 }
 
-export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: spotIdProp }: SessionFeedProps) {
+export function SessionFeed({
+  expanded,
+  activeFilter,
+  onSessionClick,
+  spotId: spotIdProp,
+  onLayoutReadyChange,
+}: SessionFeedProps) {
   const columns = expanded ? 3 : 1;
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
@@ -66,16 +79,18 @@ export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: sp
 
   const sessions = data?.pages.flatMap((p) => p.items) ?? [];
 
+  useLayoutEffect(() => {
+    if (isLoading) return;
+    onLayoutReadyChange?.(true);
+    return () => onLayoutReadyChange?.(false);
+  }, [isLoading, onLayoutReadyChange]);
+
   return (
-    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+    <div className={styles.feed}>
       {isLoading ? (
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${columns}, 1fr)`,
-            gap: 12,
-            padding: 12,
-          }}
+          className={styles.grid}
+          style={{ gridTemplateColumns: `repeat(${columns}, ${SESSION_CARD_TRACK})` }}
         >
           {Array.from({ length: columns * 3 }).map((_, i) => (
             <div key={i}>
@@ -92,15 +107,16 @@ export function SessionFeed({ expanded, activeFilter, onSessionClick, spotId: sp
       ) : (
         <>
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${columns}, 1fr)`,
-              gap: 12,
-              padding: 12,
-            }}
+            className={styles.grid}
+            style={{ gridTemplateColumns: `repeat(${columns}, ${SESSION_CARD_TRACK})` }}
           >
             {sessions.map((s) => (
-              <motion.div key={s.id} layout>
+              <motion.div
+                key={s.id}
+                layout="position"
+                layoutDependency={columns}
+                transition={{ layout: SIDE_PANEL_TRANSITION }}
+              >
                 <SessionCard session={s} onClick={() => onSessionClick?.(s)} />
               </motion.div>
             ))}
