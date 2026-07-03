@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { mediaRepository } from 'server/repositories/MediaRepository';
+import { mediaService } from 'server/services/MediaService';
 import { spotRepository } from 'server/repositories/SpotRepository';
 import { SPOT_STATUS } from 'shared/types';
 import type { Spot } from 'shared/types';
@@ -85,8 +86,8 @@ export const spotsRouter = router({
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
       }),
     )
-    .query(({ input }) =>
-      mediaRepository.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder)
+    .query(({ input, ctx }) =>
+      mediaService.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder, ctx.user?.id)
     ),
 
   card: publicProcedure.input(z.string()).query(({ input: id }) => spotRepository.findSpotCard(id)),

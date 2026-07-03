@@ -41,6 +41,9 @@ export interface PublicCardProps {
 
   /** Show owner badge overlay (e.g. in selection mode when item belongs to viewer) */
   showOwnerBadge?: boolean;
+
+  /** Show purchased badge overlay when the viewer already owns this media */
+  showPurchasedBadge?: boolean;
 }
 
 /**
@@ -101,6 +104,12 @@ const OWNER_BADGE = (
   </Badge>
 );
 
+const PURCHASED_BADGE = (
+  <Badge size="xs" variant="filled" color="teal" radius="sm">
+    Purchased
+  </Badge>
+);
+
 const PublicCard: FC<PublicCardProps> = memo(({
   mediaItem,
   actions = [],
@@ -108,11 +117,9 @@ const PublicCard: FC<PublicCardProps> = memo(({
   onAction,
   onCardClick,
   showOwnerBadge = false,
+  showPurchasedBadge = false,
 }) => {
   const { resource } = mediaItem;
-  const thumbnailUrl = resource.resourceType === 'image'
-    ? mediaItem.thumbnailUrl
-    : resource.url;
 
   const handleClick = useCallback(() => {
     onCardClick?.(mediaItem.id);
@@ -120,12 +127,11 @@ const PublicCard: FC<PublicCardProps> = memo(({
 
   return (
     <BaseCard
-      imageUrl={thumbnailUrl}
+      imageUrl={mediaItem.thumbnailUrl}
       resourceType={resource.resourceType}
-      playbackUrl={resource.playbackUrl}
       alt={`Media ${resource.assetId}`}
       onClick={onCardClick ? handleClick : undefined}
-      overlays={showOwnerBadge ? OWNER_BADGE : undefined}
+      overlays={showOwnerBadge ? OWNER_BADGE : showPurchasedBadge ? PURCHASED_BADGE : undefined}
       actions={
         actions.length > 0 ? (
           <Group gap="xs">

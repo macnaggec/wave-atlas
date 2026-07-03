@@ -1,4 +1,12 @@
-export type { MediaItem, SpotMediaItem, PublishedMedia, MediaType } from './types';
+export type {
+  MediaItem,
+  SpotMediaItem,
+  PublishedMedia,
+  PublicMediaItem,
+  PublicPublishedMedia,
+  PublicSpotMediaItem,
+  MediaType,
+} from './types';
 
 export {
   MEDIA_STATUS,

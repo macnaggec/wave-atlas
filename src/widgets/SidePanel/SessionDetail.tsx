@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Center, Skeleton, Text } from '@mantine/core';
+import { IconCamera, IconMapPin } from '@tabler/icons-react';
 import { useSessionMedia } from 'entities/SurfSession';
 import type { SurfSessionItem } from 'entities/SurfSession';
 import { useCartToggle } from 'entities/Commerce';
 import { MediaLightbox, PublicCard, type LightboxMedia, type DisplayMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
 import { BaseGallery } from 'shared/ui/BaseGallery';
+import { PanelGalleryLayout } from 'shared/ui/PanelGalleryLayout';
+import styles from './SessionDetail.module.css';
 
 interface SessionDetailProps {
   session: SurfSessionItem;
@@ -23,6 +26,10 @@ export function SessionDetail({ session }: SessionDetailProps) {
     () => new Set((media ?? []).filter((m) => m.photographerId === user?.id).map((m) => m.id)),
     [media, user?.id],
   );
+  const purchasedItemIds = useMemo(
+    () => new Set((media ?? []).filter((m) => m.viewerEntitlement.purchaseState === 'purchased').map((m) => m.id)),
+    [media],
+  );
 
   const lightboxItems = useMemo(
     () => (media ?? []).map((i) => ({ ...i, type: (i.type === 'VIDEO' ? 'video' : 'image') as 'image' | 'video' })),
@@ -34,55 +41,72 @@ export function SessionDetail({ session }: SessionDetailProps) {
     [toggleCartItem],
   );
 
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ padding: '6px 12px', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <Text size="xs" c="dimmed">{session.spot.location}</Text>
-      </div>
+  const photographerName = session.photographer.name ?? 'Unknown photographer';
 
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+  return (
+    <>
+      <PanelGalleryLayout
+        meta={
+          <div className={styles.metaRow}>
+            <IconMapPin size={12} className={styles.metaIcon} />
+            <Text component="span" size="xs" fw={600} truncate className={styles.metaPrimary}>
+              {session.spot.name}
+            </Text>
+            <Text component="span" size="xs" c="dimmed" className={styles.separator}>·</Text>
+            <Text component="span" size="xs" c="dimmed" truncate className={styles.metaLocation}>
+              {session.spot.location}
+            </Text>
+            <Text component="span" size="xs" c="dimmed" className={styles.separator}>·</Text>
+            <IconCamera size={12} className={styles.metaIcon} />
+            <Text component="span" size="xs" c="dimmed" truncate className={styles.metaPhotographer}>
+              {photographerName}
+            </Text>
+          </div>
+        }
+      >
         {isLoading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '0 12px' }}>
+          <div className={styles.skeletonGrid}>
             {Array.from({ length: session.mediaCount || 6 }).map((_, i) => (
               <Skeleton key={i} height={0} style={{ paddingBottom: '62.5%', borderRadius: 8 }} />
             ))}
           </div>
         ) : (
-          <div style={{ padding: '0 12px' }}>
-            <BaseGallery
-              items={media ?? []}
-              renderCard={(item, { index }) => {
-                const isOwn = ownedItemIds.has(item.id);
-                const isInCart = cartItemIds.has(item.id);
-                const displayMedia: DisplayMedia = {
-                  id: item.id,
-                  thumbnailUrl: item.thumbnailUrl,
-                  resource: {
-                    resourceType: item.type === 'VIDEO' ? 'video' : 'image',
-                    url: item.thumbnailUrl,
-                    assetId: item.id,
-                  },
-                };
-                return (
-                  <PublicCard
-                    mediaItem={displayMedia}
-                    actions={item.price > 0 && !isOwn ? ['cart'] : []}
-                    activeActions={isInCart ? ['cart'] : []}
-                    onAction={() => handleCartToggle(item)}
-                    onCardClick={() => setLightboxIndex(index)}
-                    showOwnerBadge={isOwn}
-                  />
-                );
-              }}
-              emptyState={
-                <Center h={200}>
-                  <Text size="sm" c="dimmed">No media</Text>
-                </Center>
-              }
-            />
-          </div>
+          <BaseGallery
+            items={media ?? []}
+            renderCard={(item, { index }) => {
+              const isOwn = ownedItemIds.has(item.id);
+              const isPurchased = purchasedItemIds.has(item.id);
+              const isInCart = cartItemIds.has(item.id);
+              const displayMedia: DisplayMedia = {
+                id: item.id,
+                thumbnailUrl: item.thumbnailUrl,
+                resource: {
+                  resourceType: item.type === 'VIDEO' ? 'video' : 'image',
+                  url: item.type === 'VIDEO' ? item.lightboxUrl : item.thumbnailUrl,
+                  assetId: item.id,
+                },
+              };
+
+              return (
+                <PublicCard
+                  mediaItem={displayMedia}
+                  actions={item.price > 0 && !isOwn && !isPurchased ? ['cart'] : []}
+                  activeActions={isInCart ? ['cart'] : []}
+                  onAction={() => handleCartToggle(item)}
+                  onCardClick={() => setLightboxIndex(index)}
+                  showOwnerBadge={isOwn}
+                  showPurchasedBadge={isPurchased}
+                />
+              );
+            }}
+            emptyState={
+              <Center h={200}>
+                <Text size="sm" c="dimmed">No media</Text>
+              </Center>
+            }
+          />
         )}
-      </div>
+      </PanelGalleryLayout>
 
       {lightboxItems.length > 0 && (
         <MediaLightbox
@@ -93,8 +117,9 @@ export function SessionDetail({ session }: SessionDetailProps) {
           cartItemIds={cartItemIds}
           onCartToggle={handleCartToggle}
           ownedItemIds={ownedItemIds}
+          purchasedItemIds={purchasedItemIds}
         />
       )}
-    </div>
+    </>
   );
 }

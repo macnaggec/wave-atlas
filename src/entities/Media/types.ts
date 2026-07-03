@@ -1,1 +1,9 @@
-export type { MediaItem, SpotMediaItem, PublishedMedia, MediaType } from 'shared/types/media';
+export type {
+  MediaItem,
+  SpotMediaItem,
+  PublishedMedia,
+  PublicMediaItem,
+  PublicPublishedMedia,
+  PublicSpotMediaItem,
+  MediaType,
+} from 'shared/types/media';

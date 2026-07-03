@@ -18,6 +18,11 @@ const mockMedia = {
   findByCloudinaryPublicId: vi.fn(),
   findPublishedByPhotographer: vi.fn(),
   findPublishedBySession: vi.fn(),
+  findPublishedBySpot: vi.fn(),
+};
+
+const mockEntitlements = {
+  getViewerMediaEntitlements: vi.fn(),
 };
 
 const mockCloudinary = {
@@ -36,7 +41,8 @@ const service = new (MediaService as unknown as new (
   media: IMediaRepository,
   cloudinary: typeof mockCloudinary,
   sessions: typeof mockSessions,
-) => MediaService)(mockMedia as unknown as IMediaRepository, mockCloudinary, mockSessions);
+  entitlements: typeof mockEntitlements,
+) => MediaService)(mockMedia as unknown as IMediaRepository, mockCloudinary, mockSessions, mockEntitlements);
 
 // ---------------------------------------------------------------------------
 // Factories
@@ -63,14 +69,44 @@ describe('MediaService.findPublishedByPhotographer', () => {
 });
 
 describe('MediaService.findPublishedBySession', () => {
-  it('delegates to the repository with the given sessionId', async () => {
+  it('returns public media with no purchase entitlement for anonymous viewers', async () => {
     const items = [{ id: 'media-2' }];
     mockMedia.findPublishedBySession.mockResolvedValue(items);
+    mockEntitlements.getViewerMediaEntitlements.mockResolvedValue(new Map([
+      ['media-2', { purchaseState: 'none' }],
+    ]));
 
     const result = await service.findPublishedBySession('session-1');
 
     expect(mockMedia.findPublishedBySession).toHaveBeenCalledWith('session-1');
-    expect(result).toBe(items);
+    expect(mockEntitlements.getViewerMediaEntitlements).toHaveBeenCalledWith(undefined, ['media-2']);
+    expect(result).toEqual([
+      { id: 'media-2', viewerEntitlement: { purchaseState: 'none' } },
+    ]);
+  });
+
+  it('marks media already purchased by the viewer', async () => {
+    mockMedia.findPublishedBySession.mockResolvedValue([
+      { id: 'media-1' },
+      { id: 'media-2' },
+    ]);
+    mockEntitlements.getViewerMediaEntitlements.mockResolvedValue(new Map([
+      ['media-1', { purchaseState: 'none' }],
+      ['media-2', { purchaseState: 'purchased' }],
+    ]));
+
+    const result = await (service as unknown as {
+      findPublishedBySession: (
+        sessionId: string,
+        viewerId: string,
+      ) => Promise<Array<{ id: string; viewerEntitlement: { purchaseState: string } }>>;
+    }).findPublishedBySession('session-1', 'buyer-1');
+
+    expect(mockEntitlements.getViewerMediaEntitlements).toHaveBeenCalledWith('buyer-1', ['media-1', 'media-2']);
+    expect(result).toEqual([
+      { id: 'media-1', viewerEntitlement: { purchaseState: 'none' } },
+      { id: 'media-2', viewerEntitlement: { purchaseState: 'purchased' } },
+    ]);
   });
 });
 

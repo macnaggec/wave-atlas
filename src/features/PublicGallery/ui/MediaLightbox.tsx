@@ -23,6 +23,7 @@ export interface MediaLightboxProps {
   cartItemIds?: Set<string>;
   onCartToggle?: (item: LightboxMedia) => void;
   ownedItemIds?: Set<string>;
+  purchasedItemIds?: Set<string>;
 }
 
 /**
@@ -37,6 +38,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
   cartItemIds = new Set<string>(),
   onCartToggle,
   ownedItemIds = new Set<string>(),
+  purchasedItemIds = new Set<string>(),
 }) => {
   const lightboxItems = items.map((item) => ({
     id: item.id,
@@ -54,6 +56,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
         const item = items[currentIndex];
         if (!item) return null;
         const isOwn = ownedItemIds.has(item.id);
+        const isPurchased = purchasedItemIds.has(item.id);
         const isInCart = cartItemIds.has(item.id);
         return (
           <Group justify="space-between" align="center">
@@ -70,7 +73,13 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
               </Text>
             </Group>
 
-            {(item.price ?? 0) > 0 && !isOwn && onCartToggle && (
+            {isPurchased && (
+              <Badge size="lg" variant="filled" color="teal">
+                Purchased
+              </Badge>
+            )}
+
+            {(item.price ?? 0) > 0 && !isOwn && !isPurchased && onCartToggle && (
               <Button
                 variant={isInCart ? 'light' : 'subtle'}
                 color={isInCart ? 'red' : 'green'}

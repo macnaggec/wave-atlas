@@ -3,13 +3,24 @@ import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
-import type { MediaStatus, MediaItem, MediaResourceType } from 'shared/types/media';
+import type { MediaStatus, MediaItem } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 import {
   surfSessionRepository,
   type ISurfSessionRepository,
 } from 'server/repositories/SurfSessionRepository';
+import {
+  purchaseEntitlementService,
+  type IPurchaseEntitlementService,
+} from './PurchaseEntitlementService';
+import type {
+  PublishedMedia,
+  PublicPublishedMedia,
+  PublicSpotMediaPage,
+  SpotMediaItem,
+  ViewerMediaEntitlement,
+} from 'shared/types/media';
 
 function assertPriceFloor(price: number | null | undefined): void {
   if (price != null && price < MIN_MEDIA_PRICE_CENTS) {
@@ -36,6 +47,7 @@ export class MediaService {
       ISurfSessionRepository,
       'createDraftMedia' | 'removeDraftMedia' | 'removeDraftMediaBatch'
     >,
+    private entitlements: Pick<IPurchaseEntitlementService, 'getViewerMediaEntitlements'> = purchaseEntitlementService,
   ) { }
 
   async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem> {
@@ -116,8 +128,23 @@ export class MediaService {
     return this.media.findPublishedByPhotographer(photographerId);
   }
 
-  findPublishedBySession(sessionId: string) {
-    return this.media.findPublishedBySession(sessionId);
+  async findPublishedBySession(sessionId: string, viewerId?: string | null): Promise<PublicPublishedMedia[]> {
+    const items = await this.media.findPublishedBySession(sessionId);
+    return this.withViewerEntitlement(items, viewerId);
+  }
+
+  async findPublishedBySpot(
+    spotId: string,
+    cursor: string | undefined,
+    limit: number,
+    sortOrder: 'asc' | 'desc' = 'desc',
+    viewerId?: string | null,
+  ): Promise<PublicSpotMediaPage> {
+    const page = await this.media.findPublishedBySpot(spotId, cursor, limit, sortOrder);
+    return {
+      ...page,
+      items: await this.withViewerEntitlement(page.items, viewerId),
+    };
   }
 
   /**
@@ -150,6 +177,21 @@ export class MediaService {
       throw new ForbiddenError('You do not have permission to modify this media');
     }
     return media;
+  }
+
+  private async withViewerEntitlement<T extends PublishedMedia | SpotMediaItem>(
+    items: T[],
+    viewerId?: string | null,
+  ): Promise<Array<T & { viewerEntitlement: ViewerMediaEntitlement }>> {
+    const entitlementByMediaId = await this.entitlements.getViewerMediaEntitlements(
+      viewerId,
+      items.map((item) => item.id),
+    );
+
+    return items.map((item) => ({
+      ...item,
+      viewerEntitlement: entitlementByMediaId.get(item.id) ?? { purchaseState: 'none' },
+    }));
   }
 }
 

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     capturedAt: new Date('2026-04-01T10:00:00.000Z'),
     spotId: 'spot-1',
     photographerId: 'photographer-1',
+    viewerEntitlement: { purchaseState: 'none' as const },
     spot: { id: 'spot-1', name: 'Pipeline' },
   };
 
@@ -65,6 +66,7 @@ describe('SessionDetail', () => {
       status: 'PUBLISHED' as const,
       createdAt: new Date('2026-04-01T12:00:00.000Z'),
       spot: { id: 'spot-1', name: 'Pipeline', location: 'Oahu' },
+      photographer: { id: 'photographer-1', name: 'Kai' },
       thumbnailUrl: mocks.mediaItem.thumbnailUrl,
       mediaCount: 1,
     };
@@ -86,5 +88,29 @@ describe('SessionDetail', () => {
       lightboxUrl: 'https://example.com/lightbox.jpg',
       priceCents: 300,
     }]);
+  });
+
+  it('renders session metadata in the shared panel gallery metadata band', () => {
+    const session = {
+      id: 'session-1',
+      spotId: 'spot-1',
+      photographerId: 'photographer-1',
+      startsAt: new Date('2026-04-01T09:00:00.000Z'),
+      endsAt: new Date('2026-04-01T11:00:00.000Z'),
+      status: 'PUBLISHED' as const,
+      createdAt: new Date('2026-04-01T12:00:00.000Z'),
+      spot: { id: 'spot-1', name: 'Pipeline', location: 'Oahu' },
+      photographer: { id: 'photographer-1', name: 'Kai' },
+      thumbnailUrl: mocks.mediaItem.thumbnailUrl,
+      mediaCount: 1,
+    };
+
+    render(
+      <MantineProvider>
+        <SessionDetail session={session} />
+      </MantineProvider>,
+    );
+
+    expect(screen.getByText('Pipeline').closest('[data-panel-gallery-meta]')).not.toBeNull();
   });
 });

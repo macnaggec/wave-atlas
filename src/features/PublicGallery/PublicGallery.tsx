@@ -2,12 +2,12 @@ import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
 import { IconShoppingBag, IconShare } from '@tabler/icons-react';
 import { SelectionToolbar } from 'shared/ui/BaseGallery';
-import type { MediaItem, SpotMediaItem } from 'entities/Media';
+import type { MediaItem, PublicSpotMediaItem } from 'entities/Media';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { useSpotMediaFeed, useSpotPreview } from 'entities/Spot';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
-import { toCartItem, useCartStore } from 'entities/Commerce';
+import { toCartItem, useCartStore, useCartToggle } from 'entities/Commerce';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox from './ui/MediaLightbox';
 import { GalleryDateSidebar } from './ui/GalleryDateSidebar';
@@ -35,14 +35,8 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   const { data: spot } = useSpotPreview(spotId);
   const spotName = spot?.name ?? '';
 
-  const cartStoreItems = useCartStore((s) => s.items);
+  const { cartItemIds, toggleCartItem } = useCartToggle(spotName);
   const addToCart = useCartStore((s) => s.add);
-  const removeFromCart = useCartStore((s) => s.remove);
-
-  const cartItemIds = useMemo(
-    () => new Set(cartStoreItems.map((i) => i.id)),
-    [cartStoreItems],
-  );
 
   const { getCardActions, getCartBulkState, userId } = usePublicGalleryActions({
     cartItemIds,
@@ -72,6 +66,10 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   const ownedItemIds = useMemo(
     () => new Set(flatItems.filter((i) => i.photographerId === userId).map((i) => i.id)),
     [flatItems, userId],
+  );
+  const purchasedItemIds = useMemo(
+    () => new Set(flatItems.filter((i) => i.viewerEntitlement.purchaseState === 'purchased').map((i) => i.id)),
+    [flatItems],
   );
 
   // ========================================================================
@@ -103,30 +101,18 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
     [flatItems],
   );
 
-  const handleCartToggle = useCallback(
-    (lightboxItem: { id: string }) => {
-      if (cartItemIds.has(lightboxItem.id)) {
-        removeFromCart(lightboxItem.id);
-      } else {
-        const full = flatItems.find((i) => i.id === lightboxItem.id);
-        if (full) addToCart(toCartItem(full, spotName));
-      }
-    },
-    [cartItemIds, removeFromCart, addToCart, flatItems, spotName],
-  );
-
   const handleCardAction = useCallback(
     (action: PublicCardAction, itemId: string) => {
       const item = flatItems.find((i) => i.id === itemId);
       if (!item) return;
-      if (action === 'cart') handleCartToggle(item);
+      if (action === 'cart') toggleCartItem(item);
       if (action === 'share') onShare?.([item]);
     },
-    [flatItems, handleCartToggle, onShare],
+    [flatItems, toggleCartItem, onShare],
   );
 
   const renderMenuActions = useCallback(
-    (selectedItems: SpotMediaItem[]) => {
+    (selectedItems: PublicSpotMediaItem[]) => {
       const { actions, noActionsLabel } = getCartBulkState(selectedItems);
       return (
         <>
@@ -185,14 +171,16 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
           }
           renderCard={(item, context) => {
             const { actions, activeActions, isOwn } = getCardActions(item, context.isSelectionMode);
+            const isPurchased = item.viewerEntitlement.purchaseState === 'purchased';
             return (
               <PublicCard
-                mediaItem={item as SpotMediaItem}
+                mediaItem={item as PublicSpotMediaItem}
                 actions={actions}
                 activeActions={activeActions}
                 onAction={handleCardAction}
                 onCardClick={context.isSelectionMode ? undefined : handleCardClick}
                 showOwnerBadge={isOwn}
+                showPurchasedBadge={isPurchased}
               />
             );
           }}
@@ -213,8 +201,9 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         opened={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
         cartItemIds={cartItemIds}
-        onCartToggle={handleCartToggle}
+        onCartToggle={toggleCartItem}
         ownedItemIds={ownedItemIds}
+        purchasedItemIds={purchasedItemIds}
       />
     </>
   );

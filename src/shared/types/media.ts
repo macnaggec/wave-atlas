@@ -3,6 +3,12 @@ import type { MediaResourceType, MediaStatus } from '../constants/media';
 
 export type { MediaResourceType, MediaStatus } from '../constants/media';
 
+export type ViewerPurchaseState = 'none' | 'purchased';
+
+export interface ViewerMediaEntitlement {
+  purchaseState: ViewerPurchaseState;
+}
+
 export interface MediaItem {
   id: string;
   sessionId: string;
@@ -43,4 +49,21 @@ export type PublishedMedia = {
 
 export type SpotMediaItem = MediaItem & {
   photographer: { id: string; name: string | null } | null;
+};
+
+export type PublicMediaItem = MediaItem & {
+  viewerEntitlement: ViewerMediaEntitlement;
+};
+
+export type PublicPublishedMedia = PublishedMedia & {
+  viewerEntitlement: ViewerMediaEntitlement;
+};
+
+export type PublicSpotMediaItem = SpotMediaItem & {
+  viewerEntitlement: ViewerMediaEntitlement;
+};
+
+export type PublicSpotMediaPage = {
+  items: PublicSpotMediaItem[];
+  nextCursor: string | null;
 };

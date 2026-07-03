@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { MediaItem } from 'entities/Media';
+import type { PublicMediaItem } from 'entities/Media';
 import { useUser } from 'shared/hooks/useUser';
 import type { PublicCardAction } from './types';
 
@@ -12,12 +12,13 @@ interface CardActionResult {
   actions: PublicCardAction[];
   activeActions: PublicCardAction[];
   isOwn: boolean;
+  isPurchased: boolean;
 }
 
 export interface BulkAction {
   key: 'cart' | 'share';
   label: string;
-  payload: MediaItem[];
+  payload: PublicMediaItem[];
 }
 
 interface CartBulkState {
@@ -27,10 +28,11 @@ interface CartBulkState {
   noActionsLabel: string | null;
 }
 
-type EmptyReason = 'all-own' | 'all-in-cart' | 'mixed-blocked' | null;
+type EmptyReason = 'all-own' | 'all-purchased' | 'all-in-cart' | 'mixed-blocked' | null;
 
 const EMPTY_LABELS: Record<NonNullable<EmptyReason>, string> = {
   'all-own': 'All selected items are yours',
+  'all-purchased': 'All selected items are already purchased',
   'all-in-cart': 'All selected already in cart',
   'mixed-blocked': 'No purchasable items selected',
 };
@@ -62,32 +64,37 @@ export function usePublicGalleryActions({
   );
 
   const getCardActions = useCallback(
-    (item: MediaItem, isSelectionMode: boolean): CardActionResult => {
+    (item: PublicMediaItem, isSelectionMode: boolean): CardActionResult => {
       // While session loads, treat items as non-interactive to avoid briefly
       // showing cart buttons on own items before user identity is known.
       const isOwn = isOwnId(item.photographerId);
-      if (isSelectionMode || isOwn) {
-        return { actions: ACTIONS_NONE, activeActions: ACTIONS_NONE, isOwn };
+      const isPurchased = item.viewerEntitlement.purchaseState === 'purchased';
+      if (isSelectionMode || isOwn || isPurchased) {
+        return { actions: ACTIONS_NONE, activeActions: ACTIONS_NONE, isOwn, isPurchased };
       }
       return {
         actions: hasShare ? ACTIONS_CART_SHARE : ACTIONS_CART,
         activeActions: cartItemIds.has(item.id) ? ACTIVE_CART : ACTIONS_NONE,
         isOwn,
+        isPurchased,
       };
     },
     [isOwnId, cartItemIds, hasShare],
   );
 
   const getCartBulkState = useCallback(
-    (selectedItems: MediaItem[]): CartBulkState => {
-      const buyableItems = selectedItems.filter((i) => !isOwnId(i.photographerId));
+    (selectedItems: PublicMediaItem[]): CartBulkState => {
+      const buyableItems = selectedItems.filter((i) =>
+        !isOwnId(i.photographerId) && i.viewerEntitlement.purchaseState !== 'purchased'
+      );
       const toAddItems = buyableItems.filter((i) => !cartItemIds.has(i.id));
 
       const counts = {
         total: selectedItems.length,
         buyable: buyableItems.length,
         toAdd: toAddItems.length,
-        own: selectedItems.length - buyableItems.length,
+        own: selectedItems.filter((i) => isOwnId(i.photographerId)).length,
+        purchased: selectedItems.filter((i) => i.viewerEntitlement.purchaseState === 'purchased').length,
         alreadyInCart: buyableItems.length - toAddItems.length,
       };
 
@@ -109,6 +116,7 @@ export function usePublicGalleryActions({
         [condition: boolean, reason: NonNullable<EmptyReason>]
       > = [
           [counts.own === counts.total, 'all-own'],
+          [counts.purchased === counts.total, 'all-purchased'],
           [counts.alreadyInCart === counts.buyable, 'all-in-cart'],
           [true, 'mixed-blocked'],
         ];

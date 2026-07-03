@@ -94,7 +94,7 @@ export const sessionsRouter = router({
   /** Published media items for a session. */
   media: publicProcedure
     .input(z.uuid())
-    .query(({ input: sessionId }) => mediaService.findPublishedBySession(sessionId)),
+    .query(({ input: sessionId, ctx }) => mediaService.findPublishedBySession(sessionId, ctx.user?.id)),
 
   /** Publish all draft media in a session and mark the session as published. */
   publish: protectedProcedure
