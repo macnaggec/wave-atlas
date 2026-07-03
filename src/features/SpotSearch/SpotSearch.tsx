@@ -139,41 +139,16 @@ export default function SpotSearch({
           radius="md"
           leftSection={
             isFiltering
-              ? <IconMapPin size={16} color="#63b3ed" />
+              ? <IconMapPin size={16} className={classes.activeIcon} />
               : <IconSearch size={16} />
           }
           rightSection={renderRightSection()}
           rightSectionPointerEvents="auto"
-          styles={{
-            input: {
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              color: '#fff',
-              boxShadow: isFiltering ? 'inset 3px 0 0 #63b3ed' : 'none',
-              caretColor: isFiltering ? 'transparent' : undefined,
-              cursor: isFiltering ? 'default' : undefined,
-              '&::placeholder': { color: 'rgba(255,255,255,0.38)' },
-              '&:focus': { borderColor: 'rgba(255,255,255,0.4)' },
-            },
-            section: { color: 'rgba(255,255,255,0.55)' },
-          }}
+          classNames={{ input: isFiltering ? classes.filteringInput : undefined }}
         />
       </Combobox.Target>
 
-      <Combobox.Dropdown
-        style={{
-          background: 'rgba(13,22,42,0.97)',
-          backdropFilter: 'blur(12px) saturate(140%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
-          '--mantine-color-dimmed': 'rgba(255,255,255,0.4)',
-          '--mantine-color-text': 'rgba(255,255,255,0.85)',
-          '--mantine-color-gray-0': 'rgba(255,255,255,0.06)',
-          '--mantine-color-gray-2': 'rgba(255,255,255,0.08)',
-        } as React.CSSProperties}
-      >
+      <Combobox.Dropdown>
         <Combobox.Options>
           {renderDropdownContent()}
         </Combobox.Options>

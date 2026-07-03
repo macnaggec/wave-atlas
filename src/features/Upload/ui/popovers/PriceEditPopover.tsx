@@ -2,6 +2,7 @@ import { FC, useEffect, useState } from 'react';
 import { Popover, Button, Stack, NumberInput, Text, Box, Group, Tooltip } from '@mantine/core';
 import { IconCurrencyDollar, IconChevronDown } from '@tabler/icons-react';
 import { MIN_MEDIA_PRICE_CENTS } from 'entities/Media';
+import materials from 'shared/ui/design-system/materials.module.css';
 
 const MIN_PRICE = MIN_MEDIA_PRICE_CENTS / 100;
 
@@ -66,7 +67,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
     : `Applying to all ${itemLabel}`;
 
   const footer = (selectedCount > 0 || totalCount > 0) ? (
-    <Text size="xs" ta="center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+    <Text size="xs" ta="center" c="dimmed">
       {footerMessage}
     </Text>
   ) : null;
@@ -111,11 +112,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
           rightSection={<IconChevronDown size={11} />}
           disabled={disabled}
           radius="md"
-          style={{
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            color: 'rgba(255,255,255,0.85)',
-          }}
+          className={materials.controlButton}
           onClick={() => setOpened((o) => !o)}
         >
           {buttonLabel}

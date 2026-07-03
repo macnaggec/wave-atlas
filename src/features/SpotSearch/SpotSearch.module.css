@@ -1,8 +1,18 @@
 .clearButton {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--wa-text-muted);
 }
 
 .clearButton:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--wa-control-fill-hover);
+  color: var(--wa-text-inverse);
+}
+
+.activeIcon {
+  color: var(--wa-accent-spot);
+}
+
+.filteringInput {
+  box-shadow: inset 3px 0 0 var(--wa-accent-spot);
+  caret-color: transparent;
+  cursor: default;
 }

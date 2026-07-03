@@ -3,6 +3,7 @@
 import React, { FC, useMemo, useCallback } from 'react';
 import { Box, Text, Stack, Tooltip } from '@mantine/core';
 import { DatePickerPopover } from 'shared/ui/DatePickerPopover';
+import materials from 'shared/ui/design-system/materials.module.css';
 
 /**
  * Props for DateEditPopover component
@@ -90,11 +91,7 @@ export const DateEditPopover: FC<DateEditPopoverProps> = ({
       showTimeRange
       maxDate={maxDate}
       renderFooter={renderFooter}
-      buttonStyle={{
-        background: 'rgba(255,255,255,0.08)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        color: 'rgba(255,255,255,0.85)',
-      }}
+      buttonClassName={materials.controlButton}
     />
   );
 

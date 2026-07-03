@@ -27,6 +27,25 @@ const glassOverlay: CSSProperties = {
 
 export const theme = createTheme({
   components: {
+    Input: {
+      styles: {
+        input: {
+          background: 'var(--wa-control-fill)',
+          border:     '1px solid var(--wa-control-border)',
+          color:      'var(--wa-text-primary)',
+          caretColor: 'var(--wa-text-primary)',
+          '&::placeholder': {
+            color: 'var(--wa-text-placeholder)',
+          },
+          '&:focus': {
+            borderColor: 'var(--wa-glass-border-media-overlay-hover)',
+          },
+        },
+        section: {
+          color: 'var(--wa-text-muted)',
+        },
+      },
+    },
     Popover: {
       styles: {
         dropdown: glassOverlay,
@@ -54,6 +73,7 @@ export const theme = createTheme({
     Modal: {
       defaultProps: {
         overlayProps: { backgroundOpacity: 0.5, blur: 4 },
+        zIndex: 500,
       },
       styles: {
         content: {

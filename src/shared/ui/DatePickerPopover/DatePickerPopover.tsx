@@ -53,7 +53,7 @@ export interface DatePickerPopoverProps {
   /** Maximum selectable date (dates after this will be disabled) */
   maxDate?: Date;
   /** Optional style overrides for the trigger button */
-  buttonStyle?: React.CSSProperties;
+  buttonClassName?: string;
 }
 
 /**
@@ -72,7 +72,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
   renderFooter,
   buttonLabel,
   maxDate,
-  buttonStyle,
+  buttonClassName,
 }) => {
   const [opened, setOpened] = useState(false);
   const [draftDate, setDraftDate] = useState<Date>(value || new Date());
@@ -172,7 +172,7 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
           onClick={togglePopover}
           radius="xl"
           size="xs"
-          style={buttonStyle}
+          className={buttonClassName}
         >
           {formattedDate}
         </Button>
@@ -199,10 +199,6 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
                 size="md"
                 radius="xl"
                 variant="filled"
-                styles={{
-                  wrapper: { '--input-bg': 'rgba(0,0,0,0.05)', '--input-bd': 'transparent' } as React.CSSProperties,
-                  label: { fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.06em', marginBottom: 4 },
-                }}
               />
               <TimeInput
                 label="TO"
@@ -213,10 +209,6 @@ export const DatePickerPopover: FC<DatePickerPopoverProps> = ({
                 size="md"
                 radius="xl"
                 variant="filled"
-                styles={{
-                  wrapper: { '--input-bg': 'rgba(0,0,0,0.05)', '--input-bd': 'transparent' } as React.CSSProperties,
-                  label: { fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.06em', marginBottom: 4 },
-                }}
               />
             </Group>
           )}

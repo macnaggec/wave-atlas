@@ -73,6 +73,7 @@
   --wa-control-upload-card-border-hover: rgba(99, 179, 237, 0.72);
   --wa-control-upload-card-label: rgba(255, 255, 255, 0.68);
   --wa-control-upload-card-label-hover: #63b3ed;
+  --wa-accent-spot: #63b3ed;
 
   /* Radii */
   --wa-radius-control-sm: 8px;

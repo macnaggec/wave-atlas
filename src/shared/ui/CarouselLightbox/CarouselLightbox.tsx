@@ -34,7 +34,7 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({ items, initialIndex,
   const hasMultiple = items.length > 1;
 
   return (
-    <Modal opened={opened} onClose={onClose} size="xl" centered padding="md" withCloseButton overlayProps={{ backgroundOpacity: 0.45, blur: 4 }} styles={{ content: { borderRadius: 16, overflow: 'hidden' } }} zIndex={300}>
+    <Modal opened={opened} onClose={onClose} size="xl" centered padding="md" withCloseButton>
       <Stack gap="md">
         {/* key forces Embla to snap to the correct slide when initialIndex changes */}
         <Carousel

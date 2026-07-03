@@ -6,6 +6,8 @@ import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import { handleFileSelection } from '../../lib/fileSelection';
+import materials from 'shared/ui/design-system/materials.module.css';
+import styles from './StepModeModal.module.css';
 
 export interface StepModeModalProps {
   opened: boolean;
@@ -112,28 +114,12 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
       size={1000}
       centered
       title="Selected media"
-      overlayProps={{ backgroundOpacity: 0.45, blur: 4 }}
-      styles={{
-        body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
-        content: {
-          background: 'rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(12px) saturate(140%)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          borderRadius: 16,
-          overflow: 'hidden',
-          maxHeight: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-          '--mantine-color-gray-0': 'rgba(255,255,255,0.08)',
-        } as React.CSSProperties,
-        header: {
-          background: 'transparent',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '8px 12px',
-          minHeight: 0,
-        },
-        title: { color: '#fff', fontWeight: 600, fontSize: 13 },
-        close: { color: 'rgba(255,255,255,0.55)', width: 24, height: 24, minWidth: 0, minHeight: 0 },
+      classNames={{
+        body: styles.body,
+        content: styles.content,
+        header: styles.header,
+        title: styles.title,
+        close: styles.close,
       }}
     >
       <input
@@ -144,7 +130,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
         onChange={handleAddMoreChange}
         style={{ display: 'none' }}
       />
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div className={styles.scroller}>
         <Box p="md">
           <BaseGallery<GalleryCard>
             items={items}
@@ -162,11 +148,11 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
         </Box>
       </div>
 
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+      <Divider className={materials.divider} />
       <Group px="sm" py={6} justify="space-between">
         <Button
           variant="transparent" size="xs" radius="xl"
-          style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+          className={styles.footerAction}
           onClick={handleCancelAll}
         >
           Discard
@@ -175,7 +161,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
           {onAddFiles && (
             <Button
               variant="transparent" size="xs" radius="xl"
-              style={{ color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className={styles.footerAction}
               onClick={() => addMoreInputRef.current?.click()}
             >
               Add more
@@ -184,18 +170,18 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
           {hasActiveUploads ? (
             <Group gap="xs">
               <Loader size={12} />
-              <Text size="xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <Text size="xs" className={styles.footerText}>
                 {uploadingCount} of {items.length} uploading…
               </Text>
             </Group>
           ) : errorCards.length > 0 ? (
-            <Text size="xs" style={{ color: 'var(--mantine-color-orange-4)' }}>
+            <Text size="xs" c="orange.4">
               Remove or retry failed uploads to continue
             </Text>
           ) : null}
           <Button
             variant="transparent" size="xs" radius="xl"
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)', color: '#fff' }}
+            className={materials.controlButton}
             onClick={onClose}
           >
             Close

@@ -76,6 +76,17 @@
   border-color: var(--wa-glass-border-primary-action-hover);
 }
 
+.controlButton {
+  color: var(--wa-text-primary);
+  background: var(--wa-control-fill);
+  border: 1px solid var(--wa-glass-border);
+}
+
+.controlButton:hover {
+  background: var(--wa-control-fill-hover);
+  border-color: var(--wa-control-border);
+}
+
 .mediaTextOverlay {
   color: var(--wa-text-media-overlay);
   text-shadow: var(--wa-media-text-shadow);
