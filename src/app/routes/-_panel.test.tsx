@@ -11,10 +11,11 @@ const mocks = vi.hoisted(() => ({
   openAuth: vi.fn(),
   isAuthenticated: false,
   isCreatingDraft: false,
+  setRenderedPanelExpandedSnapshot: vi.fn(),
   latestDraft: null as { id: string } | null,
   matches: [{ routeId: '/_panel/', staticData: {} }] as Array<{
     routeId: string;
-    staticData: { forceExpanded?: boolean };
+    staticData: { panelHeader?: string; panelMode?: 'browsing' | 'workspace' | 'mapInput' };
     loaderData?: unknown;
     search?: unknown;
   }>,
@@ -70,6 +71,10 @@ vi.mock('shared/lib/notifications', () => ({
   notify: { error: mocks.notifyError },
 }));
 
+vi.mock('shared/model/panelExpansionStore', () => ({
+  setRenderedPanelExpandedSnapshot: mocks.setRenderedPanelExpandedSnapshot,
+}));
+
 vi.mock('entities/Commerce', () => ({
   useCartStore: () => [],
 }));
@@ -78,6 +83,7 @@ vi.mock('widgets/SidePanel', () => ({
   SidePanel: ({
     expanded,
     onExpandToggle,
+    onBack,
     header,
     headerFullWidth,
     subheader,
@@ -85,6 +91,7 @@ vi.mock('widgets/SidePanel', () => ({
   }: {
     expanded?: boolean;
     onExpandToggle?: () => void;
+    onBack?: () => void;
     header?: ReactNode;
     headerFullWidth?: boolean;
     subheader?: ReactNode;
@@ -93,9 +100,15 @@ vi.mock('widgets/SidePanel', () => ({
     <div
       data-testid="side-panel"
       data-expanded={expanded ? 'true' : 'false'}
+      data-has-back={onBack ? 'true' : 'false'}
       data-header-full-width={headerFullWidth ? 'true' : 'false'}
     >
-      {onExpandToggle && <button aria-label={expanded ? 'Collapse panel' : 'Expand panel'} />}
+      {onExpandToggle && (
+        <button
+          aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
+          onClick={onExpandToggle}
+        />
+      )}
       {header}
       {subheader}
       {children}
@@ -177,7 +190,7 @@ describe('Panel upload entry', () => {
   });
 
   it('does not show the panel minimize control on the cart route', () => {
-    mocks.matches = [{ routeId: '/_panel/cart', staticData: {}, search: {} }];
+    mocks.matches = [{ routeId: '/_panel/cart', staticData: { panelMode: 'workspace' }, search: {} }];
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
@@ -185,16 +198,144 @@ describe('Panel upload entry', () => {
     expect(screen.queryByRole('button', { name: 'Collapse panel' })).not.toBeInTheDocument();
   });
 
+  it('uses the user preference while browsing normal panel routes', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    const { rerender } = render(<Component />);
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+    });
+
+    mocks.matches = [{ routeId: '/_panel/$spotId', staticData: {} }];
+    rerender(<Component />);
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+  });
+
+  it('updates the user preference when the photographer toggles expand and collapse', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse panel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Report feed layout ready' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('false');
+    });
+  });
+
   it('opens the cart route in the full-size panel', () => {
-    mocks.matches = [{ routeId: '/_panel/cart', staticData: {}, search: {} }];
+    mocks.matches = [{ routeId: '/_panel/cart', staticData: { panelMode: 'workspace' }, search: {} }];
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
     expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
   });
 
+  it('keeps a route-required workspace expanded when the user preferred compact browsing', () => {
+    mocks.matches = [{
+      routeId: '/_panel/$spotId/gallery',
+      staticData: { panelMode: 'workspace' },
+    }];
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Expand panel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse panel' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('side-panel').getAttribute('data-has-back')).toBe('true');
+  });
+
+  it('uses compact map-input behavior on the upload route', () => {
+    mocks.matches = [{ routeId: '/_panel/upload', staticData: { panelMode: 'mapInput' }, search: {} }];
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Expand panel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse panel' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('side-panel').getAttribute('data-has-back')).toBe('true');
+  });
+
+  it('publishes the user-expanded rendered panel state for the globe interaction policy', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+    });
+    expect(mocks.setRenderedPanelExpandedSnapshot).toHaveBeenLastCalledWith(true);
+  });
+
+  it('publishes route-required workspace rendered panel state for the globe interaction policy', () => {
+    mocks.matches = [{ routeId: '/_panel/cart', staticData: { panelMode: 'workspace' }, search: {} }];
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(mocks.setRenderedPanelExpandedSnapshot).toHaveBeenLastCalledWith(true);
+  });
+
+  it('publishes compact rendered panel state instead of the user preference', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    const { rerender } = render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Report feed layout ready' }));
+    mocks.matches = [{ routeId: '/_panel/upload', staticData: { panelMode: 'mapInput' }, search: {} }];
+    rerender(<Component />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('false');
+    });
+    expect(mocks.setRenderedPanelExpandedSnapshot).toHaveBeenLastCalledWith(false);
+  });
+
+  it('compacts upload after expanded browsing even when feed layout is not ready', async () => {
+    let runNextFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      runNextFrame = callback;
+      return 1;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    const { rerender } = render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }));
+
+    act(() => runNextFrame?.(0));
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+
+    runNextFrame = undefined;
+    mocks.matches = [{ routeId: '/_panel/upload', staticData: { panelMode: 'mapInput' }, search: {} }];
+    rerender(<Component />);
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('true');
+
+    act(() => runNextFrame?.(0));
+
+    expect(screen.getByTestId('side-panel').getAttribute('data-expanded')).toBe('false');
+    vi.unstubAllGlobals();
+  });
+
   it('lets the cart header span the full panel width', () => {
-    mocks.matches = [{ routeId: '/_panel/cart', staticData: {}, search: {} }];
+    mocks.matches = [{ routeId: '/_panel/cart', staticData: { panelMode: 'workspace' }, search: {} }];
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
@@ -202,7 +343,7 @@ describe('Panel upload entry', () => {
   });
 
   it('routes cart visitors without a spot origin back to the feed', () => {
-    mocks.matches = [{ routeId: '/_panel/cart', staticData: {}, search: {} }];
+    mocks.matches = [{ routeId: '/_panel/cart', staticData: { panelMode: 'workspace' }, search: {} }];
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
@@ -220,7 +361,7 @@ describe('Panel upload entry', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     mocks.matches = [{
       routeId: '/_panel/$spotId/session/$sessionId',
-      staticData: { forceExpanded: true },
+      staticData: { panelMode: 'workspace' },
       loaderData: null,
     }];
     const Component = (Route as unknown as { component: ComponentType }).component;

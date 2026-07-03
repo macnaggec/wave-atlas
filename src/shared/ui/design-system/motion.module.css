@@ -1,0 +1,31 @@
+@keyframes flashBorder {
+  0% {
+    box-shadow: none;
+  }
+
+  15% {
+    box-shadow: 0 0 0 1.5px var(--wa-status-danger), 0 0 8px var(--wa-status-danger-glow);
+  }
+
+  30% {
+    box-shadow: none;
+  }
+
+  55% {
+    box-shadow: 0 0 0 1.5px var(--wa-status-danger), 0 0 8px var(--wa-status-danger-glow);
+  }
+
+  75%,
+  100% {
+    box-shadow: none;
+  }
+}
+
+.flashBorder {
+  animation: flashBorder 0.9s ease forwards;
+}
+
+.flashBorderRounded {
+  animation: flashBorder 0.9s ease forwards;
+  border-radius: var(--wa-radius-control-sm);
+}

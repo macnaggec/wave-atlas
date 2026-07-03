@@ -1,0 +1,126 @@
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--wa-control-menu-hover);
+}
+
+.emptyRoot {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 24px;
+}
+
+.emptyContent {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 340px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 18px;
+}
+
+.emptyDescription {
+  margin: 0;
+  color: var(--wa-text-muted);
+  line-height: 1.5;
+}
+
+.emptyAction {
+  margin-top: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--wa-glass-border-status);
+  border-radius: 20px;
+  background: var(--wa-control-fill-hover);
+  color: var(--wa-text-status);
+  cursor: pointer;
+}
+
+.emptyAction:disabled {
+  cursor: default;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarMainCompact {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbarMainExpanded {
+  width: 25vw;
+  flex-shrink: 0;
+}
+
+.toolbarPrimary {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbarTrailing {
+  margin-left: auto;
+}
+
+.actionButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--wa-glass-border-status);
+  border-radius: 20px;
+  background: var(--wa-control-fill-hover);
+  color: var(--wa-text-primary);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  cursor: default;
+}
+
+.actionIndicator {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffaade;
+  box-shadow: 0 0 6px rgba(255, 170, 222, 0.8);
+}
+
+.floatingControls {
+  position: fixed;
+  top: 14px;
+  right: calc(25vw + 8px);
+  z-index: var(--wa-z-controls);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}

@@ -1,14 +1,3 @@
-/* Z-Index hierarchy */
-:root {
-  --z-globe: 0;
-  --z-controls: 100;
-  --z-panels: 200;
-  --z-modals: 500;
-
-  /* Left strip: 12px from viewport edge + 60px strip width */
-  --strip-safe: 72px;
-}
-
 html,
 body {
   margin: 0;
@@ -18,21 +7,10 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: auto;
-  background-color: #0a1628;
+  background-color: var(--wa-globe-bg);
 }
 
 #root {
   width: 100%;
   height: 100%;
-}
-
-/* Dark glass surface — overrides Mantine light-scheme color tokens for everything inside the panel */
-.dark-surface {
-  --mantine-color-gray-0: rgba(255, 255, 255, 0.06);
-  --mantine-color-gray-1: rgba(255, 255, 255, 0.06);
-  --mantine-primary-color-filled: rgba(255, 255, 255, 0.18);
-  --mantine-primary-color-filled-hover: rgba(255, 255, 255, 0.26);
-  --mantine-primary-color-contrast: #fff;
-  --mantine-primary-color-light: rgba(255, 255, 255, 0.08);
-  --mantine-primary-color-light-hover: rgba(255, 255, 255, 0.12);
 }

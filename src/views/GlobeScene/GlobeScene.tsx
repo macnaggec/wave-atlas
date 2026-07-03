@@ -5,10 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMatches, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import type { LngLat } from 'shared/types/coordinates';
+import { useRenderedPanelExpandedSnapshot } from 'shared/model/panelExpansionStore';
 import { useTRPC } from 'shared/lib/trpc';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { notify } from 'shared/lib/notifications';
+import { materialClasses } from 'shared/ui/design-system';
 import classes from './GlobeScene.module.css';
+import { deriveGlobeInteractionPolicy } from './model/globeInteractionPolicy';
 import { deriveGlobeMotionPolicy } from './model/globeMotionPolicy';
 import { deriveGlobeSceneMode } from './model/globeSceneMode';
 import { getOverviewMapBounds } from './model/overviewBoundsStrategy';
@@ -68,6 +71,7 @@ export function GlobeScene() {
   const [isUserExploring, setIsUserExploring] = useState(false);
   const isDocumentHidden = useDocumentHidden();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const isRenderedPanelExpanded = useRenderedPanelExpandedSnapshot();
   const matches = useMatches();
   const navigate = useNavigate();
   const trpc = useTRPC();
@@ -91,6 +95,10 @@ export function GlobeScene() {
     sceneMode,
     isDocumentHidden,
     prefersReducedMotion,
+  });
+  const interactionPolicy = deriveGlobeInteractionPolicy({
+    sceneMode,
+    isRenderedPanelExpanded,
   });
 
   const handleSpotSelect = useCallback(async (spot: MapSpotProjection) => {
@@ -120,6 +128,7 @@ export function GlobeScene() {
         selectedSpotId={selectedSpotId}
         onSpotSelect={handleSpotSelect}
         motionPolicy={motionPolicy}
+        interactionPolicy={interactionPolicy}
         isPinPlacementActive={isPinMode}
         tempPin={tempPin}
         onMapCoordinateClick={handleMapCoordinateClick}
@@ -127,7 +136,7 @@ export function GlobeScene() {
         onUserExploreEnd={() => setIsUserExploring(false)}
       />
       {isUpdatingDraft && (
-        <div className={classes.saveStatus} role="status">Saving spot…</div>
+        <div className={`${classes.saveStatus} ${materialClasses.status}`} role="status">Saving spot…</div>
       )}
       {isPinMode && <AddSpotPanel />}
     </div>

@@ -6,6 +6,7 @@ import type { LngLat } from 'shared/types/coordinates';
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   isUpdatingDraft: false,
+  isRenderedPanelExpanded: false,
   matches: [{ routeId: '/_panel/upload', search: { draftId: 'draft-1' } }] as Array<{
     routeId: string;
     params?: { spotId?: string };
@@ -41,6 +42,7 @@ vi.mock('widgets/GlobeMap', () => ({
       data-temp-pin={tempPin?.join(',') ?? ''}
       data-selected-spot-id={selectedSpotId ?? ''}
       data-has-camera-intent={String('cameraIntent' in restProps)}
+      data-interaction-policy={String(restProps.interactionPolicy)}
     >
       <button onClick={() => onSpotSelect({ id: 'spot-1' })}>Select Pipeline</button>
       <button onClick={() => onMapCoordinateClick?.([151.2, -33.85])}>Place pin</button>
@@ -56,6 +58,10 @@ vi.mock('features/AddSpot', () => ({
   AddSpotPanel: () => <div>Add spot panel</div>,
   usePinPlacementStore: (selector: (state: typeof mocks.pinPlacementState) => unknown) =>
     selector(mocks.pinPlacementState),
+}));
+
+vi.mock('shared/model/panelExpansionStore', () => ({
+  useRenderedPanelExpandedSnapshot: () => mocks.isRenderedPanelExpanded,
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -88,6 +94,7 @@ describe('GlobeScene upload spot selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isUpdatingDraft = false;
+    mocks.isRenderedPanelExpanded = false;
     mocks.matches = [{ routeId: '/_panel/upload', search: { draftId: 'draft-1' } }];
     mocks.pinPlacementState.isActive = false;
     mocks.pinPlacementState.tempPin = null;
@@ -120,6 +127,7 @@ describe('GlobeScene pin placement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isUpdatingDraft = false;
+    mocks.isRenderedPanelExpanded = false;
     mocks.matches = [{ routeId: '/_panel/upload', search: { draftId: 'draft-1' } }];
     mocks.pinPlacementState.isActive = true;
     mocks.pinPlacementState.tempPin = [151, -34];
@@ -142,6 +150,7 @@ describe('GlobeScene selected spot ownership', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isUpdatingDraft = false;
+    mocks.isRenderedPanelExpanded = false;
     mocks.matches = [];
     mocks.pinPlacementState.isActive = false;
     mocks.pinPlacementState.tempPin = null;
@@ -158,5 +167,50 @@ describe('GlobeScene selected spot ownership', () => {
 
     expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-selected-spot-id', 'spot-1');
     expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-has-camera-intent', 'false');
+  });
+});
+
+describe('GlobeScene map interaction policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isUpdatingDraft = false;
+    mocks.isRenderedPanelExpanded = true;
+    mocks.matches = [{ routeId: '/_panel/', search: {} }];
+    mocks.pinPlacementState.isActive = false;
+    mocks.pinPlacementState.tempPin = null;
+  });
+
+  it('passes background policy to the map when the rendered panel snapshot is expanded for normal browsing', () => {
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-interaction-policy', 'background');
+  });
+
+  it('passes background policy to the map when a route-required workspace publishes an expanded snapshot', () => {
+    mocks.matches = [{ routeId: '/_panel/$spotId', params: { spotId: 'spot-1' } }];
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-interaction-policy', 'background');
+  });
+
+  it('keeps compact browsing interactive when the rendered panel snapshot is compact', () => {
+    mocks.isRenderedPanelExpanded = false;
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-interaction-policy', 'interactive');
+  });
+
+  it('keeps pin placement interactive even when the rendered panel snapshot is expanded', () => {
+    mocks.pinPlacementState.isActive = true;
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-interaction-policy', 'interactive');
+  });
+
+  it('keeps upload spot selection interactive even when the rendered panel snapshot is expanded', () => {
+    mocks.matches = [{ routeId: '/_panel/upload', search: { draftId: 'draft-1' } }];
+    render(<GlobeScene />);
+
+    expect(screen.getByText('Select Pipeline').parentElement).toHaveAttribute('data-interaction-policy', 'interactive');
   });
 });

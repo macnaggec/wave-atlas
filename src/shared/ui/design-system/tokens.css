@@ -1,0 +1,98 @@
+:root {
+  /* Globe background */
+  --wa-globe-bg: #0a1628;
+
+  /* Layering */
+  --wa-z-globe: 0;
+  --wa-z-controls: 100;
+  --wa-z-status: 120;
+  --wa-z-panel: 200;
+  --wa-z-floating-chrome: 300;
+  --wa-z-modal: 500;
+
+  /* Layout */
+  --wa-layout-strip-safe: 72px;
+
+  /* Glass surfaces */
+  --wa-surface-chrome: rgba(255, 255, 255, 0.08);
+  --wa-surface-overlay: rgba(28, 30, 40, 0.82);
+  --wa-surface-dialog: rgba(18, 20, 30, 0.96);
+  --wa-surface-status: rgba(15, 23, 42, 0.82);
+  --wa-surface-media-card: rgba(255, 255, 255, 0.06);
+  --wa-surface-media-overlay: rgba(18, 22, 28, 0.42);
+  --wa-surface-media-overlay-hover: rgba(255, 255, 255, 0.18);
+  --wa-surface-video-indicator: rgba(0, 0, 0, 0.55);
+  --wa-surface-upload-zone: rgba(255, 255, 255, 0.08);
+  --wa-surface-upload-zone-hover: rgba(255, 255, 255, 0.12);
+  --wa-surface-primary-action: rgba(38, 166, 91, 0.42);
+  --wa-surface-primary-action-hover: rgba(42, 184, 104, 0.54);
+
+  /* Glass effects */
+  --wa-glass-blur-sm: blur(12px) saturate(140%);
+  --wa-glass-blur-md: blur(20px) saturate(180%);
+  --wa-glass-blur-status: blur(8px);
+  --wa-glass-border: rgba(255, 255, 255, 0.12);
+  --wa-glass-border-chrome: rgba(255, 255, 255, 0.14);
+  --wa-glass-border-status: rgba(255, 255, 255, 0.15);
+  --wa-glass-border-media-overlay: rgba(255, 255, 255, 0.18);
+  --wa-glass-border-media-overlay-hover: rgba(255, 255, 255, 0.28);
+  --wa-glass-border-primary-action: rgba(129, 230, 168, 0.34);
+  --wa-glass-border-primary-action-hover: rgba(157, 255, 194, 0.46);
+  --wa-glass-shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --wa-glass-shadow-chrome: 0 2px 12px rgba(0, 0, 0, 0.25);
+  --wa-glass-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --wa-glass-shadow-media-overlay: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --wa-glass-shadow-primary-action: 0 12px 30px rgba(0, 0, 0, 0.26);
+
+  /* Text on glass */
+  --wa-text-strong: rgba(255, 255, 255, 0.95);
+  --wa-text-primary: rgba(255, 255, 255, 0.88);
+  --wa-text-status: rgba(255, 255, 255, 0.9);
+  --wa-text-muted: rgba(255, 255, 255, 0.55);
+  --wa-text-dimmed: rgba(255, 255, 255, 0.5);
+  --wa-text-placeholder: rgba(255, 255, 255, 0.38);
+  --wa-text-inverse: #fff;
+  --wa-text-media-overlay: rgba(255, 255, 255, 0.92);
+  --wa-text-upload-zone-icon: rgba(255, 255, 255, 0.7);
+  --wa-text-upload-zone: rgba(255, 255, 255, 0.65);
+  --wa-text-primary-action: rgba(255, 255, 255, 0.94);
+
+  /* Controls on glass */
+  --wa-control-fill: rgba(255, 255, 255, 0.08);
+  --wa-control-fill-muted: rgba(255, 255, 255, 0.06);
+  --wa-control-fill-hover: rgba(255, 255, 255, 0.12);
+  --wa-control-fill-active: rgba(255, 255, 255, 0.18);
+  --wa-control-fill-active-hover: rgba(255, 255, 255, 0.26);
+  --wa-control-fill-subtle-hover: rgba(255, 255, 255, 0.04);
+  --wa-control-border: rgba(255, 255, 255, 0.16);
+  --wa-control-menu-hover: rgba(255, 255, 255, 0.07);
+  --wa-control-upload-border: rgba(255, 255, 255, 0.14);
+  --wa-control-upload-card-border: rgba(255, 255, 255, 0.18);
+  --wa-control-upload-card-border-hover: rgba(99, 179, 237, 0.72);
+  --wa-control-upload-card-label: rgba(255, 255, 255, 0.68);
+  --wa-control-upload-card-label-hover: #63b3ed;
+
+  /* Radii */
+  --wa-radius-control-sm: 8px;
+  --wa-radius-control-md: 10px;
+  --wa-radius-chrome: 12px;
+  --wa-radius-panel: 12px;
+  --wa-radius-dialog: 16px;
+  --wa-radius-status: 16px;
+
+  /* Status feedback */
+  --wa-status-danger: #ff4d6d;
+  --wa-status-danger-glow: rgba(255, 77, 109, 0.45);
+}
+
+/* Mantine global interaction states that are part of the Wave Atlas glass adapter. */
+.mantine-Menu-item:hover,
+.mantine-Menu-item[data-hovered],
+.mantine-Combobox-option:hover,
+.mantine-Combobox-option[data-combobox-hovered] {
+  background: var(--wa-control-menu-hover);
+}
+
+.mantine-Combobox-option[data-combobox-selected] {
+  background: var(--wa-control-fill-hover);
+}

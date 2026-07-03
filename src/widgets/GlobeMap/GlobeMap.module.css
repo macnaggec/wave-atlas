@@ -1,8 +1,8 @@
 .globeContainer {
   position: absolute;
   inset: 0;
-  z-index: var(--z-globe, 0);
-  background-color: #0a1628;
+  z-index: var(--wa-z-globe);
+  background-color: var(--wa-globe-bg);
   /* Let Mapbox fully control interaction */
   touch-action: none; /* Changed back to none as we want Mapbox to handle ALL touch */
   pointer-events: auto;
@@ -48,7 +48,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #0a1628;
+  background-color: var(--wa-globe-bg);
   z-index: 1;
 }
 

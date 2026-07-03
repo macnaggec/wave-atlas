@@ -7,6 +7,7 @@ import mapboxgl from 'mapbox-gl';
 import type { LngLat } from 'shared/types/coordinates';
 import { useMapStore } from 'widgets/GlobeMap/model/mapStore';
 import type { GlobeMotionPolicy } from './model/globeMotionPolicy';
+import type { GlobeInteractionPolicy } from './model/globeInteractionPolicy';
 import type { MapSpotProjection } from './model/mapSpotProjection';
 import { useGlobeAnimation } from './hooks/useGlobeAnimation';
 import { useSpotGeoJson } from './hooks/useSpotGeoJson';
@@ -45,6 +46,7 @@ export interface GlobeMapProps {
   };
   onSpotSelect: (spot: MapSpotProjection) => void;
   motionPolicy: GlobeMotionPolicy;
+  interactionPolicy?: GlobeInteractionPolicy;
   isPinPlacementActive?: boolean;
   tempPin?: LngLat | null;
   onMapCoordinateClick?: (coords: LngLat) => void;
@@ -58,6 +60,7 @@ export function GlobeMapComponent({
   initialViewState: _initialViewState = DEFAULT_VIEW,
   onSpotSelect,
   motionPolicy,
+  interactionPolicy = 'interactive',
   isPinPlacementActive = false,
   tempPin = null,
   onMapCoordinateClick,
@@ -70,6 +73,8 @@ export function GlobeMapComponent({
   const [isLoaded, setIsLoaded] = useState(false);
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
+  const acceptsMapInput = interactionPolicy === 'interactive';
+  const acceptsSpotInteraction = acceptsMapInput && !isPinPlacementActive;
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),
   // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
@@ -174,14 +179,18 @@ export function GlobeMapComponent({
   } = useMapInteraction({
     mapRef,
     spots,
-    onSpotClick: (spot) => {
-      executeFocusSpot(spot, false);
-      onSpotSelect(spot);
-    },
-    onUserInteractionStart: () => {
-      onUserExploreStart?.();
-      onUserInteractionStart();
-    }
+    onSpotClick: acceptsSpotInteraction
+      ? (spot) => {
+        executeFocusSpot(spot, false);
+        onSpotSelect(spot);
+      }
+      : undefined,
+    onUserInteractionStart: acceptsSpotInteraction
+      ? () => {
+        onUserExploreStart?.();
+        onUserInteractionStart();
+      }
+      : () => { },
   });
 
   useEffect(() => {
@@ -208,18 +217,24 @@ export function GlobeMapComponent({
   const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
     const { longitude, latitude, zoom, pitch, bearing } = e.viewState;
     saveCameraState({ longitude, latitude, zoom, pitch, bearing });
+    if (!acceptsMapInput) return;
+
     onUserExploreEnd?.();
-  }, [onUserExploreEnd, saveCameraState]);
+  }, [acceptsMapInput, onUserExploreEnd, saveCameraState]);
 
   const handleUserInteractionStart = useCallback(() => {
+    if (!acceptsMapInput) return;
+
     onUserExploreStart?.();
     onUserInteractionStart();
-  }, [onUserExploreStart, onUserInteractionStart]);
+  }, [acceptsMapInput, onUserExploreStart, onUserInteractionStart]);
 
   const handleUserInteractionEnd = useCallback(() => {
+    if (!acceptsMapInput) return;
+
     onUserInteractionEnd();
     onUserExploreEnd?.();
-  }, [onUserExploreEnd, onUserInteractionEnd]);
+  }, [acceptsMapInput, onUserExploreEnd, onUserInteractionEnd]);
 
   const handleLoad = useCallback((e: mapboxgl.MapboxEvent) => {
     mapInstanceRef.current = e.target as mapboxgl.Map;
@@ -257,7 +272,8 @@ export function GlobeMapComponent({
 
       <Map
         ref={mapRef}
-        cursor={isPinPlacementActive ? 'crosshair' : (selectedSpotId ? 'default' : cursor)}
+        cursor={isPinPlacementActive ? 'crosshair' : (selectedSpotId || !acceptsMapInput ? 'default' : cursor)}
+        interactive={acceptsMapInput}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={resolvedInitialView}
         onMoveEnd={handleMoveEnd}
@@ -267,19 +283,27 @@ export function GlobeMapComponent({
         projection={{ name: 'globe' as any }}
         fog={globeFog}
         onLoad={handleLoad}
-        onClick={isPinPlacementActive ? handleCoordinateClick : onSpotClick}
-        onDragStart={handleUserInteractionStart}
-        onDragEnd={handleUserInteractionEnd}
-        onZoomStart={handleUserInteractionStart}
-        onZoomEnd={handleUserInteractionEnd}
-        onRotateStart={handleUserInteractionStart}
-        onRotateEnd={handleUserInteractionEnd}
-        onMouseDown={handleUserInteractionStart}
-        onTouchStart={handleUserInteractionStart}
-        onWheel={handleUserInteractionStart}
-        interactiveLayerIds={isPinPlacementActive ? [] : SPOT_INTERACTIVE_LAYERS}
-        onMouseEnter={isPinPlacementActive ? undefined : onMouseEnter}
-        onMouseLeave={isPinPlacementActive ? undefined : onMouseLeave}
+        onClick={isPinPlacementActive ? handleCoordinateClick : (acceptsSpotInteraction ? onSpotClick : undefined)}
+        onDragStart={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onDragEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
+        onZoomStart={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onZoomEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
+        onRotateStart={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onRotateEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
+        onMouseDown={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onTouchStart={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onWheel={acceptsMapInput ? handleUserInteractionStart : undefined}
+        interactiveLayerIds={acceptsSpotInteraction ? SPOT_INTERACTIVE_LAYERS : []}
+        onMouseEnter={acceptsSpotInteraction ? onMouseEnter : undefined}
+        onMouseLeave={acceptsSpotInteraction ? onMouseLeave : undefined}
+        scrollZoom={acceptsMapInput}
+        boxZoom={acceptsMapInput}
+        dragRotate={acceptsMapInput}
+        dragPan={acceptsMapInput}
+        keyboard={acceptsMapInput}
+        doubleClickZoom={acceptsMapInput}
+        touchZoomRotate={acceptsMapInput}
+        touchPitch={acceptsMapInput}
         maxZoom={18}
         minZoom={1}
         trackResize={true}
@@ -299,7 +323,7 @@ export function GlobeMapComponent({
           <Layer {...iconLayer} />
         </Source>
         {/* Tooltip Popup (Only when not selected) */}
-        {hoveredSpot && hoveredSpot.id !== selectedSpotId && (
+        {acceptsSpotInteraction && hoveredSpot && hoveredSpot.id !== selectedSpotId && (
           <Popup
             longitude={hoveredSpot.coords.lng}
             latitude={hoveredSpot.coords.lat}

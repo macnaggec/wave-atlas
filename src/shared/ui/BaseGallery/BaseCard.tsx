@@ -2,26 +2,23 @@
 
 import React, { FC, ReactNode, memo } from 'react';
 import { Box } from '@mantine/core';
-import Video from './Video';
+import { IconPlayerPlay } from '@tabler/icons-react';
 import classes from './BaseCard.module.css';
 
 /**
  * Props for BaseCard component
  */
 export interface BaseCardProps {
-  /** Image or video URL (supports both blob:// and https://) */
+  /** Image URL (JPEG poster frame for videos, thumbnail for images) */
   imageUrl: string;
 
   /** Resource type - image or video */
   resourceType: 'image' | 'video';
 
-  /** Video playback URL (required for video type) */
-  playbackUrl?: string;
-
   /** Alt text for accessibility */
   alt?: string;
 
-  /** Optional overlay content (stacked over image/video in top-left) */
+  /** Optional overlay content (stacked over image in top-left) */
   overlays?: ReactNode;
 
   /** Optional action content (positioned bottom-right or as context menu) */
@@ -37,26 +34,12 @@ export interface BaseCardProps {
 /**
  * BaseCard - Foundation card component for all gallery cards
  *
- * Pure presentation component that renders image or video with optional
- * overlays, actions, and selection indicator. Decoupled from MediaItem
- * entity to work with both uploads (blob URLs) and published media.
- *
- * @example
- * ```tsx
- * <BaseCard
- *   imageUrl="https://res.cloudinary.com/..."
- *   resourceType="image"
- *   alt="Beach sunset"
- *   overlays={<DateBadge date={date} />}
- *   actions={<ActionButton onClick={handleDelete} />}
- *   selected={isSelected}
- * />
- * ```
+ * Renders a static thumbnail (always an <img>) with optional overlays, actions,
+ * and a play indicator for video cards. Video playback belongs in the lightbox.
  */
 const BaseCard: FC<BaseCardProps> = memo(({
   imageUrl,
   resourceType,
-  playbackUrl,
   alt = 'Media',
   overlays,
   actions,
@@ -66,10 +49,10 @@ const BaseCard: FC<BaseCardProps> = memo(({
   return (
     <Box
       className={`${classes.card} ${className || ''}`}
+      data-media-card-aspect="tall"
       onClick={onClick}
     >
-      {/* Image or Video */}
-      {resourceType === 'image' && imageUrl && (
+      {imageUrl && (
         <img
           src={imageUrl}
           alt={alt}
@@ -78,19 +61,9 @@ const BaseCard: FC<BaseCardProps> = memo(({
       )}
 
       {resourceType === 'video' && (
-        playbackUrl ? (
-          <Video
-            playbackUrl={playbackUrl}
-            controls
-          />
-        ) : (
-          <video
-            src={imageUrl}
-            className={classes.nativeMedia}
-            controls
-            preload="metadata"
-          />
-        )
+        <div className={classes.videoIndicator}>
+          <IconPlayerPlay size={14} />
+        </div>
       )}
 
       {/* Overlays slot (top-left: date/price badges, metadata) */}
@@ -102,7 +75,11 @@ const BaseCard: FC<BaseCardProps> = memo(({
 
       {/* Actions slot (bottom-right: cart, favorites, delete buttons) */}
       {actions && (
-        <Box className={classes.actions} onClick={(e) => e.stopPropagation()}>
+        <Box
+          className={classes.actions}
+          data-gallery-card-actions="glass"
+          onClick={(e) => e.stopPropagation()}
+        >
           {actions}
         </Box>
       )}

@@ -1,18 +1,19 @@
 .importingCard {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   width: 100%;
 }
 
 .actionBtn {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--wa-surface-media-overlay);
+  backdrop-filter: var(--wa-glass-blur-status);
+  -webkit-backdrop-filter: var(--wa-glass-blur-status);
+  border: 1px solid var(--wa-glass-border);
+  color: var(--wa-text-primary);
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .actionBtn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: var(--wa-surface-media-overlay-hover);
+  border-color: var(--wa-glass-border-media-overlay-hover);
+  color: var(--wa-text-inverse);
 }

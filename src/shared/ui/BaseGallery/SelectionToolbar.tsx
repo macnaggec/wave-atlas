@@ -4,17 +4,7 @@ import React, { ReactNode, memo } from 'react';
 import { Button, Group, Menu } from '@mantine/core';
 import { IconDots } from '@tabler/icons-react';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
-
-const glass = {
-  background: 'rgba(255,255,255,0.08)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  color: 'rgba(255,255,255,0.85)',
-};
-const ghost = {
-  background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: 'rgba(255,255,255,0.5)',
-};
+import classes from './SelectionToolbar.module.css';
 
 export interface SelectionToolbarProps<T> {
   selection: UseGallerySelectionReturn<T>;
@@ -41,7 +31,7 @@ const SelectionToolbar = memo(<T,>({
                 size="xs"
                 leftSection={<IconDots size={14} />}
                 disabled={!selection.hasSelection}
-                style={glass}
+                className={classes.glassButton}
                 radius="xl"
               >
                 Actions
@@ -61,7 +51,7 @@ const SelectionToolbar = memo(<T,>({
           <Button
             variant="transparent"
             size="xs"
-            style={ghost}
+            className={classes.ghostButton}
             radius="xl"
             onClick={selection.isAllSelected ? selection.clearSelection : selection.selectAll}
           >
@@ -71,7 +61,7 @@ const SelectionToolbar = memo(<T,>({
         <Button
           variant="transparent"
           size="xs"
-          style={selection.isSelectionMode ? ghost : glass}
+          className={selection.isSelectionMode ? classes.ghostButton : classes.glassButton}
           radius="xl"
           onClick={selection.isSelectionMode ? selection.disableSelectionMode : selection.enableSelectionMode}
         >

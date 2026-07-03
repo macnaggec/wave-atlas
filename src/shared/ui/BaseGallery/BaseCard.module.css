@@ -1,13 +1,10 @@
 .card {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
-  border-radius: var(--mantine-radius-md);
-  background-color: light-dark(
-    var(--mantine-color-gray-0),
-    var(--mantine-color-dark-6)
-  );
+  border-radius: var(--wa-radius-control-md);
+  background-color: var(--wa-surface-media-card);
   cursor: pointer;
   transition: transform 200ms ease;
   /* Isolate card to prevent reflows affecting other elements */
@@ -64,6 +61,38 @@
   display: flex;
   gap: var(--mantine-spacing-xs);
   pointer-events: all;
+}
+
+.actions :global(.mantine-ActionIcon-root) {
+  color: var(--wa-text-media-overlay);
+  background: var(--wa-surface-media-overlay);
+  border: 1px solid var(--wa-glass-border-media-overlay);
+  box-shadow: var(--wa-glass-shadow-media-overlay);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+}
+
+.actions :global(.mantine-ActionIcon-root:hover) {
+  color: var(--wa-text-inverse);
+  background: var(--wa-surface-media-overlay-hover);
+  border-color: var(--wa-glass-border-media-overlay-hover);
+}
+
+/* Video play indicator (bottom-left) */
+.videoIndicator {
+  position: absolute;
+  bottom: var(--mantine-spacing-xs);
+  left: var(--mantine-spacing-xs);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--wa-surface-video-indicator);
+  color: var(--wa-text-inverse);
+  pointer-events: none;
 }
 
 /* Error border indicator */

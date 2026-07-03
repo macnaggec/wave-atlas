@@ -41,17 +41,16 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
 
   const mediaItem = item.kind === 'draft' ? item.result : null;
 
-  // Use thumbnailUrl (no watermark) for completed drafts — owner is viewing their own content.
-  // lightboxUrl carries the watermark transform and is for public display only.
+  // Use thumbnailUrl (JPEG poster frame) for both image and video drafts.
+  // Video attempts use previewUrl which is a blob URL — renders fine as <img>
+  // only for images; video attempts show an empty card with the progress overlay.
   const imageUrl = mediaItem
     ? mediaItem.thumbnailUrl
-    : item.kind === 'attempt' ? item.previewUrl : '';
+    : item.kind === 'attempt' ? (item.resourceType === 'image' ? item.previewUrl : '') : '';
 
   const resourceType = (mediaItem
     ? mediaItem.resource.resourceType
-    : 'image') as 'image' | 'video';
-
-  const playbackUrl = mediaItem?.resource.playbackUrl;
+    : item.kind === 'attempt' ? item.resourceType : 'image') as 'image' | 'video';
 
   const alt = mediaItem
     ? `Media ${mediaItem.resource.assetId}`
@@ -87,7 +86,6 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     <DraftCard
       imageUrl={imageUrl}
       resourceType={resourceType}
-      playbackUrl={playbackUrl}
       alt={alt}
       overlays={overlays}
       actions={actionButton}

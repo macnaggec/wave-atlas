@@ -2,21 +2,30 @@ import { FC, memo, useMemo } from 'react';
 import { Group, Loader, Text, ThemeIcon } from '@mantine/core';
 import { IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
 import { GalleryCard, getUploadQueueStatus } from '../../model';
+import { motionClasses } from 'shared/ui/design-system';
 
 export interface UploadStatusLabelProps {
   items: GalleryCard[];
   hasActiveUploads: boolean;
   onOpen: () => void;
+  flashError?: boolean;
+  onFlashEnd?: () => void;
 }
 
-export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasActiveUploads, onOpen }) => {
+export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasActiveUploads, onOpen, flashError, onFlashEnd }) => {
   const { readyItems, uploadingCount } = useMemo(() => getUploadQueueStatus(items), [items]);
 
   const photoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType !== 'video').length;
   const videoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType === 'video').length;
 
   return (
-    <Group px="md" py="sm" justify="space-between">
+    <Group
+      px="md"
+      py="sm"
+      justify="space-between"
+      className={flashError ? motionClasses.flashBorder : undefined}
+      onAnimationEnd={flashError ? onFlashEnd : undefined}
+    >
       {hasActiveUploads ? (
         <Group justify="space-between" style={{ flex: 1 }}>
           <Group gap={6} align="center">

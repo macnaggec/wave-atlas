@@ -2,15 +2,9 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 1.5px dashed light-dark(
-    var(--mantine-color-gray-4),
-    var(--mantine-color-dark-4)
-  );
-  border-radius: var(--mantine-radius-md);
-  background-color: light-dark(
-    var(--mantine-color-gray-0),
-    var(--mantine-color-dark-7)
-  );
+  border: 1.5px dashed var(--wa-control-upload-card-border);
+  border-radius: var(--wa-radius-control-md);
+  background-color: var(--wa-surface-media-card);
   cursor: pointer;
   transition:
     border-color 200ms ease,
@@ -21,11 +15,8 @@
 }
 
 .card:hover {
-  border-color: var(--mantine-color-blue-6);
-  background-color: light-dark(
-    var(--mantine-color-blue-0),
-    var(--mantine-color-dark-6)
-  );
+  border-color: var(--wa-control-upload-card-border-hover);
+  background-color: var(--wa-surface-upload-zone-hover);
 }
 
 .card:active {
@@ -46,15 +37,12 @@
 }
 
 .label {
-  color: light-dark(
-    var(--mantine-color-gray-7),
-    var(--mantine-color-dark-2)
-  );
+  color: var(--wa-control-upload-card-label);
   transition: color 200ms ease;
 }
 
 .card:hover .label {
-  color: var(--mantine-color-blue-6);
+  color: var(--wa-control-upload-card-label-hover);
 }
 
 .hiddenInput {

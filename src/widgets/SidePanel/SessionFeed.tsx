@@ -13,36 +13,27 @@ const SESSION_CARD_TRACK = 'calc(25vw - 25px)';
 
 function SessionCard({ session, onClick }: { session: SurfSessionItem; onClick: () => void }) {
   return (
-    <div style={{ cursor: 'pointer' }} onClick={onClick}>
-      <div
-        style={{
-          position: 'relative',
-          aspectRatio: '16 / 10',
-          borderRadius: 10,
-          overflow: 'hidden',
-          background: 'rgba(255,255,255,0.06)',
-          marginBottom: 8,
-        }}
-      >
+    <div className={styles.card} onClick={onClick}>
+      <div className={styles.cardMedia}>
         {session.thumbnailUrl ? (
           <img
             src={session.thumbnailUrl}
             alt={session.spot.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            className={styles.thumbnail}
           />
         ) : (
-          <Center style={{ height: '100%' }}>
+          <Center className={styles.emptyMedia}>
             <IconPhoto size={24} color="rgba(255,255,255,0.25)" />
           </Center>
         )}
       </div>
 
-      <Stack gap={2} style={{ paddingBottom: 4 }}>
+      <Stack gap={2} className={styles.cardMeta}>
         <Text size="sm" fw={600} truncate>
           {session.spot.name}
         </Text>
-        <Text size="xs" c="dimmed" truncate style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <IconMapPin size={10} style={{ flexShrink: 0 }} />
+        <Text size="xs" c="dimmed" truncate className={styles.locationText}>
+          <IconMapPin size={10} className={styles.locationIcon} />
           {session.spot.location}
         </Text>
         <Text size="xs" c="dimmed">
@@ -94,7 +85,7 @@ export function SessionFeed({
         >
           {Array.from({ length: columns * 3 }).map((_, i) => (
             <div key={i}>
-              <Skeleton height={0} style={{ paddingBottom: '62.5%', borderRadius: 10, marginBottom: 8 }} />
+              <Skeleton height={0} className={styles.skeletonMedia} />
               <Skeleton height={14} mb={4} radius="sm" />
               <Skeleton height={11} width="60%" radius="sm" />
             </div>
@@ -124,7 +115,7 @@ export function SessionFeed({
 
           {hasNextPage && !isFetchingNextPage && (
             <Center py="md">
-              <Loader size="sm" onClick={() => fetchNextPage()} style={{ cursor: 'pointer' }} />
+              <Loader size="sm" onClick={() => fetchNextPage()} className={styles.loadMore} />
             </Center>
           )}
           {isFetchingNextPage && (

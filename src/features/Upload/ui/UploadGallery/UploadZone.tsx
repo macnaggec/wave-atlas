@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen, IconUpload } from '@tabler/icons-react';
 import { handleFileSelection } from '../../lib/fileSelection';
-import styles from './UploadZone.module.css';
+import { materialClasses, motionClasses } from 'shared/ui/design-system';
 
 interface UploadZoneProps {
   onFilesSelected: (files: File[]) => void;
@@ -29,24 +29,18 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
         accept="image/*,video/*"
         multiple
         onChange={handleChange}
-        style={{ display: 'none' }}
+        hidden
         aria-label="File upload input"
       />
       <Stack
         gap="md"
         align="center"
         py="xl"
-        className={flashError ? styles.flashBorder : undefined}
+        className={`${materialClasses.uploadZone} ${disabled ? materialClasses.uploadZoneDisabled : ''} ${flashError ? motionClasses.flashBorder : ''}`}
         onAnimationEnd={flashError ? onFlashEnd : undefined}
-        style={{
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.08)',
-          border: '1px dashed rgba(255,255,255,0.14)',
-          opacity: disabled ? 0.5 : 1,
-        }}
       >
-        <IconUpload size={28} stroke={1.5} style={{ color: 'rgba(255,255,255,0.7)' }} />
-        <Text size="xs" style={{ color: 'rgba(255,255,255,0.65)' }}>Images & videos · max 50MB per file</Text>
+        <IconUpload size={28} stroke={1.5} className={materialClasses.uploadZoneIcon} />
+        <Text size="xs" className={materialClasses.uploadZoneText}>Images & videos · max 50MB per file</Text>
         <Group gap="xs">
           <Button
             leftSection={<IconBrandGoogleDrive size={14} />}

@@ -8,30 +8,34 @@ import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/notifications/styles.css';
+import 'shared/ui/design-system/tokens.css';
 import './app.css';
 import { router } from 'app/lib/router';
+import { theme } from 'app/lib/theme';
 import { TRPCProvider } from 'shared/lib/trpc';
 import { queryClient } from 'shared/lib/queryClient';
 import { trpcClient } from 'shared/lib/trpcClient';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider
-        trpcClient={trpcClient}
-        queryClient={queryClient}
-      >
-        <MantineProvider>
-          <Notifications
-            position="top-right"
-            zIndex={1000}
-            limit={5}
-            autoClose={5000}
-          />
+ReactDOM
+  .createRoot(document.getElementById('root')!)
+  .render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider
+          trpcClient={trpcClient}
+          queryClient={queryClient}
+        >
+          <MantineProvider theme={theme}>
+            <Notifications
+              position="top-right"
+              zIndex={1000}
+              limit={5}
+              autoClose={5000}
+            />
 
-          <RouterProvider router={router} />
-        </MantineProvider>
-      </TRPCProvider>
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+            <RouterProvider router={router} />
+          </MantineProvider>
+        </TRPCProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );

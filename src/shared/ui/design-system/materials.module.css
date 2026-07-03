@@ -1,0 +1,59 @@
+.context {
+  --mantine-color-gray-0: var(--wa-control-fill-muted);
+  --mantine-color-gray-1: var(--wa-control-fill-muted);
+  --mantine-primary-color-filled: var(--wa-control-fill-active);
+  --mantine-primary-color-filled-hover: var(--wa-control-fill-active-hover);
+  --mantine-primary-color-contrast: var(--wa-text-inverse);
+  --mantine-primary-color-light: var(--wa-control-fill);
+  --mantine-primary-color-light-hover: var(--wa-control-fill-hover);
+  --mantine-color-text: var(--wa-text-primary);
+  --mantine-color-bright: var(--wa-text-strong);
+  --mantine-color-dimmed: var(--wa-text-dimmed);
+  --mantine-color-placeholder: var(--wa-text-placeholder);
+  --mantine-color-default: var(--wa-control-fill);
+  --mantine-color-default-hover: var(--wa-control-fill-hover);
+  --mantine-color-default-color: var(--wa-text-primary);
+  --mantine-color-default-border: var(--wa-control-border);
+}
+
+.chrome {
+  background: var(--wa-surface-chrome);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+  border: 1px solid var(--wa-glass-border-chrome);
+  box-shadow: var(--wa-glass-shadow-chrome);
+}
+
+.panel {
+  background: var(--wa-surface-chrome);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+  border: 1px solid var(--wa-glass-border-chrome);
+  box-shadow: var(--wa-glass-shadow-chrome);
+}
+
+.status {
+  background: var(--wa-surface-status);
+  backdrop-filter: var(--wa-glass-blur-status);
+  -webkit-backdrop-filter: var(--wa-glass-blur-status);
+  border: 1px solid var(--wa-glass-border-status);
+  color: var(--wa-text-status);
+}
+
+.uploadZone {
+  border-radius: var(--wa-radius-control-sm);
+  background: var(--wa-surface-upload-zone);
+  border: 1px dashed var(--wa-control-upload-border);
+}
+
+.uploadZoneDisabled {
+  opacity: 0.5;
+}
+
+.uploadZoneIcon {
+  color: var(--wa-text-upload-zone-icon);
+}
+
+.uploadZoneText {
+  color: var(--wa-text-upload-zone);
+}

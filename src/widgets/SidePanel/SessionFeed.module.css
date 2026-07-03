@@ -12,3 +12,51 @@
   gap: 12px;
   padding: 12px;
 }
+
+.card {
+  cursor: pointer;
+}
+
+.cardMedia {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: var(--wa-radius-control-md);
+  background: var(--wa-control-fill-muted);
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.emptyMedia {
+  height: 100%;
+}
+
+.cardMeta {
+  padding-bottom: 4px;
+}
+
+.locationText {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.locationIcon {
+  flex-shrink: 0;
+}
+
+.skeletonMedia {
+  padding-bottom: 62.5%;
+  margin-bottom: 8px;
+  border-radius: var(--wa-radius-control-md);
+}
+
+.loadMore {
+  cursor: pointer;
+}

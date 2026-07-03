@@ -28,15 +28,41 @@ vi.mock('react-map-gl', () => ({
     cursor,
     initialViewState,
     interactiveLayerIds,
+    interactive,
     onClick,
+    onDragStart,
     onLoad,
+    onMouseEnter,
+    onMoveEnd,
+    onWheel,
+    boxZoom,
+    doubleClickZoom,
+    dragPan,
+    dragRotate,
+    keyboard,
+    scrollZoom,
+    touchPitch,
+    touchZoomRotate,
   }: {
     children: ReactNode;
     cursor?: string;
     initialViewState?: unknown;
     interactiveLayerIds?: string[];
+    interactive?: boolean;
     onClick?: (event: { lngLat: { lng: number; lat: number } }) => void;
+    onDragStart?: () => void;
     onLoad: (event: { target: unknown }) => void;
+    onMouseEnter?: () => void;
+    onMoveEnd?: (event: { viewState: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number } }) => void;
+    onWheel?: () => void;
+    boxZoom?: boolean;
+    doubleClickZoom?: boolean;
+    dragPan?: boolean;
+    dragRotate?: boolean;
+    keyboard?: boolean;
+    scrollZoom?: boolean;
+    touchPitch?: boolean;
+    touchZoomRotate?: boolean;
   }) => (
     <div>
       <button
@@ -55,9 +81,37 @@ vi.mock('react-map-gl', () => ({
         type="button"
         data-cursor={cursor}
         data-interactive-layers={interactiveLayerIds?.join(',') ?? ''}
+        data-interactive={String(interactive)}
+        data-map-handlers={[
+          boxZoom,
+          doubleClickZoom,
+          dragPan,
+          dragRotate,
+          keyboard,
+          scrollZoom,
+          touchPitch,
+          touchZoomRotate,
+        ].map(String).join(',')}
         onClick={() => onClick?.({ lngLat: { lng: 151.2, lat: -33.85 } })}
       >
         Click map
+      </button>
+      <button type="button" onClick={() => onMouseEnter?.()}>
+        Enter spot
+      </button>
+      <button type="button" onClick={() => onDragStart?.()}>
+        Drag globe
+      </button>
+      <button type="button" onClick={() => onWheel?.()}>
+        Wheel globe
+      </button>
+      <button
+        type="button"
+        onClick={() => onMoveEnd?.({
+          viewState: { longitude: 1, latitude: 2, zoom: 3, pitch: 4, bearing: 5 },
+        })}
+      >
+        Move end
       </button>
     </div>
   ),
@@ -105,7 +159,7 @@ vi.mock('./hooks/useSpotGeoJson', () => ({
 vi.mock('./hooks/useMapInteraction', () => ({
   useMapInteraction: ({ spots, onSpotClick }: { spots: Spot[]; onSpotClick?: (spot: Spot) => void }) => ({
     cursor: 'grab',
-    hoveredSpot: null,
+    hoveredSpot: spots[0] ?? null,
     onMapClick: () => {
       const spot = spots[0];
       if (spot) onSpotClick?.(spot);
@@ -185,6 +239,75 @@ describe('GlobeMapComponent pin placement', () => {
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-cursor', 'crosshair');
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
     expect(mocks.tempPinMarker).toHaveBeenCalledWith({ tempPin: [151, -34], isActive: true });
+  });
+});
+
+describe('GlobeMapComponent interaction policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('backgrounds the map without accepting spot navigation clicks or hover popups', () => {
+    const onSpotSelect = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={onSpotSelect}
+        motionPolicy="paused"
+        interactionPolicy="background"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive', 'false');
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute(
+      'data-map-handlers',
+      'false,false,false,false,false,false,false,false',
+    );
+    expect(screen.queryByText('Uluwatu')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+
+    expect(onSpotSelect).not.toHaveBeenCalled();
+    expect(mocks.flyTo).not.toHaveBeenCalled();
+  });
+
+  it('keeps Mapbox camera handlers enabled while interactive', () => {
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        interactionPolicy="interactive"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute(
+      'data-map-handlers',
+      'true,true,true,true,true,true,true,true',
+    );
+  });
+
+  it('does not report user exploration while backgrounded', () => {
+    const onUserExploreStart = vi.fn();
+    const onUserExploreEnd = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        interactionPolicy="background"
+        onUserExploreStart={onUserExploreStart}
+        onUserExploreEnd={onUserExploreEnd}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /drag globe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /wheel globe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /move end/i }));
+
+    expect(onUserExploreStart).not.toHaveBeenCalled();
+    expect(onUserExploreEnd).not.toHaveBeenCalled();
   });
 });
 

@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import styles from './_panel.upload.module.css';
+import { motionClasses } from 'shared/ui/design-system';
+import { PanelEmptyState, PanelRouteLayout } from 'shared/ui/PanelRouteLayout';
 import { useTRPC } from 'shared/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
@@ -16,7 +17,7 @@ export const Route = createFileRoute('/_panel/upload')({
   validateSearch: (search): { draftId?: string } => ({
     draftId: typeof search.draftId === 'string' ? search.draftId : undefined,
   }),
-  staticData: { panelHeader: 'Upload' },
+  staticData: { panelHeader: 'Upload', panelMode: 'mapInput' },
   component: UploadPanel,
 });
 
@@ -99,27 +100,25 @@ function UploadPanel() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div
-          className={isSpotFlashing ? styles.flashBorder : undefined}
-          onAnimationEnd={() => setIsSpotFlashing(false)}
-        >
-          <FeedSearch
-            activeSpot={draft.spot}
-            onSpotSelect={(s) => handleSpotChange(s)}
-            onClear={() => handleSpotChange(null)}
-            autoFocus={!draft.spot}
-            placeholder={!draft.spot ? 'Where did you shoot?' : undefined}
-          />
-        </div>
-      </div>
+    <PanelRouteLayout
+      header={(
+        <FeedSearch
+          activeSpot={draft.spot}
+          onSpotSelect={(s) => handleSpotChange(s)}
+          onClear={() => handleSpotChange(null)}
+          autoFocus={!draft.spot}
+          placeholder={!draft.spot ? 'Where did you shoot?' : undefined}
+        />
+      )}
+      headerClassName={isSpotFlashing ? motionClasses.flashBorderRounded : undefined}
+      onHeaderAnimationEnd={() => setIsSpotFlashing(false)}
+    >
       <UploadSidebar
         draft={draft}
         onCancel={handleCancel}
         onPublishFailed={() => setIsSpotFlashing(true)}
       />
-    </div>
+    </PanelRouteLayout>
   );
 }
 
@@ -137,27 +136,13 @@ function UploadEntryState({
   isPending?: boolean;
 }) {
   return (
-    <div style={{ display: 'grid', placeItems: 'center', flex: 1, minHeight: 260, padding: 24 }}>
-      <div style={{ display: 'grid', justifyItems: 'center', gap: 10, maxWidth: 340, textAlign: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
-        <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{description}</p>
-        <button
-          type="button"
-          onClick={onAction}
-          disabled={isPending}
-          style={{
-            marginTop: 6,
-            padding: '8px 16px',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 20,
-            background: 'rgba(255,255,255,0.1)',
-            color: 'rgba(255,255,255,0.9)',
-            cursor: isPending ? 'default' : 'pointer',
-          }}
-        >
-          {isPending ? 'Opening upload…' : actionLabel}
-        </button>
-      </div>
-    </div>
+    <PanelEmptyState
+      title={title}
+      description={description}
+      actionLabel={actionLabel}
+      pendingLabel="Opening upload…"
+      onAction={onAction}
+      isPending={isPending}
+    />
   );
 }
