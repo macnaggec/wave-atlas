@@ -23,7 +23,7 @@ function SessionCard({ session, onClick }: { session: SurfSessionItem; onClick: 
           />
         ) : (
           <Center className={styles.emptyMedia}>
-            <IconPhoto size={24} color="rgba(255,255,255,0.25)" />
+            <IconPhoto size={24} className={styles.emptyMediaIcon} />
           </Center>
         )}
       </div>

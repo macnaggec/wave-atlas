@@ -1,7 +1,8 @@
 import { Button } from '@mantine/core';
 import { IconShoppingCart } from '@tabler/icons-react';
-import { FloatingAction } from 'shared/ui/DrawerLayout';
 import { formatPrice } from 'shared/lib/currency';
+import materials from 'shared/ui/design-system/materials.module.css';
+import styles from './CheckoutButton.module.css';
 
 export interface CheckoutButtonProps {
   totalCents: number;
@@ -11,16 +12,17 @@ export interface CheckoutButtonProps {
 
 export function CheckoutButton({ totalCents, isPending, onCheckout }: CheckoutButtonProps) {
   return (
-    <FloatingAction>
-      <Button
-        size="lg"
-        leftSection={<IconShoppingCart size={20} />}
-        loading={isPending}
-        color="green"
-        onClick={onCheckout}
-      >
-        Checkout · {formatPrice(totalCents)}
-      </Button>
-    </FloatingAction>
+    <Button
+      className={`${materials.primaryAction} ${styles.button}`}
+      data-panel-gallery-primary-action="glass-green"
+      data-panel-gallery-primary-action-size="compact"
+      size="lg"
+      radius="md"
+      leftSection={<IconShoppingCart size={20} />}
+      loading={isPending}
+      onClick={onCheckout}
+    >
+      Checkout · {formatPrice(totalCents)}
+    </Button>
   );
 }

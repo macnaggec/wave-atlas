@@ -57,3 +57,26 @@
 .uploadZoneText {
   color: var(--wa-text-upload-zone);
 }
+
+.divider {
+  border-color: var(--wa-control-fill-muted);
+}
+
+.primaryAction {
+  color: var(--wa-text-primary-action);
+  background: var(--wa-surface-primary-action);
+  border: 1px solid var(--wa-glass-border-primary-action);
+  box-shadow: var(--wa-glass-shadow-primary-action);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+}
+
+.primaryAction:hover {
+  background: var(--wa-surface-primary-action-hover);
+  border-color: var(--wa-glass-border-primary-action-hover);
+}
+
+.mediaTextOverlay {
+  color: var(--wa-text-media-overlay);
+  text-shadow: var(--wa-media-text-shadow);
+}

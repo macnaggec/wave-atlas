@@ -1,6 +1,8 @@
 import { memo, useCallback } from 'react';
-import { Card, Group, Image, Text } from '@mantine/core';
+import { Text } from '@mantine/core';
 import { formatPrice } from 'shared/lib/currency';
+import { BaseCard } from 'shared/ui/BaseGallery';
+import materials from 'shared/ui/design-system/materials.module.css';
 import DownloadButton from './DownloadButton';
 import classes from './PurchaseCard.module.css';
 
@@ -31,37 +33,27 @@ function PurchaseCard({
   }, [purchase.previewUrl, purchase.mediaItem.id, onPreview]);
 
   return (
-    <Card
-      padding="xs"
-      radius="md"
-      withBorder
-      className={purchase.previewUrl ? classes.card : undefined}
+    <BaseCard
+      imageUrl={purchase.mediaItem.thumbnailUrl}
+      resourceType="image"
+      alt="Purchased media"
+      className={purchase.previewUrl ? classes.card : classes.cardStatic}
       onClick={handleClick}
-    >
-      <Card.Section>
-        <Image
-          src={purchase.mediaItem.thumbnailUrl}
-          height={120}
-          fit="cover"
-          alt="Purchased media"
-        />
-      </Card.Section>
-
-      <Group justify="space-between" mt="xs" wrap="nowrap">
-        <Text size="xs" c="dimmed">
+      overlays={
+        <Text size="xs" fw={700} className={materials.mediaTextOverlay}>
           {formatPrice(purchase.amountPaid)}
         </Text>
-        <span onClick={event => event.stopPropagation()}>
-          <DownloadButton
-            mediaItemId={purchase.mediaItem.id}
-            size="sm"
-            loading={isDownloading}
-            disabled={isAnyDownloading}
-            onDownload={onDownload}
-          />
-        </span>
-      </Group>
-    </Card>
+      }
+      actions={
+        <DownloadButton
+          mediaItemId={purchase.mediaItem.id}
+          size="sm"
+          loading={isDownloading}
+          disabled={isAnyDownloading}
+          onDownload={onDownload}
+        />
+      }
+    />
   );
 }
 

@@ -3,10 +3,10 @@
 }
 
 .fallback {
-  aspect-ratio: 16 / 9;
-  background: #000;
+  aspect-ratio: 16 / 10;
+  background: var(--wa-surface-media-fallback);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--wa-text-inverse);
 }

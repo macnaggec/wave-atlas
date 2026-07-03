@@ -1,0 +1,49 @@
+.card {
+  border-radius: var(--wa-radius-control-sm);
+  border: 1px solid var(--wa-glass-border);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--wa-surface-media-card);
+}
+
+.image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholderIcon {
+  color: var(--wa-text-placeholder);
+}
+
+.spotNameGroup {
+  min-width: 0;
+}
+
+.metaIcon {
+  color: var(--wa-text-muted);
+  flex-shrink: 0;
+}
+
+.metaIconDimmed {
+  color: var(--wa-text-placeholder);
+  flex-shrink: 0;
+}

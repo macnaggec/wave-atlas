@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import { useCartStore, useCartCheckout } from 'entities/Commerce';
 import type { CartItem } from 'entities/Commerce';
 import { BaseGallery } from 'shared/ui/BaseGallery';
+import { PanelGalleryLayout } from 'shared/ui/PanelGalleryLayout';
 import { CartCard, CartLightbox, CheckoutButton } from 'features/Cart';
 
 export const Route = createFileRoute('/_panel/cart')({
   validateSearch: (search): { from?: string } => ({
     from: typeof search.from === 'string' ? search.from : undefined,
   }),
+  staticData: { panelMode: 'workspace' },
   component: CartPanelRoute,
 });
 
@@ -32,23 +34,27 @@ function CartPanelRoute() {
 
   return (
     <>
-      <BaseGallery<CartItem>
-        items={items}
-        renderCard={renderCartCard}
-        emptyState={
-          <Text c="dimmed" size="sm" ta="center" mt="xl">
-            Your cart is empty
-          </Text>
+      <PanelGalleryLayout
+        footer={
+          items.length > 0 ? (
+            <CheckoutButton
+              totalCents={totalCents}
+              isPending={isPending}
+              onCheckout={handleCheckout}
+            />
+          ) : undefined
         }
-      />
-
-      {items.length > 0 && (
-        <CheckoutButton
-          totalCents={totalCents}
-          isPending={isPending}
-          onCheckout={handleCheckout}
+      >
+        <BaseGallery<CartItem>
+          items={items}
+          renderCard={renderCartCard}
+          emptyState={
+            <Text c="dimmed" size="sm" ta="center" mt="xl">
+              Your cart is empty
+            </Text>
+          }
         />
-      )}
+      </PanelGalleryLayout>
 
       <CartLightbox
         item={lightboxItem}

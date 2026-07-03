@@ -3,6 +3,7 @@ import { Group, Loader, Text, ThemeIcon } from '@mantine/core';
 import { IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
 import { GalleryCard, getUploadQueueStatus } from '../../model';
 import { motionClasses } from 'shared/ui/design-system';
+import styles from './UploadStatusLabel.module.css';
 
 export interface UploadStatusLabelProps {
   items: GalleryCard[];
@@ -45,7 +46,7 @@ export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasA
             </ThemeIcon>
             {photoCount > 0 && (
               <Group gap={3} align="center">
-                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                <ThemeIcon size={22} variant="transparent" className={styles.mediaIcon}>
                   <IconPhoto size={20} />
                 </ThemeIcon>
                 <Text size="xs" c="dimmed">{photoCount}</Text>
@@ -53,7 +54,7 @@ export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasA
             )}
             {videoCount > 0 && (
               <Group gap={3} align="center">
-                <ThemeIcon size={22} variant="transparent" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                <ThemeIcon size={22} variant="transparent" className={styles.mediaIcon}>
                   <IconVideo size={20} />
                 </ThemeIcon>
                 <Text size="xs" c="dimmed">{videoCount}</Text>

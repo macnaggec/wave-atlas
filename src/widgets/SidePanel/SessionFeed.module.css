@@ -37,6 +37,10 @@
   height: 100%;
 }
 
+.emptyMediaIcon {
+  color: var(--wa-text-placeholder);
+}
+
 .cardMeta {
   padding-bottom: 4px;
 }

@@ -13,12 +13,12 @@ const SelectionCheckbox: FC<SelectionCheckboxProps> = memo(({ checked }) => {
     <Box className={styles.checkbox} data-checked={checked}>
       {checked ? (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.75)" strokeWidth="1.5" />
-          <path d="M9 12l2 2 4-4" stroke="rgba(255,255,255,0.95)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="10" fill="var(--wa-control-fill-active)" stroke="var(--wa-text-primary)" strokeWidth="1.5" />
+          <path d="M9 12l2 2 4-4" stroke="var(--wa-text-strong)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+          <circle cx="12" cy="12" r="10" fill="var(--wa-control-fill-muted)" stroke="var(--wa-text-placeholder)" strokeWidth="1.5" />
         </svg>
       )}
     </Box>

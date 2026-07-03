@@ -1,14 +1,3 @@
 .button {
-  color: var(--wa-text-primary-action);
-  background: var(--wa-surface-primary-action);
-  border: 1px solid var(--wa-glass-border-primary-action);
-  box-shadow: var(--wa-glass-shadow-primary-action);
-  backdrop-filter: var(--wa-glass-blur-sm);
-  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
   min-width: 220px;
-}
-
-.button:hover {
-  background: var(--wa-surface-primary-action-hover);
-  border-color: var(--wa-glass-border-primary-action-hover);
 }

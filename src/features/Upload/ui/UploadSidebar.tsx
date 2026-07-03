@@ -10,6 +10,7 @@ import { UploadStep } from './steps/UploadStep';
 import { PriceStep } from './steps/PriceStep';
 import { TimeStep } from './steps/TimeStep';
 import { combineDateAndTime, minutesToTime } from './steps/helpers';
+import materials from 'shared/ui/design-system/materials.module.css';
 
 interface UploadSidebarProps {
   draft: SurfSessionDraft;
@@ -102,11 +103,11 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
   }, [canPublish, photoPrice, publish, saveDraft, sessionDate, sessionRange, videoPrice]);
 
   return (
-    <Stack gap={0} style={{ flex: 1 }}>
+    <Stack gap={0} className={materials.context} style={{ flex: 1 }}>
       {/* Files */}
       <UploadStep draftId={draft.id} filesErrorTick={filesErrorTick} />
 
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+      <Divider className={materials.divider} />
 
       {/* Price */}
       <PriceStep
@@ -119,7 +120,7 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
         onVideoPriceCommit={(nextVideoPrice) => { void saveDraft({ videoPrice: nextVideoPrice }); }}
       />
 
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+      <Divider className={materials.divider} />
 
       {/* Date / Time */}
       <TimeStep
@@ -132,18 +133,14 @@ export function UploadSidebar({ draft, onCancel, onPublishFailed }: UploadSideba
 
       {/* Publish footer */}
       <Box>
-        <Divider style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+        <Divider className={materials.divider} />
         <Group px="md" py="lg" justify="center">
           <Button
+            className={materials.primaryAction}
             variant="transparent"
             radius="xl"
             loading={isPending}
             onClick={() => { void handlePublish(); }}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              color: 'rgba(255,255,255,0.9)',
-            }}
           >
             Publish session
           </Button>

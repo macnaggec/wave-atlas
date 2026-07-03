@@ -21,6 +21,7 @@
   --wa-surface-media-card: rgba(255, 255, 255, 0.06);
   --wa-surface-media-overlay: rgba(18, 22, 28, 0.42);
   --wa-surface-media-overlay-hover: rgba(255, 255, 255, 0.18);
+  --wa-surface-media-fallback: #000;
   --wa-surface-video-indicator: rgba(0, 0, 0, 0.55);
   --wa-surface-upload-zone: rgba(255, 255, 255, 0.08);
   --wa-surface-upload-zone-hover: rgba(255, 255, 255, 0.12);
@@ -43,6 +44,7 @@
   --wa-glass-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
   --wa-glass-shadow-media-overlay: 0 8px 24px rgba(0, 0, 0, 0.22);
   --wa-glass-shadow-primary-action: 0 12px 30px rgba(0, 0, 0, 0.26);
+  --wa-media-text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 
   /* Text on glass */
   --wa-text-strong: rgba(255, 255, 255, 0.95);
