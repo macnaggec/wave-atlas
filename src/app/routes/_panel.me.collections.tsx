@@ -1,13 +1,11 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Select, Tabs } from '@mantine/core';
-import { IconMapPin } from '@tabler/icons-react';
 import { useTabNavigation } from 'shared/hooks';
 import { useTRPC } from 'shared/lib/trpc';
 import type { SurfSessionItem } from 'entities/SurfSession';
+import { CollectionsToolbar } from 'features/Collections';
 import { PanelScrollChromeProvider } from 'shared/ui/PanelScrollChrome';
-import styles from './_panel.me.collections.module.css';
 
 const TAB_ROUTES = {
   uploads: '/me/collections',
@@ -66,40 +64,13 @@ function CollectionsLayout() {
   );
 
   const toolbar = (
-    <div
-      className={styles.toolbar}
-      data-testid="collections-toolbar"
-    >
-      <Tabs
-        className={styles.tabs}
-        data-testid="collections-tabs"
-        radius="xl"
-        value={activeTab}
-        variant="pills"
-        onChange={handleTabChange}
-      >
-        <Tabs.List>
-          <Tabs.Tab value="uploads">Uploads</Tabs.Tab>
-          <Tabs.Tab value="purchases">Purchases</Tabs.Tab>
-          <Tabs.Tab value="favorites">Favorites</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
-      {activeTab === 'uploads' && spotOptions.length > 1 && (
-        <Select
-          aria-label="Filter uploads by spot"
-          className={styles.spotSelect}
-          placeholder="All spots"
-          data={spotOptions}
-          value={spotFilter}
-          onChange={setSpotFilter}
-          clearable
-          size="xs"
-          radius="xl"
-          leftSection={<IconMapPin size={13} />}
-        />
-      )}
-    </div>
+    <CollectionsToolbar
+      activeTab={activeTab ?? 'uploads'}
+      spotOptions={spotOptions}
+      spotFilter={spotFilter}
+      onSpotFilterChange={setSpotFilter}
+      onTabChange={handleTabChange}
+    />
   );
 
   return (

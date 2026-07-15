@@ -6,7 +6,8 @@ import { useUser } from 'shared/hooks/useUser';
 import { useTRPC } from 'shared/lib/trpc';
 import type { PublicPublishedMedia } from 'entities/Media/types';
 
-type FavoriteCandidate = Omit<PublicPublishedMedia, 'type' | 'spotId'> & {
+type FavoriteCandidate = Omit<PublicPublishedMedia, 'price' | 'type' | 'spotId'> & {
+  price: PublicPublishedMedia['price'] | null;
   spotId: string | null;
   type?: 'PHOTO' | 'VIDEO';
   resource?: { resourceType: 'image' | 'video' };
@@ -68,12 +69,17 @@ export function useMediaFavorites() {
       return;
     }
     const favorited = !favoriteIds.has(item.id);
-    const favoriteItem: PublicPublishedMedia = {
-      ...item,
-      spotId: item.spotId ?? item.spot?.id ?? '',
-      type: item.type ?? (item.resource?.resourceType === 'video' ? 'VIDEO' : 'PHOTO'),
-    };
-    optimisticItems.set(item.id, favoriteItem);
+    if (item.price !== null) {
+      const favoriteItem: PublicPublishedMedia = {
+        ...item,
+        price: item.price,
+        spotId: item.spotId ?? item.spot?.id ?? '',
+        type: item.type ?? (item.resource?.resourceType === 'video' ? 'VIDEO' : 'PHOTO'),
+      };
+      optimisticItems.set(item.id, favoriteItem);
+    } else {
+      optimisticItems.delete(item.id);
+    }
     mutation.mutate({ mediaItemId: item.id, favorited });
   };
 

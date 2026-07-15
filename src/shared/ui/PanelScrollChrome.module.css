@@ -1,7 +1,4 @@
 .chrome {
-  --wa-panel-control-background: rgba(255, 255, 255, 0.24);
-  --wa-panel-control-backdrop: blur(24px) saturate(140%);
-
   position: sticky;
   top: 0;
   flex-shrink: 0;

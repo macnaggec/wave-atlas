@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 import { mockDeep } from 'vitest-mock-extended'
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom/vitest'
 
 // ---------------------------------------------------------------------------
 // Server module mocks — prevent accidental real DB / payment calls from

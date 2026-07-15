@@ -6,6 +6,7 @@ import { SidePanel } from './SidePanel';
 import { PanelScrollChrome, PanelScrollChromeProvider } from 'shared/ui/PanelScrollChrome';
 
 const sidePanelCss = readFileSync('src/shared/ui/PanelScrollChrome.module.css', 'utf8');
+const designTokensCss = readFileSync('src/shared/ui/design-system/tokens.css', 'utf8');
 
 function cssRule(selector: string) {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -82,8 +83,10 @@ describe('SidePanel', () => {
   it('keeps sticky search chrome transparent above scrolled content', () => {
     expect(cssRule('.chrome')).not.toMatch(/(?:^|; )background:/);
     expect(cssRule('.chrome[data-over-content]')).toBe('');
-    expect(cssRule('.chrome')).toContain('--wa-panel-control-background: rgba(255, 255, 255, 0.24)');
-    expect(cssRule('.chrome')).toContain('--wa-panel-control-backdrop: blur(24px) saturate(140%)');
+    expect(cssRule('.chrome')).not.toContain('--wa-panel-control-background:');
+    expect(cssRule('.chrome')).not.toContain('--wa-panel-control-backdrop:');
+    expect(designTokensCss).toContain('--wa-panel-control-background:');
+    expect(designTokensCss).toContain('--wa-panel-control-backdrop:');
   });
 
   it('gives Mantine controls projected into any gallery chrome the shared control glass', () => {

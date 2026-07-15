@@ -5,12 +5,12 @@ import { UploadWorkspaceService } from './UploadWorkspaceService';
 const service = new UploadWorkspaceService();
 
 async function clearTestData() {
-  await (prisma as any).uploadWorkspaceMediaChange.deleteMany();
-  await (prisma as any).uploadWorkspaceAsset.deleteMany();
+  await prisma.uploadWorkspaceMediaChange.deleteMany();
+  await prisma.uploadWorkspaceAsset.deleteMany();
   await prisma.uploadAttempt.deleteMany();
   await prisma.purchase.deleteMany();
   await prisma.mediaItem.deleteMany();
-  await (prisma as any).uploadWorkspace.deleteMany();
+  await prisma.uploadWorkspace.deleteMany();
   await prisma.surfSession.deleteMany();
   await prisma.spot.deleteMany();
   await prisma.user.deleteMany();
@@ -64,7 +64,7 @@ async function seedPublishedSessionWithOnePhoto(options: { purchased?: boolean }
 }
 
 async function addReadyWorkspaceAsset(workspaceId: string, photographerId: string) {
-  return (prisma as any).uploadWorkspaceAsset.create({
+  return prisma.uploadWorkspaceAsset.create({
     data: {
       workspaceId,
       photographerId,
@@ -154,12 +154,12 @@ describe('UploadWorkspaceService session edits', () => {
       status: 'PUBLISHED',
       deletedAt: null,
     });
-    expect(await (prisma as any).uploadWorkspaceMediaChange.count({ where: { workspaceId: workspace.id } })).toBe(0);
+    expect(await prisma.uploadWorkspaceMediaChange.count({ where: { workspaceId: workspace.id } })).toBe(0);
   });
 
   it('hard-deletes media after clearing stale staged-removal rows from cancelled workspaces', async () => {
     const { photographer, session, original } = await seedPublishedSessionWithOnePhoto();
-    const staleWorkspace = await (prisma as any).uploadWorkspace.create({
+    const staleWorkspace = await prisma.uploadWorkspace.create({
       data: {
         photographerId: photographer.id,
         kind: 'SESSION_EDIT',
@@ -172,7 +172,7 @@ describe('UploadWorkspaceService session edits', () => {
         videoPrice: session.videoPrice,
       },
     });
-    await (prisma as any).uploadWorkspaceMediaChange.create({
+    await prisma.uploadWorkspaceMediaChange.create({
       data: { workspaceId: staleWorkspace.id, mediaItemId: original.id },
     });
 
@@ -183,7 +183,7 @@ describe('UploadWorkspaceService session edits', () => {
     await service.saveWorkspace(photographer.id, workspace.id);
 
     expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toBeNull();
-    expect(await (prisma as any).uploadWorkspaceMediaChange.count({ where: { mediaItemId: original.id } })).toBe(0);
+    expect(await prisma.uploadWorkspaceMediaChange.count({ where: { mediaItemId: original.id } })).toBe(0);
   });
 
   it('uses one active workspace slot for both new uploads and session edits', async () => {

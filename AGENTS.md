@@ -96,8 +96,6 @@ In every task Direction Brief, name the invariant and its owning verification. I
 - **New architectural rule ⇒ same-commit enforcement.** Any new convention — a dependency direction, layer boundary, state-ownership rule, contract shape, forbidden import, or domain-value type — MUST land in the same commit as its machine enforcement: an `eslint-plugin-boundaries` / `no-restricted-imports` rule, a `check-style-boundaries` rule, a type-level constraint, or a test that fails on violation. If it genuinely cannot be machine-enforced, record it in `docs/review/04-target-architecture.md` with the reason. A convention that exists only in prose, chat, or memory does not exist.
 - **Never weaken a gate to make it pass.** No `eslint-disable`, no `@ts-expect-error` or `as`-cast to silence a type error, no `test.skip`, no loosening a lint rule, no deleting an assertion — without explicit user approval. Every approved exception carries a comment naming the debt and the roadmap item that pays it.
 
-**Bootstrap clause:** the gates are currently red pending roadmap items T0.1/Q1 (`docs/review/05-transformation-roadmap.md`). Until those land, the rule applies as: introduce ZERO new gate failures (compare against the pre-change failure list), and treat making the gates green as the highest-priority work available. Once green, the full stop-the-line rule above is in force and this clause is dead — delete it.
-
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**

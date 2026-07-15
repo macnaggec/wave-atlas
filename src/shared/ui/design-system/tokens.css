@@ -67,6 +67,8 @@
   --wa-control-fill-active: rgba(255, 255, 255, 0.18);
   --wa-control-fill-active-hover: rgba(255, 255, 255, 0.26);
   --wa-control-fill-subtle-hover: rgba(255, 255, 255, 0.04);
+  --wa-panel-control-background: rgba(255, 255, 255, 0.24);
+  --wa-panel-control-backdrop: blur(24px) saturate(140%);
   --wa-control-border: rgba(255, 255, 255, 0.16);
   --wa-control-indicator: rgba(255, 255, 255, 0.48);
   --wa-control-menu-hover: rgba(255, 255, 255, 0.07);
