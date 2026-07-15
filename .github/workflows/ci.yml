@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check client
+        run: npx tsc --noEmit
+
+      - name: Type-check server
+        run: npx tsc -p tsconfig.server.json --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check style boundaries
+        run: npm run check:style-boundaries
+
+      - name: Run client and server tests
+        run: npx vitest run --project client --project server
+
+      - name: Start integration-test database
+        run: npm run test:db:up
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Stop integration-test database
+        if: always()
+        run: npm run test:db:down
