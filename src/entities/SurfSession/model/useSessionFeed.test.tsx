@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { toSessionFeedDateRange, useSessionFeed } from './useSessionFeed';
+import { useSessionFeed } from './useSessionFeed';
+import { toBrowseDateRange } from 'shared/model/browseFilters';
 
 const mocks = vi.hoisted(() => ({
   infiniteQueryOptions: vi.fn((
@@ -44,7 +45,7 @@ describe('useSessionFeed', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 5, 20, 15, 30));
 
-    expect(toSessionFeedDateRange('last7')).toEqual({
+    expect(toBrowseDateRange('last7')).toEqual({
       dateFrom: new Date(2026, 5, 14),
       dateTo: new Date(2026, 5, 21),
     });
@@ -55,7 +56,7 @@ describe('useSessionFeed', () => {
 
     renderHook(() => useSessionFeed({
       spotId: 'adca9ad6-f886-4f19-bb64-64c092873c59',
-      filter: { date: selectedDate },
+      filters: { date: { date: selectedDate }, favoriteSpotsOnly: true },
     }));
 
     expect(mocks.infiniteQueryOptions).toHaveBeenCalledWith(
@@ -64,6 +65,7 @@ describe('useSessionFeed', () => {
         spotId: 'adca9ad6-f886-4f19-bb64-64c092873c59',
         dateFrom: new Date(2026, 4, 3),
         dateTo: new Date(2026, 4, 4),
+        favoritesOnly: true,
       },
       { getNextPageParam: expect.any(Function) },
     );

@@ -36,7 +36,7 @@
   background: radial-gradient(
     ellipse at center,
     #1a365d 0%,
-    #0a1628 50%,
+    var(--wa-globe-bg) 50%,
     #000 100%
   );
 }
@@ -53,7 +53,7 @@
 }
 
 .errorText {
-  color: white;
+  color: var(--wa-text-inverse);
   text-align: center;
   padding: 1rem;
 }
@@ -62,14 +62,14 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #3b82f6;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0, 0, 0, 0.4);
+  background: var(--wa-accent-marker);
+  border: 3px solid var(--wa-text-inverse);
+  box-shadow: 0 0 0 2px var(--wa-accent-marker), 0 2px 8px rgba(0, 0, 0, 0.4);
   animation: pin-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pin-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0, 0, 0, 0.4); }
+  0%, 100% { box-shadow: 0 0 0 2px var(--wa-accent-marker), 0 2px 8px rgba(0, 0, 0, 0.4); }
   50%       { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4); }
 }
 
@@ -91,12 +91,12 @@
 }
 
 .globeContainer :global(.mapboxgl-popup-tip) {
-  display: none; /* Hide the tip for a cleaner floating tooltip look */
+  display: none; /* Hide the default tip — the pin marker itself points at the location */
 }
 
 /* Custom close button styling if using standard popup close button */
 .globeContainer :global(.mapboxgl-popup-close-button) {
-  color: white;
+  color: var(--wa-text-inverse);
   right: 8px; /* Moved slightly more inwards */
   top: 8px;
   font-size: 20px; /* Slights larger for better visual center */

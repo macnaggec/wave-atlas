@@ -6,7 +6,10 @@ import { toCartItem } from './toCartItem';
 type CartMediaItem = Pick<
   MediaItem,
   'id' | 'capturedAt' | 'thumbnailUrl' | 'lightboxUrl' | 'price'
->;
+> & {
+  /** Present on items fetched without a single fixed spot context (e.g. an all-spots gallery). */
+  spot?: { name: string } | null;
+};
 
 /**
  * Commerce-owned cart toggle logic.

@@ -10,8 +10,8 @@ const baseParams = {
   timestamp: 1234567890,
   apiKey: 'key',
   cloudName: CLOUD_NAME,
-  publicId: 'wave-atlas/users/abc/test-uuid',
-  eager: 't_wave_atlas_thumbnail|t_wave_atlas_lightbox_watermark',
+  publicId: 'swelldays/users/abc/test-uuid',
+  eager: 't_swelldays_thumbnail|t_swelldays_lightbox_watermark',
 };
 
 const testFile = new File(['pixel'], 'photo.jpg', { type: 'image/jpeg' });
@@ -58,25 +58,25 @@ describe('uploadToCloudinary — XHR lifecycle', () => {
 
   it('rejects with INVALID_RESPONSE on 200 when eager transforms are absent', async () => {
     // Cloudinary returned 200 but did not include eager variants (e.g. named transform missing)
-    simulateLoad(200, JSON.stringify({ public_id: 'wave-atlas/img', resource_type: 'image' }));
+    simulateLoad(200, JSON.stringify({ public_id: 'swelldays/img', resource_type: 'image' }));
     const { promise } = uploadToCloudinary({ ...baseParams, file: testFile });
     await expect(promise).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
   });
 
   it('resolves with publicId, thumbnailUrl, and lightboxUrl from eager[0] and eager[1]', async () => {
     const base = `https://res.cloudinary.com/${CLOUD_NAME}/image/authenticated`;
-    const thumbnailUrl = `${base}/t_wave_atlas_thumbnail/wave-atlas/img`;
-    const lightboxUrl = `${base}/t_wave_atlas_lightbox_watermark/wave-atlas/img`;
+    const thumbnailUrl = `${base}/t_swelldays_thumbnail/swelldays/img`;
+    const lightboxUrl = `${base}/t_swelldays_lightbox_watermark/swelldays/img`;
 
     simulateLoad(200, JSON.stringify({
-      public_id: 'wave-atlas/img',
+      public_id: 'swelldays/img',
       resource_type: 'image',
       eager: [{ secure_url: thumbnailUrl }, { secure_url: lightboxUrl }],
     }));
 
     const { promise } = uploadToCloudinary({ ...baseParams, file: testFile });
     await expect(promise).resolves.toMatchObject({
-      publicId: 'wave-atlas/img',
+      publicId: 'swelldays/img',
       thumbnailUrl,
       lightboxUrl,
       resourceType: 'image',

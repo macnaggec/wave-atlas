@@ -10,6 +10,16 @@ export type SpotMediaPage = {
   nextCursor: string | null;
 };
 
+export interface PublishedSpotMediaFilter {
+  spotId?: string;
+  cursor?: string;
+  limit: number;
+  sortOrder?: 'asc' | 'desc';
+  dateFrom?: Date;
+  dateTo?: Date;
+  favoriteUserId?: string;
+}
+
 function mapToPublishedMedia(
   row: PrismaMediaItem & { spot: { id: string; name: string } | null },
 ): PublishedMedia {
@@ -27,11 +37,15 @@ function mapToPublishedMedia(
 }
 
 function mapToSpotMediaItem(
-  row: PrismaMediaItem & { photographer: { id: string; name: string | null } | null },
+  row: PrismaMediaItem & {
+    photographer: { id: string; name: string | null } | null;
+    spot: { id: string; name: string } | null;
+  },
 ): SpotMediaItem {
   return {
     ...mapToMediaItem(row),
     photographer: row.photographer,
+    spot: row.spot,
   };
 }
 
@@ -50,6 +64,8 @@ export interface IMediaRepository {
   updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem>;
   updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
   softDelete(id: string): Promise<MediaItem>;
+  hardDelete(id: string): Promise<void>;
+  hardDeleteMany(ids: string[]): Promise<void>;
   findByIds(ids: string[]): Promise<{ id: string; sessionId: string; status: DomainMediaStatus; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
   findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
@@ -57,7 +73,7 @@ export interface IMediaRepository {
   hasDraftsByUser(photographerId: string): Promise<boolean>;
   findDraftsByUser(photographerId: string): Promise<MediaItem[]>;
   findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
-  findPublishedBySpot(spotId: string, cursor: string | undefined, limit: number, sortOrder?: 'asc' | 'desc'): Promise<SpotMediaPage>;
+  findPublishedBySpot(filter: PublishedSpotMediaFilter): Promise<SpotMediaPage>;
 }
 
 export class MediaRepository implements IMediaRepository {
@@ -155,6 +171,19 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
+  hardDelete(id: string): Promise<void> {
+    return runQuery(async () => {
+      await prisma.mediaItem.delete({ where: { id } });
+    });
+  }
+
+  hardDeleteMany(ids: string[]): Promise<void> {
+    return runQuery(async () => {
+      await prisma.mediaItem.deleteMany({ where: { id: { in: ids } } });
+    });
+  }
+
+  /** True when legacy unpublished media rows still exist for a photographer. */
   hasDraftsByUser(photographerId: string): Promise<boolean> {
     return runQuery(async () => {
       const count = await prisma.mediaItem.count({
@@ -162,6 +191,7 @@ export class MediaRepository implements IMediaRepository {
           photographerId,
           status: MEDIA_STATUS.DRAFT,
           deletedAt: null,
+          session: { mediaItems: { none: { price: { not: null } } } },
         },
       });
       return count > 0;
@@ -192,23 +222,35 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findPublishedBySpot(
-    spotId: string,
-    cursor: string | undefined,
-    limit: number,
-    sortOrder: 'asc' | 'desc' = 'desc',
-  ): Promise<SpotMediaPage> {
+  /** Published media, optionally scoped to a single spot; unfiltered lists across all spots. */
+  findPublishedBySpot(filter: PublishedSpotMediaFilter): Promise<SpotMediaPage> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
-        where: { spotId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
-        orderBy: { capturedAt: sortOrder },
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        include: { photographer: { select: { id: true, name: true } } },
+        where: {
+          spotId: filter.spotId,
+          status: MEDIA_STATUS.PUBLISHED,
+          deletedAt: null,
+          ...(filter.dateFrom || filter.dateTo ? {
+            capturedAt: {
+              ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
+              ...(filter.dateTo ? { lt: filter.dateTo } : {}),
+            },
+          } : {}),
+          ...(filter.favoriteUserId ? {
+            spot: { favoritedBy: { some: { userId: filter.favoriteUserId } } },
+          } : {}),
+        },
+        orderBy: { capturedAt: filter.sortOrder ?? 'desc' },
+        take: filter.limit + 1,
+        ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+        include: {
+          photographer: { select: { id: true, name: true } },
+          spot: { select: { id: true, name: true } },
+        },
       });
 
-      const hasMore = rows.length > limit;
-      const items = hasMore ? rows.slice(0, limit) : rows;
+      const hasMore = rows.length > filter.limit;
+      const items = hasMore ? rows.slice(0, filter.limit) : rows;
       const nextCursor = hasMore ? items[items.length - 1]!.id : null;
 
       return { items: items.map(mapToSpotMediaItem), nextCursor };

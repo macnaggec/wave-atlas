@@ -3,10 +3,10 @@ import type { PublicMediaItem } from 'entities/Media';
 import { useUser } from 'shared/hooks/useUser';
 import type { PublicCardAction } from './types';
 
-const ACTIONS_CART: PublicCardAction[] = ['cart'];
-const ACTIONS_CART_SHARE: PublicCardAction[] = ['cart', 'share'];
+const ACTIONS_FAVORITE: PublicCardAction[] = ['favorites'];
+const ACTIONS_CART: PublicCardAction[] = ['cart', 'favorites'];
+const ACTIONS_CART_SHARE: PublicCardAction[] = ['cart', 'favorites', 'share'];
 const ACTIONS_NONE: PublicCardAction[] = [];
-const ACTIVE_CART: PublicCardAction[] = ['cart'];
 
 interface CardActionResult {
   actions: PublicCardAction[];
@@ -39,6 +39,7 @@ const EMPTY_LABELS: Record<NonNullable<EmptyReason>, string> = {
 
 interface UsePublicGalleryActionsParams {
   cartItemIds: Set<string>;
+  favoriteItemIds: Set<string>;
   hasShare: boolean;
 }
 
@@ -54,6 +55,7 @@ interface UsePublicGalleryActionsParams {
  */
 export function usePublicGalleryActions({
   cartItemIds,
+  favoriteItemIds,
   hasShare
 }: UsePublicGalleryActionsParams) {
   const { user, isLoading } = useUser();
@@ -69,17 +71,23 @@ export function usePublicGalleryActions({
       // showing cart buttons on own items before user identity is known.
       const isOwn = isOwnId(item.photographerId);
       const isPurchased = item.viewerEntitlement.purchaseState === 'purchased';
-      if (isSelectionMode || isOwn || isPurchased) {
+      if (isSelectionMode) {
         return { actions: ACTIONS_NONE, activeActions: ACTIONS_NONE, isOwn, isPurchased };
+      }
+      const activeActions: PublicCardAction[] = [];
+      if (cartItemIds.has(item.id)) activeActions.push('cart');
+      if (favoriteItemIds.has(item.id)) activeActions.push('favorites');
+      if (isOwn || isPurchased) {
+        return { actions: ACTIONS_FAVORITE, activeActions, isOwn, isPurchased };
       }
       return {
         actions: hasShare ? ACTIONS_CART_SHARE : ACTIONS_CART,
-        activeActions: cartItemIds.has(item.id) ? ACTIVE_CART : ACTIONS_NONE,
+        activeActions,
         isOwn,
         isPurchased,
       };
     },
-    [isOwnId, cartItemIds, hasShare],
+    [isOwnId, cartItemIds, favoriteItemIds, hasShare],
   );
 
   const getCartBulkState = useCallback(

@@ -1,9 +1,9 @@
-import React, { ReactNode, memo, useCallback, useRef } from 'react';
+import React, { ReactNode, memo, useCallback } from 'react';
 import { Stack } from '@mantine/core';
 import styles from './BaseGallery.module.css';
 import SelectionCheckbox from './SelectionCheckbox';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
-import { useScrollHidden } from 'shared/hooks';
+import { usePanelScrollChromeState } from 'shared/ui/PanelScrollChrome';
 
 /**
  * Context passed to renderCard for each item
@@ -97,16 +97,15 @@ function BaseGallery<T extends { id: string }>({
     [selection]
   );
 
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  useScrollHidden(toolbarRef, selection?.isSelectionMode ?? false);
+  const { hidden: panelChromeHidden } = usePanelScrollChromeState();
 
   return (
     <Stack gap={gap}>
       {/* Toolbar slot — sticky, hides on scroll down, reveals on scroll up */}
       {toolbar && (
         <div
-          ref={toolbarRef}
           className={styles.toolbar}
+          data-hidden={(panelChromeHidden && !selection?.isSelectionMode) || undefined}
         >
           {toolbar}
         </div>

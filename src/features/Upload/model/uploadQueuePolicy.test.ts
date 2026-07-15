@@ -27,14 +27,15 @@ function mediaItem(id: string): MediaItem {
 describe('getUploadQueueStatus', () => {
   it('reports saved draft and completed upload cards as ready items', () => {
     const cards = [
-      { kind: 'draft', id: 'draft-1', result: mediaItem('draft-1') },
-      { kind: 'draft', id: 'media-1', result: mediaItem('media-1') },
+      { kind: 'asset', id: 'draft-1', result: mediaItem('draft-1') },
+      { kind: 'existing', id: 'media-1', result: mediaItem('media-1') },
       {
         kind: 'attempt',
         id: 'upload-2',
         source: 'LOCAL' as const,
         status: 'ACQUIRING' as const,
         previewUrl: 'blob:active',
+        resourceType: 'image' as const,
         progress: 40,
       },
       {
@@ -43,6 +44,7 @@ describe('getUploadQueueStatus', () => {
         source: 'LOCAL' as const,
         status: 'FAILED' as const,
         previewUrl: 'blob:failed',
+        resourceType: 'image' as const,
       },
     ] satisfies GalleryCard[];
 

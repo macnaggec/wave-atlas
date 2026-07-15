@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { MediaType } from '@prisma/client';
-import { ForbiddenError, NotFoundError } from 'shared/errors';
+import { NotFoundError } from 'shared/errors';
 import { logger } from 'shared/lib/logger';
 import type { IUploadAttemptRepository } from 'server/repositories/UploadAttemptRepository';
 import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort } from 'server/ports/UploadAssetStorage';
-import type { ISurfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import type { DirectUploadGrant, UploadAttemptProjection } from 'shared/types/upload';
 
 const GRANT_TTL_MS   = 60 * 60 * 1000;          // 1 hour
@@ -14,32 +13,34 @@ function mimeToMediaType(mime: string): MediaType {
   return mime.startsWith('video/') ? 'VIDEO' : 'PHOTO';
 }
 
+export type UploadWorkspaceVerifier = {
+  ensureUploadableWorkspace(photographerId: string, workspaceId: string): Promise<{ id: string }>;
+};
+
 export class UploadService {
   constructor(
     private repo: IUploadAttemptRepository,
     private direct: DirectUploadPort,
     private remote: RemoteImportPort,
     private cleanup: AssetCleanupPort,
-    private sessions: Pick<ISurfSessionRepository, 'findDraftById'>,
+    private workspaces: UploadWorkspaceVerifier,
   ) {}
 
   async beginLocal(
     photographerId: string,
-    input: { draftId: string; clientRequestId: string; declaredMimeType: string; declaredByteSize: number },
+    input: { workspaceId: string; clientRequestId: string; declaredMimeType: string; declaredByteSize: number },
   ): Promise<DirectUploadGrant> {
-    logger.info('[upload] beginLocal', { photographerId, draftId: input.draftId, clientRequestId: input.clientRequestId });
-    const draft = await this.sessions.findDraftById(input.draftId);
-    if (!draft) throw new NotFoundError('Surf Session');
-    if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission to upload to this session');
+    logger.info('[upload] beginLocal', { photographerId, workspaceId: input.workspaceId, clientRequestId: input.clientRequestId });
+    await this.workspaces.ensureUploadableWorkspace(photographerId, input.workspaceId);
 
     const expectedMediaType = mimeToMediaType(input.declaredMimeType);
-    const cloudinaryPublicId = `wave-atlas/users/${photographerId}/${randomUUID()}`;
+    const cloudinaryPublicId = `swelldays/users/${photographerId}/${randomUUID()}`;
     const uploadGrantExpiresAt = new Date(Date.now() + GRANT_TTL_MS);
     const expiresAt = new Date(Date.now() + ATTEMPT_TTL_MS);
 
     const attempt = await this.repo.beginLocalIdempotent({
       clientRequestId: input.clientRequestId,
-      sessionId: input.draftId,
+      workspaceId: input.workspaceId,
       photographerId,
       cloudinaryPublicId,
       expectedMediaType,
@@ -57,7 +58,7 @@ export class UploadService {
   async finalizeLocal(
     photographerId: string,
     input: { attemptId: string; providerReceipt: unknown; capturedAt?: Date },
-  ): Promise<{ mediaId: string }> {
+  ): Promise<{ assetId: string }> {
     logger.info('[upload] finalizeLocal', { photographerId, attemptId: input.attemptId });
     try {
       const attempt = await this.repo.findByIdForPhotographer(input.attemptId, photographerId);
@@ -69,15 +70,15 @@ export class UploadService {
         photographerId,
       });
 
-      const media = await this.repo.finalizeIntoDraft(input.attemptId, photographerId, {
+      const assetRow = await this.repo.finalizeIntoWorkspace(input.attemptId, photographerId, {
         capturedAt: input.capturedAt ?? new Date(),
         thumbnailUrl: asset.thumbnailUrl,
         lightboxUrl: asset.lightboxUrl,
         resourceType: asset.resourceType,
       });
 
-      logger.info('[upload] finalizeLocal success', { photographerId, attemptId: input.attemptId, mediaId: media.id });
-      return { mediaId: media.id };
+      logger.info('[upload] finalizeLocal success', { photographerId, attemptId: input.attemptId, assetId: assetRow.id });
+      return { assetId: assetRow.id };
     } catch (err) {
       logger.error('[upload] finalizeLocal failed', { photographerId, attemptId: input.attemptId, err });
       throw err;
@@ -86,19 +87,17 @@ export class UploadService {
 
   async beginDrive(
     photographerId: string,
-    input: { draftId: string; clientRequestId: string; remoteFileId: string; declaredMimeType: string },
+    input: { workspaceId: string; clientRequestId: string; remoteFileId: string; declaredMimeType: string },
   ): Promise<{ attemptId: string }> {
-    logger.info('[upload] beginDrive', { photographerId, draftId: input.draftId, clientRequestId: input.clientRequestId });
-    const draft = await this.sessions.findDraftById(input.draftId);
-    if (!draft) throw new NotFoundError('Surf Session');
-    if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission to upload to this session');
+    logger.info('[upload] beginDrive', { photographerId, workspaceId: input.workspaceId, clientRequestId: input.clientRequestId });
+    await this.workspaces.ensureUploadableWorkspace(photographerId, input.workspaceId);
 
     const expectedMediaType = mimeToMediaType(input.declaredMimeType);
-    const cloudinaryPublicId = `wave-atlas/users/${photographerId}/${randomUUID()}`;
+    const cloudinaryPublicId = `swelldays/users/${photographerId}/${randomUUID()}`;
 
     const attempt = await this.repo.beginDriveIdempotent({
       clientRequestId: input.clientRequestId,
-      sessionId: input.draftId,
+      workspaceId: input.workspaceId,
       photographerId,
       cloudinaryPublicId,
       expectedMediaType,
@@ -125,7 +124,7 @@ export class UploadService {
       asset = await this.remote.importRemoteFile({
         sourceUrl: `https://www.googleapis.com/drive/v3/files/${driveDetails.remoteFileId}?alt=media`,
         authHeaders: { Authorization: `Bearer ${input.accessToken}` },
-        target: { cloudinaryPublicId: driveDetails.cloudinaryPublicId, expectedMediaType: 'PHOTO', photographerId },
+        target: { cloudinaryPublicId: driveDetails.cloudinaryPublicId, expectedMediaType: driveDetails.expectedMediaType, photographerId },
       });
     } catch (err) {
       logger.error('[upload] processDrive — Cloudinary import failed', { attemptId: input.attemptId, err });
@@ -140,7 +139,7 @@ export class UploadService {
       return;
     }
 
-    await this.repo.finalizeIntoDraft(input.attemptId, photographerId, {
+    await this.repo.finalizeIntoWorkspace(input.attemptId, photographerId, {
       capturedAt: new Date(),
       thumbnailUrl: asset.thumbnailUrl,
       lightboxUrl: asset.lightboxUrl,
@@ -149,28 +148,8 @@ export class UploadService {
     logger.info('[upload] processDrive success', { attemptId: input.attemptId });
   }
 
-  listForDraft(photographerId: string, sessionId: string): Promise<UploadAttemptProjection[]> {
-    return this.repo.listForDraft(sessionId, photographerId);
-  }
-
-  async discardDraft(photographerId: string, draftId: string): Promise<void> {
-    logger.info('[upload] discardDraft', { photographerId, draftId });
-    const draft = await this.sessions.findDraftById(draftId);
-    if (!draft) throw new NotFoundError('Surf Session');
-    if (draft.photographerId !== photographerId) throw new ForbiddenError('You do not have permission');
-
-    const assetsToClean = await this.repo.removeCompletedDraftMedia(draftId, photographerId);
-
-    // Best-effort provider cleanup — failures leave CLEANUP_PENDING for reconciler.
-    const results = await Promise.allSettled(
-      assetsToClean.map(asset =>
-        this.cleanup.deleteStoredAsset({ cloudinaryPublicId: asset.cloudinaryPublicId, resourceType: asset.resourceType }),
-      ),
-    );
-    const failCount = results.filter(r => r.status === 'rejected').length;
-    if (failCount > 0) {
-      logger.warn('[upload] discardDraft — provider cleanup partial failure (reconciler will retry)', { draftId, failCount, total: assetsToClean.length });
-    }
+  listForWorkspace(photographerId: string, workspaceId: string): Promise<UploadAttemptProjection[]> {
+    return this.repo.listForWorkspace(workspaceId, photographerId);
   }
 
   async discardAttempt(photographerId: string, attemptId: string): Promise<void> {
@@ -187,12 +166,12 @@ export class UploadService {
 
 import { uploadAttemptRepository } from 'server/repositories/UploadAttemptRepository';
 import { cloudinaryService } from './CloudinaryService';
-import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
+import { uploadWorkspaceService } from './UploadWorkspaceService';
 
 export const uploadService = new UploadService(
   uploadAttemptRepository,
   cloudinaryService,
   cloudinaryService,
   cloudinaryService,
-  surfSessionRepository,
+  uploadWorkspaceService,
 );

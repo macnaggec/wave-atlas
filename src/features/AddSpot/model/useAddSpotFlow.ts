@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { usePinPlacementStore } from './pinPlacementStore';
+import { useAddSpotStore } from './addSpotStore';
 import { useCreateSpot, useNearbySpots } from 'entities/Spot';
 import { spotNameSchema, spotLocationSchema } from 'shared/validation/spotSchemas';
 import { notify } from 'shared/lib/notifications';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { useReverseGeocode } from './useReverseGeocode';
+import { toCreateSpotCoordinates } from './addSpotCoordinates';
 import type { Spot } from 'entities/Spot';
 
 export type AddSpotStep = 'hint' | 'form' | 'proximity';
@@ -38,9 +39,9 @@ export function useAddSpotFlow(): AddSpotFlowState {
   const {
     tempPin,
     pendingSpotName,
-    exit: exitPinPlacement,
+    exit: exitAddSpot,
     clearTempPin
-  } = usePinPlacementStore();
+  } = useAddSpotStore();
 
   const [step, setStep] = useState<AddSpotStep>('hint');
   const [name, setName] = useState(pendingSpotName);
@@ -61,15 +62,15 @@ export function useAddSpotFlow(): AddSpotFlowState {
 
   useEffect(() => {
     if (tempPin && step === 'hint') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: advance step on pin placement
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: advance after map location selection
       setStep('form');
       geocode(tempPin);
     }
   }, [tempPin, step, geocode]);
 
   const cancel = useCallback(() => {
-    exitPinPlacement();
-  }, [exitPinPlacement]);
+    exitAddSpot();
+  }, [exitAddSpot]);
 
   const backToPin = useCallback(() => {
     clearTempPin();
@@ -79,15 +80,16 @@ export function useAddSpotFlow(): AddSpotFlowState {
 
   const create = useCallback(async () => {
     if (!tempPin) return;
+    const coords = toCreateSpotCoordinates(tempPin);
 
     const spot = await createMutation.mutateAsync({
       name: name.trim(),
       location: location.trim(),
-      lat: tempPin[1],
-      lng: tempPin[0],
+      lat: coords.lat,
+      lng: coords.lng,
     });
 
-    exitPinPlacement();
+    exitAddSpot();
 
     void navigate({ to: '/$spotId', params: { spotId: spot.id } });
   }, [
@@ -95,7 +97,7 @@ export function useAddSpotFlow(): AddSpotFlowState {
     name,
     location,
     createMutation,
-    exitPinPlacement,
+    exitAddSpot,
     navigate
   ]);
 
@@ -116,9 +118,10 @@ export function useAddSpotFlow(): AddSpotFlowState {
     if (!nameResult.success) setNameError(nameResult.error.issues[0]!.message);
     if (!locationResult.success) setLocationError(locationResult.error.issues[0]!.message);
     if (!nameResult.success || !locationResult.success) return;
+    const coords = toCreateSpotCoordinates(tempPin);
     setIsCheckingNearby(true);
     try {
-      const nearby = await fetchNearbySpots(tempPin[1], tempPin[0]);
+      const nearby = await fetchNearbySpots(coords.lat, coords.lng);
       if (nearby.length > 0) {
         setNearbySpots(nearby);
         setStep('proximity');
@@ -133,9 +136,9 @@ export function useAddSpotFlow(): AddSpotFlowState {
   }, [tempPin, name, location, fetchNearbySpots, create]);
 
   const goToExisting = useCallback((spot: Spot) => {
-    exitPinPlacement();
+    exitAddSpot();
     void navigate({ to: '/$spotId', params: { spotId: spot.id } });
-  }, [exitPinPlacement, navigate]);
+  }, [exitAddSpot, navigate]);
 
   return {
     step,

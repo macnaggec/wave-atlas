@@ -8,14 +8,14 @@ export const Route = createFileRoute('/_panel/')({
 });
 
 function DefaultFeed() {
-  const { activeFilter } = usePanelFilter();
+  const { filters } = usePanelFilter();
   const expanded = usePanelExpanded();
   const onLayoutReadyChange = usePanelFeedLayoutReadyChange();
   const navigate = useNavigate();
 
   return (
     <SessionFeed
-      activeFilter={activeFilter}
+      filters={filters}
       expanded={expanded}
       onLayoutReadyChange={onLayoutReadyChange}
       onSessionClick={(session) =>

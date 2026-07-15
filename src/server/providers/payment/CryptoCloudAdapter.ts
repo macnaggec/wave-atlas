@@ -183,7 +183,7 @@ function parseWebhookEvent(rawBody: string): PaymentWebhookEvent {
     // invoice_id is the short CryptoCloud invoice ID (e.g. "ILRAJE1Q")
     externalOrderId: payload.invoice_id,
     customData: {
-      // order_id is our Wave Atlas orderId passed via add_fields at creation
+      // order_id is our Swelldays orderId passed via add_fields at creation
       orderId: payload.order_id ?? '',
     },
   };

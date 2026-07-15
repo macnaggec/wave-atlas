@@ -1,12 +1,2 @@
-export type PanelRouteMode = 'browsing' | 'workspace' | 'mapInput';
-
-export interface PanelRouteMatch {
-  routeId: string;
-  staticData?: {
-    panelMode?: PanelRouteMode;
-  };
-}
-
-export function getPanelRouteMode(matches: readonly PanelRouteMatch[]): PanelRouteMode {
-  return [...matches].reverse().find((match) => match.staticData?.panelMode)?.staticData?.panelMode ?? 'browsing';
-}
+export { getPanelRouteMode } from 'shared/model/panelRouteMode';
+export type { PanelRouteMatch, PanelRouteMode } from 'shared/model/panelRouteMode';

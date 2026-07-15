@@ -43,7 +43,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     <form onSubmit={handleSubmit}>
       <Stack>
         <TextInput name="name" label="Name" placeholder="Your name" required minLength={2} />
-        <TextInput name="email" type="email" label="Email" placeholder="hello@waveatlas.com" required />
+        <TextInput name="email" type="email" label="Email" placeholder="hello@swelldays.com" required />
         <PasswordInput name="password" label="Password" placeholder="Your password" required minLength={6} />
         <PasswordInput name="confirmPassword" label="Confirm password" placeholder="Confirm your password" required minLength={6} />
         {error && <Input.Error>{error}</Input.Error>}

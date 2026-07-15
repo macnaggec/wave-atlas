@@ -14,6 +14,10 @@ describe('getPanelRouteMode', () => {
     expect(getPanelRouteMode([{ routeId: '/anything/me', staticData: { panelMode: 'workspace' } }])).toBe('workspace');
   });
 
+  it('classifies gallery workspaces separately from forced workspaces', () => {
+    expect(getPanelRouteMode([{ routeId: '/anything/gallery', staticData: { panelMode: 'galleryWorkspace' } }])).toBe('galleryWorkspace');
+  });
+
   it('classifies cart through the same workspace route metadata', () => {
     expect(getPanelRouteMode([{ routeId: '/anything/cart', staticData: { panelMode: 'workspace' } }])).toBe('workspace');
   });

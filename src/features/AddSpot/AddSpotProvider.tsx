@@ -3,17 +3,17 @@ import {
   useContext,
   useMemo,
 } from 'react';
-import { usePinPlacementStore } from './model/pinPlacementStore';
+import { useAddSpotStore } from './model/addSpotStore';
 
 interface AddSpotContextValue {
-  /** Enter pin-placement mode, optionally pre-filling the spot name. */
+  /** Start the Add Spot flow, optionally pre-filling the spot name. */
   startAddSpot: (initialName?: string) => void;
 }
 
 const AddSpotContext = createContext<AddSpotContextValue | null>(null);
 
 export function AddSpotProvider({ children }: { children: React.ReactNode }) {
-  const enter = usePinPlacementStore((s) => s.enter);
+  const enter = useAddSpotStore((s) => s.enter);
 
   const value = useMemo(
     () => ({ startAddSpot: (name = '') => enter(name) }),
@@ -32,4 +32,3 @@ export function useAddSpot(): AddSpotContextValue {
   if (!ctx) throw new Error('useAddSpot must be used within AddSpotProvider');
   return ctx;
 }
-

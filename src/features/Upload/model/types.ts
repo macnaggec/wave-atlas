@@ -10,6 +10,7 @@ export type LocalTransfer = {
   attemptId?: string;         // undefined until beginLocal resolves
   file: File;
   previewUrl: string;
+  resourceType: 'image' | 'video';
   progress: number;
   abort?: () => void;
   error?: string;             // set when the XHR or server call fails
@@ -20,6 +21,7 @@ export type DriveTransfer = {
   clientRequestId: string;
   attemptId?: string;         // undefined until beginDrive resolves
   previewUrl: string;
+  resourceType: 'image' | 'video';
 };
 
 export type BrowserTransfer = LocalTransfer | DriveTransfer;
@@ -39,23 +41,32 @@ export type AttemptCard = {
   source: UploadSource;
   status: AttemptCardStatus;
   previewUrl: string;
+  resourceType: 'image' | 'video';
   progress?: number;       // local only
   errorCode?: string;      // set when status is FAILED
 };
 
-export type DraftCard = {
-  kind: 'draft';
+export type ExistingMediaCard = {
+  kind: 'existing';
   id: string;
   result: MediaItem;
 };
 
-export type GalleryCard = AttemptCard | DraftCard;
+export type WorkspaceAssetCard = {
+  kind: 'asset';
+  id: string;
+  result: MediaItem;
+};
+
+export type ReadyMediaCard = ExistingMediaCard | WorkspaceAssetCard;
+
+export type GalleryCard = AttemptCard | ReadyMediaCard;
 
 export function getItemId(card: GalleryCard): string {
   return card.id;
 }
 
 export function isVideoItem(card: GalleryCard): boolean {
-  if (card.kind === 'draft') return card.result.resource.resourceType === 'video';
-  return false; // resource type known only after finalization
+  if (card.kind !== 'attempt') return card.result.resource.resourceType === 'video';
+  return card.resourceType === 'video';
 }

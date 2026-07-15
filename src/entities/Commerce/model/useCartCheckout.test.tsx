@@ -6,6 +6,18 @@ import type { CartItem } from './types';
 
 const mocks = vi.hoisted(() => ({
   mutationInput: undefined as { itemIds: string[] } | undefined,
+  checkoutUrl: '' as string,
+  navigate: vi.fn(),
+  isAuthenticated: true,
+  openAuthModal: vi.fn(),
+}));
+
+vi.mock('shared/hooks/useUser', () => ({
+  useUser: () => ({ isAuthenticated: mocks.isAuthenticated }),
+}));
+
+vi.mock('entities/Identity', () => ({
+  useAuthModal: () => ({ open: mocks.openAuthModal }),
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
@@ -19,7 +31,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
       mutate: (input: { itemIds: string[] }) => {
         mocks.mutationInput = input;
         options.onSuccess?.({
-          checkoutUrl: `${window.location.href}#checkout`,
+          checkoutUrl: mocks.checkoutUrl,
           orderId: 'order-1',
         });
       },
@@ -35,6 +47,10 @@ vi.mock('shared/lib/trpc', () => ({
       },
     },
   }),
+}));
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mocks.navigate,
 }));
 
 const originalClear = useCartStore.getState().clear;
@@ -53,6 +69,8 @@ describe('useCartCheckout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mutationInput = undefined;
+    mocks.checkoutUrl = `${window.location.origin}/me/collections/purchases?order=order-1`;
+    mocks.isAuthenticated = true;
     window.history.replaceState({}, '', '/cart');
     localStorage.clear();
     useCartStore.setState({
@@ -80,5 +98,29 @@ describe('useCartCheckout', () => {
 
     expect(mocks.mutationInput).toEqual({ itemIds: ['media-1'] });
     expect(clear).not.toHaveBeenCalled();
+  });
+
+  it('opens same-origin checkout return URLs through the app router', async () => {
+    const { result } = renderHook(() => useCartCheckout());
+
+    await act(async () => {
+      result.current.handleCheckout();
+    });
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      href: '/me/collections/purchases?order=order-1',
+    });
+  });
+
+  it('opens the auth modal and skips checkout when the buyer is unauthenticated', async () => {
+    mocks.isAuthenticated = false;
+    const { result } = renderHook(() => useCartCheckout());
+
+    await act(async () => {
+      result.current.handleCheckout();
+    });
+
+    expect(mocks.openAuthModal).toHaveBeenCalledTimes(1);
+    expect(mocks.mutationInput).toBeUndefined();
   });
 });

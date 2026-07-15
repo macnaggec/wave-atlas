@@ -1,0 +1,39 @@
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.metaIcon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.metaPrimary {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 34%;
+}
+
+.metaLocation {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.metaPhotographer {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 34%;
+}
+
+.separator {
+  flex-shrink: 0;
+}
+
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}

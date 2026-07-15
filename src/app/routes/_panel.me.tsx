@@ -1,32 +1,29 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { Tabs } from '@mantine/core';
-import { useTabNavigation } from 'shared/hooks';
-
-const TAB_ROUTES = {
-  uploads: '/me',
-  purchases: '/me/purchases',
-  favorites: '/me/favorites',
-} as const;
+import { useUser } from 'shared/hooks/useUser';
+import { useAuthModal } from 'entities/Identity';
+import { PanelEmptyState } from 'shared/ui/PanelRouteLayout';
 
 export const Route = createFileRoute('/_panel/me')({
-  staticData: { panelHeader: 'My Collection', forceExpanded: true },
+  staticData: { panelMode: 'workspace' },
   component: MeLayout,
 });
 
 function MeLayout() {
-  const { activeTab, handleTabChange } = useTabNavigation(TAB_ROUTES);
+  const { isAuthenticated, isLoading } = useUser();
+  const { open: openAuthModal } = useAuthModal();
 
-  return (
-    <>
-      <Tabs value={activeTab} onChange={handleTabChange}>
-        <Tabs.List px="md">
-          <Tabs.Tab value="uploads">My Uploads</Tabs.Tab>
-          <Tabs.Tab value="purchases">My Purchases</Tabs.Tab>
-          <Tabs.Tab value="favorites">Favorites</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+  if (isLoading) return null;
 
-      <Outlet />
-    </>
-  );
+  if (!isAuthenticated) {
+    return (
+      <PanelEmptyState
+        title="Sign in to view your workspace"
+        description="Collections, earnings, and account tools are tied to your account."
+        actionLabel="Sign in"
+        onAction={openAuthModal}
+      />
+    );
+  }
+
+  return <Outlet />;
 }

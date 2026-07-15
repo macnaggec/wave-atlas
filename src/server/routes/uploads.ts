@@ -1,19 +1,90 @@
 import { router, protectedProcedure } from 'server/trpc';
 import { uploadService } from 'server/services/UploadService';
+import { uploadWorkspaceService } from 'server/services/UploadWorkspaceService';
 import { createRateLimiter } from 'server/lib/rateLimiter';
+import { MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
+import { z } from 'zod';
 import {
   beginLocalSchema,
   finalizeLocalSchema,
   beginDriveSchema,
   processDriveSchema,
   discardAttemptSchema,
-  discardDraftSchema,
-  listAttemptsForDraftSchema,
+  listAttemptsForWorkspaceSchema,
+  workspaceIdSchema,
 } from 'shared/validation/uploadSchemas';
 
 const beginLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
+const workspaceSeedSchema = z.object({
+  spotId: z.string().uuid().nullable().optional(),
+  startsAt: z.coerce.date().nullable().optional(),
+  endsAt: z.coerce.date().nullable().optional(),
+  photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
+  videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
+});
 
 export const uploadsRouter = router({
+  startNewWorkspace: protectedProcedure
+    .input(workspaceSeedSchema)
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.startNewWorkspace(ctx.user!.id, input),
+    ),
+
+  startSessionEdit: protectedProcedure
+    .input(z.string().uuid())
+    .mutation(({ input: sessionId, ctx }) =>
+      uploadWorkspaceService.startSessionEdit(ctx.user!.id, sessionId),
+    ),
+
+  getActiveWorkspace: protectedProcedure.query(({ ctx }) =>
+    uploadWorkspaceService.getActiveWorkspace(ctx.user!.id),
+  ),
+
+  getWorkspaceState: protectedProcedure
+    .input(workspaceIdSchema)
+    .query(({ input, ctx }) =>
+      uploadWorkspaceService.getWorkspaceState(ctx.user!.id, input.workspaceId),
+    ),
+
+  updateWorkspace: protectedProcedure
+    .input(workspaceIdSchema.extend(workspaceSeedSchema.shape).refine(
+      ({ workspaceId: _workspaceId, ...changes }) => Object.values(changes).some((value) => value !== undefined),
+      'At least one workspace field is required',
+    ))
+    .mutation(({ input: { workspaceId, ...changes }, ctx }) =>
+      uploadWorkspaceService.updateWorkspace(ctx.user!.id, workspaceId, changes),
+    ),
+
+  stageMediaRemoval: protectedProcedure
+    .input(workspaceIdSchema.extend({ mediaItemId: z.string().uuid() }))
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.stageMediaRemoval(ctx.user!.id, input.workspaceId, input.mediaItemId),
+    ),
+
+  unstageMediaRemoval: protectedProcedure
+    .input(workspaceIdSchema.extend({ mediaItemId: z.string().uuid() }))
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.unstageMediaRemoval(ctx.user!.id, input.workspaceId, input.mediaItemId),
+    ),
+
+  deleteWorkspaceAsset: protectedProcedure
+    .input(workspaceIdSchema.extend({ assetId: z.string().uuid() }))
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.deleteWorkspaceAsset(ctx.user!.id, input.workspaceId, input.assetId),
+    ),
+
+  saveWorkspace: protectedProcedure
+    .input(workspaceIdSchema)
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.saveWorkspace(ctx.user!.id, input.workspaceId),
+    ),
+
+  cancelWorkspace: protectedProcedure
+    .input(workspaceIdSchema)
+    .mutation(({ input, ctx }) =>
+      uploadWorkspaceService.cancelWorkspace(ctx.user!.id, input.workspaceId),
+    ),
+
   beginLocal: protectedProcedure
     .input(beginLocalSchema)
     .mutation(({ input, ctx }) => {
@@ -46,15 +117,9 @@ export const uploadsRouter = router({
       uploadService.discardAttempt(ctx.user!.id, input.attemptId),
     ),
 
-  discardDraft: protectedProcedure
-    .input(discardDraftSchema)
-    .mutation(({ input, ctx }) =>
-      uploadService.discardDraft(ctx.user!.id, input.draftId),
-    ),
-
-  listForDraft: protectedProcedure
-    .input(listAttemptsForDraftSchema)
+  listForWorkspace: protectedProcedure
+    .input(listAttemptsForWorkspaceSchema)
     .query(({ input, ctx }) =>
-      uploadService.listForDraft(ctx.user!.id, input.draftId),
+      uploadService.listForWorkspace(ctx.user!.id, input.workspaceId),
     ),
 });

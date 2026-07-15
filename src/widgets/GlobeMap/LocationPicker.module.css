@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a1628;
+  background: var(--wa-globe-bg);
   z-index: 1;
 }
 
@@ -25,8 +25,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a1628;
-  color: white;
+  background: var(--wa-globe-bg);
+  color: var(--wa-text-inverse);
 }
 
 .marker {

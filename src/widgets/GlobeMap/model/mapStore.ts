@@ -29,7 +29,7 @@ export const useMapStore = create<MapStore>()(
       saveCameraState: (camera) => set({ cameraState: camera }),
     }),
     {
-      name: 'wave-atlas-map',
+      name: 'swelldays-map',
       storage: createJSONStorage(() => sessionStorage),
     }
   )

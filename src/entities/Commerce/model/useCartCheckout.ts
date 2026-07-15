@@ -1,7 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useTRPC } from 'shared/lib/trpc';
 import { useCartStore } from 'entities/Commerce/model/cartStore';
 import { notify } from 'shared/lib/notifications';
+import { useUser } from 'shared/hooks/useUser';
+import { useAuthModal } from 'entities/Identity';
 
 export interface CartCheckout {
   handleCheckout: () => void;
@@ -11,12 +14,23 @@ export interface CartCheckout {
 
 export function useCartCheckout(): CartCheckout {
   const trpc = useTRPC();
+  const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
-  const totalCents = useCartStore((s) => s.totalCents);
+  const totalCents = useCartStore((s) => s.totalCents());
+  const { isAuthenticated } = useUser();
+  const { open: openAuthModal } = useAuthModal();
 
   const checkout = useMutation({
     ...trpc.checkout.create.mutationOptions(),
     onSuccess: ({ checkoutUrl }) => {
+      const checkoutLocation = new URL(checkoutUrl, window.location.origin);
+      if (checkoutLocation.origin === window.location.origin) {
+        void navigate({
+          href: `${checkoutLocation.pathname}${checkoutLocation.search}${checkoutLocation.hash}`,
+        });
+        return;
+      }
+
       window.location.href = checkoutUrl;
     },
     onError: (error) => {
@@ -27,12 +41,16 @@ export function useCartCheckout(): CartCheckout {
   });
 
   const handleCheckout = () => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
     checkout.mutate({ itemIds: items.map((i) => i.id) });
   };
 
   return {
     handleCheckout,
     isPending: checkout.isPending,
-    totalCents: totalCents(),
+    totalCents: totalCents,
   };
 }

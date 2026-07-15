@@ -11,10 +11,22 @@ export { useClearUploadQueue } from './useClearUploadQueue';
 export { useUploadQueue } from './useUploadQueue';
 export { useUploadWarning } from './useUploadWarning';
 export { useGooglePicker } from './useGooglePicker';
-export { usePublishUploadSession } from './usePublishUploadSession';
+export { usePublishUploadSession, type UploadPublishViolation } from './usePublishUploadSession';
 export { useUploadStore } from './uploadStore';
 export { getPublishableMediaIds, getSelectableUploadCards, getUploadQueueStatus } from './uploadQueuePolicy';
 
 // Types
-export type { BrowserTransfer, LocalTransfer, DriveTransfer, GalleryCard, AttemptCard, DraftCard, AttemptCardStatus } from './types';
+export type {
+  BrowserTransfer,
+  LocalTransfer,
+  DriveTransfer,
+  GalleryCard,
+  AttemptCard,
+  ExistingMediaCard,
+  WorkspaceAssetCard,
+  ReadyMediaCard,
+  AttemptCardStatus,
+} from './types';
+export type { UploadWorkspaceSeed, UploadManagerHandlers } from './useUploadManager';
+export type { DriveSelection } from './uploadCoordinator';
 export { getItemId, isVideoItem } from './types';

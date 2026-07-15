@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { Popover } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
-import { IconCalendar } from '@tabler/icons-react';
-import type { SessionFeedFilter } from 'entities/SurfSession';
+import { IconCalendar, IconHeart } from '@tabler/icons-react';
+import type { BrowseDateFilter } from 'shared/model/browseFilters';
 
 const pillStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.08)',
-  backdropFilter: 'blur(10px)',
-  WebkitBackdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.18)',
+  background: 'var(--wa-panel-control-background, var(--wa-control-fill))',
+  backdropFilter: 'var(--wa-panel-control-backdrop, blur(10px))',
+  WebkitBackdropFilter: 'var(--wa-panel-control-backdrop, blur(10px))',
+  border: '1px solid var(--wa-glass-border-media-overlay)',
   borderRadius: 20,
   color: 'rgba(255,255,255,0.82)',
-  fontSize: 11,
+  fontSize: 'var(--wa-font-size-xs)',
   fontWeight: 500,
   padding: '5px 13px',
   cursor: 'pointer',
@@ -25,17 +25,24 @@ const pillStyle: React.CSSProperties = {
 const pillActiveStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.2)',
   border: '1px solid rgba(255,255,255,0.4)',
-  color: '#fff',
+  color: 'var(--wa-text-inverse)',
 };
 
-export function FilterPills({ active, onChange }: { active: SessionFeedFilter; onChange: (f: SessionFeedFilter) => void }) {
+interface FilterPillsProps {
+  active: BrowseDateFilter;
+  onChange: (filter: BrowseDateFilter) => void;
+  favoritesOnly?: boolean;
+  onFavoritesChange?: (favoritesOnly: boolean) => void;
+}
+
+export function FilterPills({ active, onChange, favoritesOnly = false, onFavoritesChange }: FilterPillsProps) {
   const [open, setOpen] = useState(false);
   const isCustom = active !== null && typeof active === 'object';
   const customLabel = isCustom
     ? (active as { date: Date }).date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null;
 
-  function renderPill(label: string, key: Exclude<SessionFeedFilter, null | { date: Date }>) {
+  function renderPill(label: string, key: Exclude<BrowseDateFilter, null | { date: Date }>) {
     const isActive = active === key;
     return (
       <button style={{ ...pillStyle, ...(isActive ? pillActiveStyle : {}) }} onClick={() => onChange(isActive ? null : key)}>
@@ -71,6 +78,16 @@ export function FilterPills({ active, onChange }: { active: SessionFeedFilter; o
           />
         </Popover.Dropdown>
       </Popover>
+      {onFavoritesChange && (
+        <button
+          aria-pressed={favoritesOnly}
+          style={{ ...pillStyle, ...(favoritesOnly ? pillActiveStyle : {}) }}
+          onClick={() => onFavoritesChange(!favoritesOnly)}
+        >
+          <IconHeart size={12} fill={favoritesOnly ? 'currentColor' : 'none'} aria-hidden="true" />
+          Favorites
+        </button>
+      )}
     </div>
   );
 }

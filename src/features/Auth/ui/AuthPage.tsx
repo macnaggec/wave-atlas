@@ -20,10 +20,10 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
   return (
     <>
       <Text size="lg" fw={500} mb="md" ta="center">
-        Welcome to Wave Atlas. {upperFirst(authType)} with:
+        {upperFirst(authType)} with your email
       </Text>
 
-      <Divider label="Continue with email" labelPosition="center" my="lg" />
+      <Divider my="lg" />
 
       {authType === 'login' && <LoginForm onSuccess={onSuccess} />}
       {authType === 'register' && <RegisterForm onSuccess={handleRegistrationSuccess} />}

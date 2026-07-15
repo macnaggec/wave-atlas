@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { getVisibleCalendarDayKey } from 'shared/lib/dateUtils';
 import type { VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
 import styles from './GalleryDateSidebar.module.css';
 
@@ -11,12 +12,22 @@ interface GalleryDateSidebarProps {
 const SIDEBAR_MAX = 12;
 
 export function GalleryDateSidebar({ highlights, firstVisibleIndex, galleryRef }: GalleryDateSidebarProps) {
-  const useMonths = highlights.length > SIDEBAR_MAX;
+  const dayHighlights = useMemo(() => {
+    const seen = new Set<string>();
+    return highlights.filter(({ date }) => {
+      const key = getVisibleCalendarDayKey(date);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [highlights]);
+
+  const useMonths = dayHighlights.length > SIDEBAR_MAX;
 
   const sidebarGroups = useMemo(() => {
-    if (!useMonths) return highlights.map((h, i) => ({ ...h, originalIndex: i }));
+    if (!useMonths) return dayHighlights.map((h, i) => ({ ...h, originalIndex: i }));
     const seen = new Set<string>();
-    return highlights
+    return dayHighlights
       .map((h, i) => ({ ...h, originalIndex: i }))
       .filter(({ date }) => {
         const key = `${date.getFullYear()}-${date.getMonth()}`;
@@ -24,34 +35,34 @@ export function GalleryDateSidebar({ highlights, firstVisibleIndex, galleryRef }
         seen.add(key);
         return true;
       });
-  }, [highlights, useMonths]);
+  }, [dayHighlights, useMonths]);
 
   const activeHighlightIndex = useMemo(() => {
     let active = 0;
-    for (let i = 0; i < highlights.length; i++) {
-      if (highlights[i]!.rowIndex <= firstVisibleIndex) active = i;
+    for (let i = 0; i < dayHighlights.length; i++) {
+      if (dayHighlights[i]!.rowIndex <= firstVisibleIndex) active = i;
       else break;
     }
     return active;
-  }, [firstVisibleIndex, highlights]);
+  }, [firstVisibleIndex, dayHighlights]);
 
   const activeSidebarIndex = useMemo(() => {
     if (!useMonths) return activeHighlightIndex;
     let active = 0;
-    const activeRowIndex = highlights[activeHighlightIndex]?.rowIndex ?? 0;
+    const activeRowIndex = dayHighlights[activeHighlightIndex]?.rowIndex ?? 0;
     for (let i = 0; i < sidebarGroups.length; i++) {
       if (sidebarGroups[i]!.rowIndex <= activeRowIndex) active = i;
       else break;
     }
     return active;
-  }, [useMonths, sidebarGroups, activeHighlightIndex, highlights]);
+  }, [useMonths, sidebarGroups, activeHighlightIndex, dayHighlights]);
 
   const activeBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     activeBtnRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [activeSidebarIndex]);
 
-  if (highlights.length === 0) return null;
+  if (dayHighlights.length === 0) return null;
 
   return (
     <nav className={styles.sidebar} aria-label="Jump to date">

@@ -16,13 +16,14 @@
   /* Glass surfaces */
   --wa-surface-chrome: rgba(255, 255, 255, 0.08);
   --wa-surface-overlay: rgba(28, 30, 40, 0.82);
-  --wa-surface-dialog: rgba(18, 20, 30, 0.96);
+  --wa-surface-dialog: rgba(18, 20, 30, 0.88);
   --wa-surface-status: rgba(15, 23, 42, 0.82);
   --wa-surface-media-card: rgba(255, 255, 255, 0.06);
   --wa-surface-media-overlay: rgba(18, 22, 28, 0.42);
   --wa-surface-media-overlay-hover: rgba(255, 255, 255, 0.18);
   --wa-surface-media-fallback: #000;
-  --wa-surface-video-indicator: rgba(0, 0, 0, 0.55);
+  --wa-scrim-media-corner-top: radial-gradient(circle at top left, rgba(0, 0, 0, 0.55), transparent 72%);
+  --wa-scrim-media-corner-bottom: radial-gradient(circle at bottom left, rgba(0, 0, 0, 0.55), transparent 72%);
   --wa-surface-upload-zone: rgba(255, 255, 255, 0.08);
   --wa-surface-upload-zone-hover: rgba(255, 255, 255, 0.12);
   --wa-surface-primary-action: rgba(38, 166, 91, 0.42);
@@ -67,6 +68,7 @@
   --wa-control-fill-active-hover: rgba(255, 255, 255, 0.26);
   --wa-control-fill-subtle-hover: rgba(255, 255, 255, 0.04);
   --wa-control-border: rgba(255, 255, 255, 0.16);
+  --wa-control-indicator: rgba(255, 255, 255, 0.48);
   --wa-control-menu-hover: rgba(255, 255, 255, 0.07);
   --wa-control-upload-border: rgba(255, 255, 255, 0.14);
   --wa-control-upload-card-border: rgba(255, 255, 255, 0.18);
@@ -83,12 +85,22 @@
   --wa-radius-dialog: 16px;
   --wa-radius-status: 16px;
 
+  /* Type scale */
+  --wa-font-size-2xs: 9px;
+  --wa-font-size-xs: 11px;
+  --wa-font-size-sm: 12px;
+  --wa-font-size-base: 14px;
+  --wa-font-size-lg: 18px;
+  --wa-font-size-display: 32px;
+
   /* Status feedback */
   --wa-status-danger: #ff4d6d;
   --wa-status-danger-glow: rgba(255, 77, 109, 0.45);
+  --wa-accent-marker: #3b82f6;
+  --wa-status-success: rgb(74, 222, 128);
 }
 
-/* Mantine global interaction states that are part of the Wave Atlas glass adapter. */
+/* Mantine global interaction states that are part of the Swelldays glass adapter. */
 .mantine-Menu-item:hover,
 .mantine-Menu-item[data-hovered],
 .mantine-Combobox-option:hover,
@@ -98,4 +110,10 @@
 
 .mantine-Combobox-option[data-combobox-selected] {
   background: var(--wa-control-fill-hover);
+}
+
+/* Global keyboard focus indicator: visible only for keyboard/programmatic focus, not mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--wa-accent-spot);
+  outline-offset: 2px;
 }

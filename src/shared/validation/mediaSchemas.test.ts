@@ -12,9 +12,9 @@ const mediaId = '11111111-1111-4111-8111-111111111111';
 
 describe('mediaCloudinaryResultSchema', () => {
   const validResult = {
-    publicId: 'wave-atlas/users/abc/img',
-    thumbnailUrl: `${CLOUDINARY_BASE}t_wave_atlas_thumbnail/wave-atlas/users/abc/img.jpg`,
-    lightboxUrl: `${CLOUDINARY_BASE}t_wave_atlas_lightbox_watermark/wave-atlas/users/abc/img.jpg`,
+    publicId: 'swelldays/users/abc/img',
+    thumbnailUrl: `${CLOUDINARY_BASE}t_swelldays_thumbnail/swelldays/users/abc/img.jpg`,
+    lightboxUrl: `${CLOUDINARY_BASE}t_swelldays_lightbox_watermark/swelldays/users/abc/img.jpg`,
   };
 
   it.each(['image', 'video'])('accepts the %s resource type', (resourceType) => {
@@ -30,7 +30,7 @@ describe('mediaCreateSchema', () => {
   it('rejects an uploaded asset that is not assigned to a draft session', () => {
     const result = mediaCreateSchema.safeParse({
       cloudinaryResult: {
-        publicId: 'wave-atlas/users/user-1/photo-1',
+        publicId: 'swelldays/users/user-1/photo-1',
         thumbnailUrl: 'https://res.cloudinary.com/test/thumb.jpg',
         lightboxUrl: 'https://res.cloudinary.com/test/full.jpg',
         resourceType: 'image',

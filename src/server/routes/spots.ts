@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { mediaService } from 'server/services/MediaService';
@@ -77,20 +78,41 @@ export const spotsRouter = router({
       return { ok: true };
     }),
 
+  /** Published media, optionally scoped to a single spot; unfiltered lists across all spots. */
   mediaFeed: publicProcedure
     .input(
       z.object({
-        spotId: z.string(),
+        spotId: z.string().optional(),
         cursor: z.string().uuid().optional(),
         limit: z.number().min(1).max(100).default(30),
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
+        dateFrom: z.coerce.date().optional(),
+        dateTo: z.coerce.date().optional(),
+        favoriteSpotsOnly: z.boolean().optional(),
       }),
     )
-    .query(({ input, ctx }) =>
-      mediaService.findPublishedBySpot(input.spotId, input.cursor, input.limit, input.sortOrder, ctx.user?.id)
-    ),
+    .query(({ input, ctx }) => {
+      if (input.favoriteSpotsOnly && !ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      return mediaService.findPublishedBySpot({
+        spotId: input.spotId,
+        cursor: input.cursor,
+        limit: input.limit,
+        sortOrder: input.sortOrder,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        favoriteUserId: input.favoriteSpotsOnly ? ctx.user?.id : undefined,
+      }, ctx.user?.id);
+    }),
 
   card: publicProcedure.input(z.string()).query(({ input: id }) => spotRepository.findSpotCard(id)),
+
+  isFavorited: protectedProcedure
+    .input(z.string())
+    .query(({ input: spotId, ctx }) => spotRepository.isSpotFavorited(spotId, ctx.user.id)),
+
+  toggleFavorite: protectedProcedure
+    .input(z.string())
+    .mutation(({ input: spotId, ctx }) => spotRepository.toggleSpotFavorite(spotId, ctx.user.id)),
 
   drafts: protectedProcedure
     .input(z.string())

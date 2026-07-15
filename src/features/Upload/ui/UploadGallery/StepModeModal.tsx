@@ -1,6 +1,6 @@
 import React, { FC, memo, useMemo, useCallback, useRef } from 'react';
 import { Box, Button, Divider, Group, Loader, Menu, Modal, rem, Text } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconBrandGoogleDrive, IconFolderOpen } from '@tabler/icons-react';
 import { GalleryCard, getItemId, getUploadQueueStatus } from '../../model';
 import { BaseGallery, SelectionToolbar } from 'shared/ui/BaseGallery';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
@@ -18,6 +18,8 @@ export interface StepModeModalProps {
   onDiscardAll: () => Promise<void>;
   onRemove: (kind: GalleryCard['kind'], id: string) => Promise<void>;
   onAddFiles?: (files: File[]) => void;
+  onDriveImport?: () => void;
+  driveLoading?: boolean;
   onRetry?: (id: string) => void;
 }
 
@@ -29,6 +31,8 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   onDiscardAll,
   onRemove,
   onAddFiles,
+  onDriveImport,
+  driveLoading,
   onRetry,
 }) => {
   const queueStatus = useMemo(() => getUploadQueueStatus(items), [items]);
@@ -87,7 +91,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
   const renderCard = useCallback(
     (card: GalleryCard, context: { isSelectionMode: boolean }) => {
       const isSaving = card.kind === 'attempt' && card.status === 'FINALIZING';
-      const hasDateError = card.kind === 'draft' && !card.result.capturedAt;
+      const hasDateError = card.kind !== 'attempt' && !card.result.capturedAt;
       return (
         <UploadCardRenderer
           item={card}
@@ -149,7 +153,7 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
       </div>
 
       <Divider className={materials.divider} />
-      <Group px="sm" py={6} justify="space-between">
+      <Group px="sm" py="xs" justify="space-between">
         <Button
           variant="transparent" size="xs" radius="xl"
           className={styles.footerAction}
@@ -159,17 +163,37 @@ export const StepModeModal: FC<StepModeModalProps> = memo(({
         </Button>
         <Group gap="xs">
           {onAddFiles && (
-            <Button
-              variant="transparent" size="xs" radius="xl"
-              className={styles.footerAction}
-              onClick={() => addMoreInputRef.current?.click()}
-            >
-              Add more
-            </Button>
+            <Menu position="top-end" zIndex={501}>
+              <Menu.Target>
+                <Button
+                  variant="transparent" size="xs" radius="xl"
+                  className={styles.footerAction}
+                  loading={driveLoading}
+                >
+                  Add more
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconFolderOpen style={{ width: rem(14), height: rem(14) }} />}
+                  onClick={() => addMoreInputRef.current?.click()}
+                >
+                  From device
+                </Menu.Item>
+                {onDriveImport && (
+                  <Menu.Item
+                    leftSection={<IconBrandGoogleDrive style={{ width: rem(14), height: rem(14) }} />}
+                    onClick={onDriveImport}
+                  >
+                    From Google Drive
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
           )}
           {hasActiveUploads ? (
             <Group gap="xs">
-              <Loader size={12} />
+              <Loader size="xs" />
               <Text size="xs" className={styles.footerText}>
                 {uploadingCount} of {items.length} uploading…
               </Text>

@@ -1,26 +1,51 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ComponentType } from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ComponentType, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Route } from './_panel.upload';
+import type { UploadWorkspaceState, UploadWorkspaceSummary } from 'shared/types/uploadWorkspace';
+
+const activeWorkspace: UploadWorkspaceSummary = {
+  id: 'workspace-active',
+  kind: 'NEW_SESSION',
+  status: 'ACTIVE',
+  targetSessionId: null,
+  spotId: 'spot-a',
+  startsAt: null,
+  endsAt: null,
+  photoPrice: 300,
+  videoPrice: 500,
+  createdAt: new Date('2026-01-01T05:00:00Z'),
+  updatedAt: new Date('2026-01-01T05:00:00Z'),
+};
+
+const workspaceState: UploadWorkspaceState = {
+  workspace: activeWorkspace,
+  existingMedia: [],
+  assets: [],
+  stagedRemovalIds: [],
+  attempts: [],
+};
 
 const mocks = vi.hoisted(() => ({
-  draft: {
-    id: 'draft-1',
-    spotId: 'spot-a',
-    spot: { id: 'spot-a', name: 'Spot A', location: 'Beach' },
-  },
   invalidateQueries: vi.fn(),
-  createDraft: vi.fn(),
   navigate: vi.fn(),
   openAuthModal: vi.fn(),
-  search: { draftId: 'draft-1' as string | undefined },
-  query: {
-    data: undefined as { id: string; spotId: string; spot: { id: string; name: string; location: string } } | undefined,
+  search: { workspaceId: 'workspace-active' as string | undefined, spotId: undefined as string | undefined },
+  activeQuery: {
+    data: undefined as UploadWorkspaceSummary | null | undefined,
+    isLoading: false,
+  },
+  stateQuery: {
+    data: undefined as UploadWorkspaceState | undefined,
     isError: false,
     isLoading: false,
   },
+  spotPreview: {
+    data: { id: 'spot-a', name: 'Spot A', location: 'Beach' } as { id: string; name: string; location: string } | undefined,
+  },
   user: { isAuthenticated: true, isLoading: false },
-  updateDraft: vi.fn(),
+  updateWorkspace: vi.fn(),
+  notifyError: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -32,8 +57,10 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({ mutateAsync: mocks.updateDraft }),
-  useQuery: () => mocks.query,
+  useMutation: () => ({ mutateAsync: mocks.updateWorkspace }),
+  useQuery: (options: { queryKey: unknown[] }) => (
+    options.queryKey[0] === 'uploads.getActiveWorkspace' ? mocks.activeQuery : mocks.stateQuery
+  ),
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
 
@@ -41,26 +68,24 @@ vi.mock('shared/hooks/useUser', () => ({
   useUser: () => mocks.user,
 }));
 
+vi.mock('shared/lib/notifications', () => ({
+  notify: { error: mocks.notifyError },
+}));
+
 vi.mock('entities/Identity', () => ({
   useAuthModal: () => ({ open: mocks.openAuthModal }),
 }));
 
-vi.mock('entities/SurfSession', () => ({
-  useCreateSurfSessionDraft: () => ({
-    mutateAsync: mocks.createDraft,
-    isPending: false,
-  }),
-}));
-
-vi.mock('shared/lib/trpcClient', () => ({
-  trpcProxy: { sessions: { draft: { queryOptions: vi.fn() } } },
+vi.mock('entities/Spot', () => ({
+  useSpotPreview: () => mocks.spotPreview,
 }));
 
 vi.mock('shared/lib/trpc', () => ({
   useTRPC: () => ({
-    sessions: {
-      draft: { queryOptions: vi.fn(), queryKey: () => ['sessions', 'draft'] },
-      updateDraft: { mutationOptions: vi.fn() },
+    uploads: {
+      getActiveWorkspace: { queryOptions: () => ({ queryKey: ['uploads.getActiveWorkspace'] }) },
+      getWorkspaceState: { queryOptions: (input: unknown) => ({ queryKey: ['uploads.getWorkspaceState', input] }), queryKey: (input: unknown) => ['uploads.getWorkspaceState', input] },
+      updateWorkspace: { mutationOptions: vi.fn() },
     },
   }),
 }));
@@ -81,67 +106,184 @@ vi.mock('widgets/FeedDrawer', () => ({
 }));
 
 vi.mock('features/Upload', () => ({
-  UploadSidebar: ({ draft }: { draft: { spotId: string | null } }) => (
-    <span data-testid="publish-spot">{draft.spotId ?? 'none'}</span>
+  UploadSidebar: ({
+    header,
+    onBackActionChange,
+    workspaceState: state,
+    spotId,
+    onWorkspaceCreated,
+    onWorkspaceDiscarded,
+  }: {
+    header?: ReactNode;
+    onBackActionChange?: (action: { onBack: () => void; disabled: boolean } | null) => void;
+    workspaceState?: UploadWorkspaceState;
+    spotId?: string | null;
+    onWorkspaceCreated?: (workspaceId: string) => void;
+    onWorkspaceDiscarded?: () => void;
+  }) => (
+    <div>
+      <div data-testid="upload-sidebar-header">{header}</div>
+      <span data-testid="has-panel-back-action">{onBackActionChange ? 'yes' : 'no'}</span>
+      <span data-testid="workspace-id">{state?.workspace.id ?? 'none'}</span>
+      <span data-testid="publish-spot">{spotId ?? 'none'}</span>
+      {onWorkspaceCreated && (
+        <button onClick={() => onWorkspaceCreated('lazily-created-workspace')}>Simulate first upload</button>
+      )}
+      <button onClick={() => onWorkspaceDiscarded?.()}>Simulate gallery discard</button>
+    </div>
   ),
 }));
 
-describe('UploadPanel draft ownership', () => {
+describe('UploadPanel workspace routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.search.draftId = 'draft-1';
-    mocks.query.data = mocks.draft;
-    mocks.query.isError = false;
-    mocks.query.isLoading = false;
+    mocks.search.workspaceId = 'workspace-active';
+    mocks.search.spotId = undefined;
+    mocks.activeQuery.data = undefined;
+    mocks.activeQuery.isLoading = false;
+    mocks.stateQuery.data = workspaceState;
+    mocks.stateQuery.isError = false;
+    mocks.stateQuery.isLoading = false;
+    mocks.spotPreview.data = { id: 'spot-a', name: 'Spot A', location: 'Beach' };
     mocks.user.isAuthenticated = true;
     mocks.user.isLoading = false;
-    mocks.createDraft.mockResolvedValue(mocks.draft);
+    mocks.updateWorkspace.mockResolvedValue({ id: 'workspace-active' });
   });
 
-  it('renders the server draft and persists spot selection to that draft', async () => {
+  it('renders the requested workspace state', () => {
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
-    expect(screen.getByTestId('selected-spot').textContent).toBe('spot-a');
+    expect(screen.getByTestId('workspace-id').textContent).toBe('workspace-active');
     expect(screen.getByTestId('publish-spot').textContent).toBe('spot-a');
+  });
+
+  it('renders the spot selector in the upload sidebar header', () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(within(screen.getByTestId('upload-sidebar-header')).getByTestId('selected-spot').textContent).toBe('spot-a');
+  });
+
+  it('allows the panel title row to own the back action', () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(screen.getByTestId('has-panel-back-action').textContent).toBe('yes');
+  });
+
+  it('persists spot selection to the workspace', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Spot B' }));
 
     await waitFor(() => {
-      expect(mocks.updateDraft).toHaveBeenCalledWith({ draftId: 'draft-1', spotId: 'spot-b' });
+      expect(mocks.updateWorkspace).toHaveBeenCalledWith({ workspaceId: 'workspace-active', spotId: 'spot-b' });
     });
   });
 
-  it('offers an explicit start action when the URL has no draft locator', async () => {
-    mocks.search.draftId = undefined;
-    mocks.query.data = undefined;
+  it('stores the selected workspace spot in the upload URL after persisting it', async () => {
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
-    expect(screen.getByText('No upload draft is open')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Start or resume upload' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Spot B' }));
 
-    await waitFor(() => expect(mocks.createDraft).toHaveBeenCalledWith({}));
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith({
+        to: '/upload',
+        search: { workspaceId: 'workspace-active', spotId: 'spot-b' },
+        replace: true,
+      });
+    });
+  });
+
+  it('redirects to an existing active workspace', () => {
+    mocks.search.workspaceId = undefined;
+    mocks.activeQuery.data = activeWorkspace;
+    mocks.stateQuery.data = undefined;
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: '/upload',
-      search: { draftId: 'draft-1' },
+      search: { workspaceId: 'workspace-active' },
       replace: true,
     });
   });
 
-  it('offers the same recovery action when the URL points to an unavailable draft', () => {
-    mocks.query.data = undefined;
-    mocks.query.isError = true;
+  it('shows a loading state while the requested workspace is opening', () => {
+    mocks.stateQuery.data = undefined;
+    mocks.stateQuery.isLoading = true;
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 
-    expect(screen.getByText('This upload draft is unavailable')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Start or resume upload' })).not.toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('Opening upload workspace…');
   });
 
-  it('offers sign-in before attempting to load a protected draft', () => {
+  it('renders the new-upload sidebar while active workspace discovery is still loading', () => {
+    mocks.search.workspaceId = undefined;
+    mocks.activeQuery.data = undefined;
+    mocks.activeQuery.isLoading = true;
+    mocks.stateQuery.data = undefined;
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    expect(screen.getByTestId('workspace-id').textContent).toBe('none');
+    expect(screen.getByTestId('publish-spot').textContent).toBe('none');
+  });
+
+  it('stores a pre-workspace spot selection in the upload URL', () => {
+    mocks.search.workspaceId = undefined;
+    mocks.activeQuery.data = undefined;
+    mocks.stateQuery.data = undefined;
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Spot B' }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/upload',
+      search: { spotId: 'spot-b' },
+      replace: true,
+    });
+    expect(mocks.updateWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the lazily-created workspace once the first file starts uploading', async () => {
+    mocks.search.workspaceId = undefined;
+    mocks.activeQuery.data = undefined;
+    mocks.stateQuery.data = undefined;
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate first upload' }));
+
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith({
+        to: '/upload',
+        search: { workspaceId: 'lazily-created-workspace' },
+        replace: true,
+      });
+    });
+  });
+
+  it('returns to a fresh upload after gallery discard while preserving the selected spot', () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+    render(<Component />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate gallery discard' }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/upload',
+      search: { spotId: 'spot-a' },
+      replace: true,
+    });
+  });
+
+  it('offers sign-in before attempting to load protected workspace state', () => {
     mocks.user.isAuthenticated = false;
-    mocks.query.data = undefined;
+    mocks.stateQuery.data = undefined;
     const Component = (Route as unknown as { component: ComponentType }).component;
     render(<Component />);
 

@@ -20,7 +20,7 @@ function makeDraft(overrides: Partial<MediaItem>): GalleryCard {
     price: null,
     lightboxUrl: 'https://cdn.example.com/light.mp4',
     thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
-    cloudinaryPublicId: 'wave-atlas/users/user-1/abc',
+    cloudinaryPublicId: 'swelldays/users/user-1/abc',
     status: MEDIA_STATUS.DRAFT,
     createdAt: new Date(),
     resource: {
@@ -30,7 +30,7 @@ function makeDraft(overrides: Partial<MediaItem>): GalleryCard {
     },
     ...overrides,
   };
-  return { kind: 'draft', id: base.id, result: base };
+  return { kind: 'asset', id: base.id, result: base };
 }
 
 describe('UploadCardRenderer — draft cards', () => {

@@ -13,7 +13,7 @@ export function ScopeSwitcher({ scope, onChange }: ScopeSwitcherProps) {
         aria-pressed={scope === 'sessions'}
         onClick={scope === 'sessions' ? undefined : () => onChange('sessions')}
       >
-        Recent
+        Feed
       </button>
       <button
         className={`${styles.segment} ${scope === 'gallery' ? styles.segmentActive : ''}`}

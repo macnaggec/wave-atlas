@@ -33,19 +33,12 @@
 }
 
 .headerSlotFull {
-  grid-column: 2 / 4;
+  grid-column: 1 / 4;
   min-width: 0;
   display: flex;
   justify-content: flex-end;
   justify-self: stretch;
 }
-
-/* ── Subheader: full-width row below top bar (e.g. search in State A) ─────── */
-.subheader {
-  flex-shrink: 0;
-  padding: 8px 12px;
-}
-
 
 /* ── Panel body ───────────────────────────────────────────────────────────── */
 .body {
@@ -86,4 +79,14 @@
 .topBtn:hover {
   background: var(--wa-control-fill);
   color: var(--wa-text-inverse);
+}
+
+.topBtn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.topBtn:disabled:hover {
+  background: transparent;
+  color: var(--wa-text-muted);
 }

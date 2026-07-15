@@ -1,5 +1,6 @@
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
+import type { MediaType } from '@prisma/client';
 
 export type PurchaseWithMedia = {
   id: string;
@@ -8,6 +9,7 @@ export type PurchaseWithMedia = {
   previewUrl: string | null;
   mediaItem: {
     id: string;
+    type: MediaType;
     cloudinaryPublicId: string;
     thumbnailUrl: string;
   };
@@ -28,7 +30,7 @@ const PURCHASE_WITH_MEDIA_SELECT = {
   amountPaid: true,
   previewUrl: true,
   mediaItem: {
-    select: { id: true, cloudinaryPublicId: true, thumbnailUrl: true },
+    select: { id: true, type: true, cloudinaryPublicId: true, thumbnailUrl: true },
   },
 } as const;
 

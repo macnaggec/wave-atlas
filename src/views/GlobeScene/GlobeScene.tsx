@@ -1,19 +1,23 @@
 import { GlobeMap, type MapSpotProjection } from 'widgets/GlobeMap';
 import { useMapSpots } from 'entities/Spot';
-import { AddSpotPanel, usePinPlacementStore } from 'features/AddSpot';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AddSpotPanel, useAddSpotStore } from 'features/AddSpot';
+import { FavoriteSpotButton } from 'features/FavoriteSpot';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMatches, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import type { LngLat } from 'shared/types/coordinates';
-import { useRenderedPanelExpandedSnapshot } from 'shared/model/panelExpansionStore';
+import { usePanelExpansionStore, useRenderedPanelExpandedSnapshot } from 'shared/model/panelExpansionStore';
+import { getPanelRouteMode } from 'shared/model/panelRouteMode';
 import { useTRPC } from 'shared/lib/trpc';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 import { notify } from 'shared/lib/notifications';
+import { deriveAppChromePolicy } from 'shared/model/appChromePolicy';
 import { materialClasses } from 'shared/ui/design-system';
 import classes from './GlobeScene.module.css';
 import { deriveGlobeInteractionPolicy } from './model/globeInteractionPolicy';
 import { deriveGlobeMotionPolicy } from './model/globeMotionPolicy';
 import { deriveGlobeSceneMode } from './model/globeSceneMode';
+import { deriveGlobeSidebarOcclusionPx } from './model/globeSidebarOcclusion';
 import { getOverviewMapBounds } from './model/overviewBoundsStrategy';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -58,6 +62,11 @@ function usePrefersReducedMotion() {
  * GlobeScene — persistent globe view with floating UI.
  *
  * Lives at layout level — never remounts on panel open/close navigations.
+ * Unmounted by AppShell while a full-page overlay route (e.g. admin) is
+ * active, since those routes fully cover it and it would otherwise keep
+ * rendering, animating, and fetching tiles/telemetry while invisible.
+ * Camera position persists in useMapStore, so remounting on return restores
+ * the same view.
  */
 export function GlobeScene() {
   const { data: spots = [] } = useMapSpots(getOverviewMapBounds());
@@ -65,29 +74,45 @@ export function GlobeScene() {
     () => spots.map(({ id, name, coords, status }) => ({ id, name, coords, status })),
     [spots],
   );
-  const isPinMode = usePinPlacementStore((s) => s.isActive);
-  const tempPin = usePinPlacementStore((s) => s.tempPin);
-  const setTempPin = usePinPlacementStore((s) => s.setTempPin);
+  const isAddSpotActive = useAddSpotStore((s) => s.isActive);
+  const tempPin = useAddSpotStore((s) => s.tempPin);
+  const setTempPin = useAddSpotStore((s) => s.setTempPin);
   const [isUserExploring, setIsUserExploring] = useState(false);
   const isDocumentHidden = useDocumentHidden();
   const prefersReducedMotion = usePrefersReducedMotion();
   const isRenderedPanelExpanded = useRenderedPanelExpandedSnapshot();
+  const setBrowsingPanelExpanded = usePanelExpansionStore((state) => state.setBrowsingPanelExpanded);
+  const setGalleryPanelExpanded = usePanelExpansionStore((state) => state.setGalleryPanelExpanded);
   const matches = useMatches();
+  const panelRouteMode = getPanelRouteMode(matches);
+  const canCompactPanelFromMap = panelRouteMode === 'browsing' || panelRouteMode === 'galleryWorkspace';
   const navigate = useNavigate();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { mutateAsync: updateDraft, isPending: isUpdatingDraft } = useMutation(
-    trpc.sessions.updateDraft.mutationOptions(),
+  const { mutateAsync: updateWorkspace, isPending: isUpdatingWorkspace } = useMutation(
+    trpc.uploads.updateWorkspace.mutationOptions(),
   );
   const uploadMatch = matches.find((match) => match.routeId === '/_panel/upload');
-  const draftId = uploadMatch
-    ? (uploadMatch.search as { draftId?: string }).draftId
+  const uploadSearch = uploadMatch
+    ? uploadMatch.search as { workspaceId?: string; spotId?: string }
     : undefined;
+  const workspaceId = uploadSearch?.workspaceId;
+  // The upload URL carries the freshest selected spot; workspace state covers resumed edits
+  // whose persisted spot is available before the route has a spot search value.
+  const { data: uploadWorkspaceState } = useQuery({
+    ...trpc.uploads.getWorkspaceState.queryOptions({ workspaceId: workspaceId ?? '' }),
+    enabled: !!workspaceId,
+  });
+  const uploadSeedSpotId = uploadSearch?.spotId;
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
-  const selectedSpotId = (spotMatch?.params as { spotId?: string } | undefined)?.spotId ?? null;
+  const routeSelectedSpotId = (spotMatch?.params as { spotId?: string } | undefined)?.spotId ?? null;
+  const selectedSpotId = uploadMatch
+    ? (uploadSeedSpotId ?? uploadWorkspaceState?.workspace.spotId ?? null)
+    : routeSelectedSpotId;
+  const chromePolicy = deriveAppChromePolicy({ isAddSpotActive });
   const sceneMode = deriveGlobeSceneMode({
-    isPinPlacementActive: isPinMode,
-    isUploadSpotSelectionActive: Boolean(draftId),
+    isAddSpotActive,
+    isUploadSpotSelectionActive: Boolean(uploadMatch),
     selectedSpotId,
     isUserExploring,
   });
@@ -99,27 +124,61 @@ export function GlobeScene() {
   const interactionPolicy = deriveGlobeInteractionPolicy({
     sceneMode,
     isRenderedPanelExpanded,
+    canCompactPanelFromMap,
   });
+  const sidebarOccludedPx = useMemo(
+    () => deriveGlobeSidebarOcclusionPx({
+      isRenderedPanelExpanded,
+      viewportWidthPx: window.innerWidth,
+    }),
+    [isRenderedPanelExpanded],
+  );
 
   const handleSpotSelect = useCallback(async (spot: MapSpotProjection) => {
-    if (isUpdatingDraft) return;
+    if (isUpdatingWorkspace) return;
 
-    if (sceneMode.kind !== 'uploadSpotSelection' || !draftId) {
-      await navigate({ to: '/$spotId', params: { spotId: spot.id } });
+    if (sceneMode.kind !== 'uploadSpotSelection') {
+      await navigate({
+        to: panelRouteMode === 'galleryWorkspace' ? '/$spotId/gallery' : '/$spotId',
+        params: { spotId: spot.id },
+      });
       return;
     }
 
+    if (!workspaceId) {
+      await navigate({ to: '/upload', search: { spotId: spot.id }, replace: true });
+      return;
+    }
+
+    void navigate({
+      to: '/upload',
+      search: { workspaceId, spotId: spot.id },
+      replace: true,
+    });
+
     try {
-      await updateDraft({ draftId, spotId: spot.id });
-      await queryClient.invalidateQueries({ queryKey: trpc.sessions.draft.queryKey(draftId) });
+      await updateWorkspace({ workspaceId, spotId: spot.id });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.uploads.getWorkspaceState.queryKey({ workspaceId }),
+      });
     } catch (error) {
       notify.error(getErrorMessage(error), 'Unable to Save Spot');
     }
-  }, [draftId, isUpdatingDraft, navigate, queryClient, sceneMode.kind, trpc, updateDraft]);
+  }, [isUpdatingWorkspace, navigate, panelRouteMode, queryClient, sceneMode.kind, trpc, updateWorkspace, workspaceId]);
 
   const handleMapCoordinateClick = useCallback((coords: LngLat) => {
     setTempPin(coords);
   }, [setTempPin]);
+
+  const handleCameraGestureStart = useCallback(() => {
+    if (!isRenderedPanelExpanded) return;
+
+    if (panelRouteMode === 'galleryWorkspace') {
+      setGalleryPanelExpanded(false);
+    } else if (panelRouteMode === 'browsing') {
+      setBrowsingPanelExpanded(false);
+    }
+  }, [isRenderedPanelExpanded, panelRouteMode, setBrowsingPanelExpanded, setGalleryPanelExpanded]);
 
   return (
     <div className={classes.root}>
@@ -129,16 +188,20 @@ export function GlobeScene() {
         onSpotSelect={handleSpotSelect}
         motionPolicy={motionPolicy}
         interactionPolicy={interactionPolicy}
-        isPinPlacementActive={isPinMode}
+        sidebarOccludedPx={sidebarOccludedPx}
+        isCoordinatePickerActive={isAddSpotActive}
+        showNavigationControl={chromePolicy.showMapNavigationControl}
         tempPin={tempPin}
         onMapCoordinateClick={handleMapCoordinateClick}
         onUserExploreStart={() => setIsUserExploring(true)}
         onUserExploreEnd={() => setIsUserExploring(false)}
+        onCameraGestureStart={handleCameraGestureStart}
+        renderSelectedSpotContent={(spot) => <FavoriteSpotButton spotId={spot.id} />}
       />
-      {isUpdatingDraft && (
+      {isUpdatingWorkspace && (
         <div className={`${classes.saveStatus} ${materialClasses.status}`} role="status">Saving spot…</div>
       )}
-      {isPinMode && <AddSpotPanel />}
+      {isAddSpotActive && <AddSpotPanel />}
     </div>
   );
 }

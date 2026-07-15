@@ -1,21 +1,3 @@
-.context {
-  --mantine-color-gray-0: var(--wa-control-fill-muted);
-  --mantine-color-gray-1: var(--wa-control-fill-muted);
-  --mantine-primary-color-filled: var(--wa-control-fill-active);
-  --mantine-primary-color-filled-hover: var(--wa-control-fill-active-hover);
-  --mantine-primary-color-contrast: var(--wa-text-inverse);
-  --mantine-primary-color-light: var(--wa-control-fill);
-  --mantine-primary-color-light-hover: var(--wa-control-fill-hover);
-  --mantine-color-text: var(--wa-text-primary);
-  --mantine-color-bright: var(--wa-text-strong);
-  --mantine-color-dimmed: var(--wa-text-dimmed);
-  --mantine-color-placeholder: var(--wa-text-placeholder);
-  --mantine-color-default: var(--wa-control-fill);
-  --mantine-color-default-hover: var(--wa-control-fill-hover);
-  --mantine-color-default-color: var(--wa-text-primary);
-  --mantine-color-default-border: var(--wa-control-border);
-}
-
 .chrome {
   background: var(--wa-surface-chrome);
   backdrop-filter: var(--wa-glass-blur-sm);
@@ -25,11 +7,29 @@
 }
 
 .panel {
+  isolation: isolate;
+  border: 1px solid var(--wa-glass-border-chrome);
+  box-shadow: var(--wa-glass-shadow-chrome);
+}
+
+/* Zero specificity so a consumer's own position (e.g. SidePanel's fixed) always wins. */
+:where(.panel) {
+  position: relative;
+}
+
+/* The glass lives on an underlay, not the panel itself: backdrop-filter on the
+   panel would make it a backdrop root, and Chromium then stops sampling panel
+   content for descendants' backdrop-filters (sticky chrome controls stay sharp
+   over text/images while scrolled content passes under them). */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   background: var(--wa-surface-chrome);
   backdrop-filter: var(--wa-glass-blur-sm);
   -webkit-backdrop-filter: var(--wa-glass-blur-sm);
-  border: 1px solid var(--wa-glass-border-chrome);
-  box-shadow: var(--wa-glass-shadow-chrome);
 }
 
 .status {
@@ -43,7 +43,7 @@
 .uploadZone {
   border-radius: var(--wa-radius-control-sm);
   background: var(--wa-surface-upload-zone);
-  border: 1px dashed var(--wa-control-upload-border);
+  border: 1px solid var(--wa-control-upload-border);
 }
 
 .uploadZoneDisabled {
@@ -74,6 +74,17 @@
 .primaryAction:hover {
   background: var(--wa-surface-primary-action-hover);
   border-color: var(--wa-glass-border-primary-action-hover);
+}
+
+/* Pill controls on sticky surfaces (panel chrome rows, sticky footers,
+   selection toolbars). Sticky gallery rows strengthen the effect via the
+   --wa-panel-control-* vars set on PanelScrollChrome; elsewhere the token
+   defaults apply. */
+.panelControl {
+  border: 1px solid var(--wa-glass-border-media-overlay);
+  background: var(--wa-panel-control-background, var(--wa-control-fill));
+  backdrop-filter: var(--wa-panel-control-backdrop, var(--wa-glass-blur-sm));
+  -webkit-backdrop-filter: var(--wa-panel-control-backdrop, var(--wa-glass-blur-sm));
 }
 
 .controlButton {

@@ -49,6 +49,7 @@ export type PublishedMedia = {
 
 export type SpotMediaItem = MediaItem & {
   photographer: { id: string; name: string | null } | null;
+  spot: { id: string; name: string } | null;
 };
 
 export type PublicMediaItem = MediaItem & {

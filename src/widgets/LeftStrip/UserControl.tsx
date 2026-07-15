@@ -1,4 +1,5 @@
-import { Avatar, Button, Menu } from '@mantine/core';
+import { ActionIcon, Avatar, Menu, Tooltip } from '@mantine/core';
+import { IconLogin } from '@tabler/icons-react';
 import { signOut } from 'shared/lib/auth';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -18,33 +19,38 @@ export function UserControl() {
 
   const handleSignIn = useCallback(() => openAuthModal(), [openAuthModal]);
   const handleSignOut = useCallback(() => void signOut(), []);
-  const handleGoToCollection = useCallback(() => navigate({ to: '/me' }), [navigate]);
-  const handleOpenAccount = useCallback(() => navigate({ to: '/account' }), [navigate]);
+  const handleGoToCollection = useCallback(() => navigate({ to: '/me/collections' }), [navigate]);
+  const handleGoToEarnings = useCallback(() => navigate({ to: '/me/earnings' }), [navigate]);
+  const handleOpenAccount = useCallback(() => navigate({ to: '/me' }), [navigate]);
 
   if (isLoading) return null;
 
   if (!isAuthenticated) {
     return (
-      <Button
-        variant="default"
-        size="sm"
-        onClick={handleSignIn}
-      >
-        Sign in
-      </Button>
+      <Tooltip label="Sign in" position="right">
+        <ActionIcon
+          variant="transparent"
+          size="lg"
+          aria-label="Sign in"
+          onClick={handleSignIn}
+          style={{ color: 'rgba(255,255,255,0.75)' }}
+        >
+          <IconLogin size={18} />
+        </ActionIcon>
+      </Tooltip>
     );
   }
 
   const initials = (user?.name ?? user?.email ?? '?').slice(0, 2).toUpperCase();
 
   return (
-    <Menu position="bottom-end" withArrow>
+    <Menu position="right">
       <Menu.Target>
         <Avatar
           src={user?.image}
           alt={user?.name ?? 'User'}
           variant="outline"
-          color="blue"
+          color="gray"
           radius="xl"
           size={34}
           style={{ cursor: 'pointer' }}
@@ -53,13 +59,14 @@ export function UserControl() {
         </Avatar>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item onClick={handleGoToCollection}>My Collection</Menu.Item>
-        <Menu.Item onClick={handleOpenAccount}>Account Settings</Menu.Item>
+        <Menu.Item onClick={handleGoToCollection}>My Collections</Menu.Item>
+        <Menu.Item onClick={handleGoToEarnings}>Earnings</Menu.Item>
+        <Menu.Item onClick={handleOpenAccount}>Account</Menu.Item>
         <Menu.Divider />
         <Menu.Item color="red" onClick={handleSignOut}>
           Sign out
         </Menu.Item>
       </Menu.Dropdown>
-    </Menu>
+    </Menu >
   );
 }

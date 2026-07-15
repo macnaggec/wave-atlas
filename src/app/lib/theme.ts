@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { createTheme } from '@mantine/core';
+import { createTheme, type CSSVariablesResolver } from '@mantine/core';
 
 // CSS variable overrides that cascade into overlay subtrees so child
 // Mantine components (inputs, labels, text) render correctly on glass backgrounds.
@@ -26,6 +26,7 @@ const glassOverlay: CSSProperties = {
 };
 
 export const theme = createTheme({
+  fontFamily: '"Geist Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   components: {
     Input: {
       styles: {
@@ -132,5 +133,31 @@ export const theme = createTheme({
         },
       },
     },
+  },
+});
+
+// Global Mantine CSS variable overrides for the app's dark-only glass design system.
+// Mirrors the mappings previously scoped to the ".context" class in materials.module.css,
+// applied here for every Mantine component in the app (not just the overlay subtree it was
+// manually attached to).
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {},
+  dark: {
+    '--mantine-color-text':                  'var(--wa-text-primary)',
+    '--mantine-color-bright':                'var(--wa-text-strong)',
+    '--mantine-color-dimmed':                'var(--wa-text-dimmed)',
+    '--mantine-color-placeholder':           'var(--wa-text-placeholder)',
+    '--mantine-color-default':               'var(--wa-control-fill)',
+    '--mantine-color-default-hover':         'var(--wa-control-fill-hover)',
+    '--mantine-color-default-color':         'var(--wa-text-primary)',
+    '--mantine-color-default-border':        'var(--wa-control-border)',
+    '--mantine-color-gray-0':                'var(--wa-control-fill-muted)',
+    '--mantine-color-gray-1':                'var(--wa-control-fill-muted)',
+    '--mantine-primary-color-filled':        'var(--wa-control-fill-active)',
+    '--mantine-primary-color-filled-hover':  'var(--wa-control-fill-active-hover)',
+    '--mantine-primary-color-contrast':      'var(--wa-text-inverse)',
+    '--mantine-primary-color-light':         'var(--wa-control-fill)',
+    '--mantine-primary-color-light-hover':   'var(--wa-control-fill-hover)',
   },
 });

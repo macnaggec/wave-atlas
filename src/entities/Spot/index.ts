@@ -5,6 +5,7 @@ export type { SpotStatus } from './constants';
 
 export { useAddSpotAlias } from './model/useAddSpotAlias';
 export { useCreateSpot } from './model/useCreateSpot';
+export { useFavoriteSpot } from './model/useFavoriteSpot';
 export { useNearbySpots } from './model/useNearbySpots';
 export { useSelectedSpot } from './model/useSelectedSpot';
 export { useSpotCard } from './model/useSpotCard';

@@ -1,4 +1,4 @@
-import { isSameCalendarDay } from './dateUtils';
+import { getVisibleCalendarDayKey } from './dateUtils';
 
 export type GalleryRow<T = { id: string; capturedAt: Date }> =
   | { type: 'divider'; date: Date; key: string; mediaRowCount: number }
@@ -21,11 +21,12 @@ export function buildGalleryRows<T extends { id: string; capturedAt: Date }>(
 
   while (groupStart < items.length) {
     const groupDate = items[groupStart]!.capturedAt;
+    const groupDateKey = getVisibleCalendarDayKey(groupDate);
 
     let groupEnd = groupStart + 1;
     while (
       groupEnd < items.length
-      && isSameCalendarDay(items[groupEnd]!.capturedAt, groupDate)
+      && getVisibleCalendarDayKey(items[groupEnd]!.capturedAt) === groupDateKey
     ) {
       groupEnd++;
     }

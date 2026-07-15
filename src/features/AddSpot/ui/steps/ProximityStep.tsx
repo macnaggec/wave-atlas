@@ -20,12 +20,12 @@ export function ProximityStep({
   onCancel,
 }: ProximityStepProps) {
   return (
-    <Stack gap="sm">
+    <Stack gap={6}>
       <Alert
         icon={<IconAlertTriangle size={16} />}
         color="yellow"
         title="Nearby spot found"
-        p="xs"
+        p={6}
       >
         There's already a spot within 300 m. Is this the one you meant?
       </Alert>
@@ -34,7 +34,7 @@ export function ProximityStep({
         <Group
           key={spot.id}
           justify="space-between"
-          p="xs"
+          p={6}
           bd="1px solid var(--mantine-color-dark-4)" style={{ borderRadius: 8 }}
         >
           <Stack gap={2}>
@@ -47,9 +47,9 @@ export function ProximityStep({
         </Group>
       ))}
 
-      <Group justify="space-between" mt="xs">
+      <Group justify="space-between" mt={2}>
         <Group gap="xs">
-          <Button variant="default" size="xs" onClick={onBack}>← Back</Button>
+          <Button variant="default" size="xs" onClick={onBack}>Back</Button>
           <Button variant="default" size="xs" onClick={onCancel}>Cancel</Button>
         </Group>
         <Button
@@ -59,7 +59,7 @@ export function ProximityStep({
           onClick={onConfirmCreate}
           loading={isCreating}
         >
-          No, create new →
+          Create new
         </Button>
       </Group>
     </Stack>

@@ -1,4 +1,4 @@
- # Wave Atlas - Platform Requirements
+ # Swelldays - Platform Requirements
 
 The platform is designed for photographers who can upload and sell their photos and videos, and for surfers who can search, view, and purchase this content.
 The site contains a catalog of surf spots and each media file is attached to a specific spot.
@@ -23,7 +23,7 @@ A user can have both roles simultaneously.
 
 ### 3.2. Media Content Management (for Photographers)
 - Photographers can upload media files (photos and videos) to the platform.
-- **Watermarking:** Lightbox preview versions of videos and photos must be automatically protected with a watermark ("wave-atlas" logo).
+- **Watermarking:** Lightbox preview versions of videos and photos must be automatically protected with a watermark ("swelldays" logo).
 - Photographers can set a price for each media file.
 - Photographers can publish or hide their media files from public access.
 - Photographers can view a list of their uploaded media files.
@@ -40,7 +40,7 @@ A user can have both roles simultaneously.
 **Upload Workflow (Draft System):**
 1. **Upload**: User selects files → files upload to Cloudinary
 2. **Review/Edit**: Uploaded files are saved as drafts
-3. **Publish**: User manually publishes drafts from dashboard
+3. **Publish**: User publishes from the same upload sidebar (Publish / Save button) — there is no separate dashboard
 
 **Supported File Formats:**
 - **Images**: JPEG, PNG, HEIC (and other formats from cameras/smartphones)
@@ -59,11 +59,11 @@ A user can have both roles simultaneously.
   - **Uploading**: Overlay with individual progress bar and cancel button (cancel icon)
   - **Ready to publish**: Overlay with date badge (+ "auto" badge if auto detected), price badge, delete button (delete icon)
 - Ready to publish drafts can be edited before publishing
-- Publishing happens manually via dashboard
+- Publishing happens manually via the upload sidebar's Publish / Save button
 
 **Draft Editing:**
 - **Date/time**: Edited calendar and time range on time step
-- **Price**: Edited via bulk edit popover on file selection state
+- **Price**: One photo price and one video price per session, applied to all photos and all videos in that session respectively — not set per individual file
 - **Defaults**: Date = auto (from EXIF), Price = 3$ (minimal wage)
 - **Bulk Operations**:
   - Select multiple drafts → apply context action to all selected
@@ -91,13 +91,9 @@ A user can have both roles simultaneously.
 
 **Upload Progress Indicator (Global State):**
 
-*Single Upload Context:* Only one spot can have active uploads at a time. Other spots are blocked until current upload completes.
+*Single Draft Context:* A photographer can have at most one active draft session at a time, regardless of which spot it's for — not one per spot. Starting a new upload or opening a published session for editing while a draft is already active is blocked.
 
-*Upload Blocking:*
-- When uploads active, other spots cannot start uploads
-- Blocked spots show disabled upload button with popover explaining status
-- User can navigate to active upload via indicator or popover link
-
+*Draft Indicator:* The header Upload button shows an indicator when the photographer has a genuinely new, never-published draft with unfinished content. The indicator does not activate just because a published session is currently being edited (editing temporarily reuses the same draft status internally, but isn't a "new upload waiting to be resumed").
 
 **Error Handling:**
 - On error: show error on specific file, allow individual retry
@@ -109,8 +105,8 @@ A user can have both roles simultaneously.
 - Original files stored without watermark for buyers
 
 **Publishing:**
-- "Publish all" button appears if all drafts are valid and ready
-- "Publish all" button publishes all ready drafts of current spot
+- The Publish button is enabled once the draft session has a spot, a start time, an end time, a photo price, a video price, and at least one media item, and none of its media has an active or failed upload still in progress
+- Publishing publishes every media item in that draft session together — not scoped by spot beyond the session's own spot
 - After publishing, media becomes visible to buyers with watermark
 
 **Technical Implementation:**
@@ -120,6 +116,41 @@ A user can have both roles simultaneously.
 - **Progress tracking**: Individual per-file progress
 - **State management**: Draft status in database (Media model)
 - **Spot assignment**: Automatic from context (selected spot on map)
+
+#### 3.2.2. Session Draft, Edit & Cancel Lifecycle
+
+**Editing a Published Session:**
+- Photographers can reopen a previously published session for editing, using the same upload sidebar used to create it — there is no separate edit form.
+- Reopening a session for editing temporarily reverts it, and its media, back to draft status so it can be revised.
+- A photographer cannot open a second session for editing (or start a new upload) while one edit is already in progress — the same one-active-draft rule applies.
+- Changes to spot, date/time, and prices made during an edit are not applied to the live session until the edit is explicitly saved.
+- Removing an existing media item during an edit only stages it for removal — the item stays visible in the live, published session until the edit is saved.
+- Adding new media during an edit uploads it immediately, but it is not shown publicly until the edit is saved.
+- The photo/video price visibility rule below applies during editing too, based on the current in-progress set of media (including newly added items, excluding items staged for removal).
+- Saving an edit is subject to the same completeness requirements as publishing a new session (spot, start/end time, both prices, at least one media item).
+- Saving commits all staged changes together in one action — updated fields, newly added media, and staged removals.
+
+**Cancelling:**
+- Cancelling a new (never-published) upload discards everything added during that session — all uploaded files, and any file still uploading — and nothing is published.
+- Cancelling an edit of a previously published session restores it to exactly the state it was in before the edit began: original media returns to published at its original spot/price, and any spot/date/price changes made during the edit are discarded.
+- Cancelling an edit discards any media that was added during that edit — it never becomes published.
+- Cancelling — for both a new upload and an edit — stops any file uploads still in progress; a file that was still transferring when Cancel was clicked is not allowed to complete and appear afterward.
+- Media staged for removal during an edit is not actually removed if the edit is cancelled — it stays exactly as it was before the edit.
+- Leaving the upload or edit screen without explicitly clicking Save or Cancel is treated as Cancel.
+- A cancelled or discarded draft that ends up with no content immediately frees the photographer to start a new upload or open a different session for editing — it never permanently blocks future uploads.
+
+**Deleting Media:**
+- Photographers can remove individual media items from a draft or an in-progress edit before saving or publishing.
+- Removing a draft media item that has never been purchased permanently deletes it and its stored file.
+- Removing a media item that has already been purchased by a buyer keeps it available to that buyer, even though it is removed from the photographer's session and from public view.
+
+**Removing a Published Session:**
+- A photographer can remove an entire published session from public view.
+- Removing a published session keeps previously purchased media accessible to the buyers who purchased it.
+
+**Photo / Video Price Visibility:**
+- The photo price field is hidden if the session contains no photos; the video price field is hidden if the session contains no videos.
+- Before any files have been added to a session, both price fields are shown.
 
 ### 3.3. Content Purchase/Sale
 - Users can pay for items in cart using credit card.

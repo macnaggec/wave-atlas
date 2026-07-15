@@ -8,7 +8,7 @@ export const Route = createFileRoute('/_panel/$spotId/')({
 
 function SpotFeed() {
   const { spotId } = Route.useParams();
-  const { activeFilter } = usePanelFilter();
+  const { filters } = usePanelFilter();
   const expanded = usePanelExpanded();
   const onLayoutReadyChange = usePanelFeedLayoutReadyChange();
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ function SpotFeed() {
   return (
     <SessionFeed
       spotId={spotId}
-      activeFilter={activeFilter}
+      filters={filters}
       expanded={expanded}
       onLayoutReadyChange={onLayoutReadyChange}
       onSessionClick={(session) =>

@@ -2,18 +2,16 @@ import { useRef } from 'react';
 import { Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconBrandGoogleDrive, IconFolderOpen, IconUpload } from '@tabler/icons-react';
 import { handleFileSelection } from '../../lib/fileSelection';
-import { materialClasses, motionClasses } from 'shared/ui/design-system';
+import { materialClasses } from 'shared/ui/design-system';
 
 interface UploadZoneProps {
   onFilesSelected: (files: File[]) => void;
   onDriveImport?: () => void;
   driveLoading?: boolean;
   disabled?: boolean;
-  flashError?: boolean;
-  onFlashEnd?: () => void;
 }
 
-export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled, flashError, onFlashEnd }: UploadZoneProps) {
+export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disabled }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,7 +20,7 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
   };
 
   return (
-    <Box px="md" pb="md">
+    <Box>
       <input
         ref={inputRef}
         type="file"
@@ -33,11 +31,11 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
         aria-label="File upload input"
       />
       <Stack
-        gap="md"
+        data-upload-module
+        data-upload-zone
+        gap="var(--upload-section-gap)"
         align="center"
-        py="xl"
-        className={`${materialClasses.uploadZone} ${disabled ? materialClasses.uploadZoneDisabled : ''} ${flashError ? motionClasses.flashBorder : ''}`}
-        onAnimationEnd={flashError ? onFlashEnd : undefined}
+        className={`${materialClasses.uploadZone} ${disabled ? materialClasses.uploadZoneDisabled : ''}`}
       >
         <IconUpload size={28} stroke={1.5} className={materialClasses.uploadZoneIcon} />
         <Text size="xs" className={materialClasses.uploadZoneText}>Images & videos · max 50MB per file</Text>
@@ -45,6 +43,7 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
           <Button
             leftSection={<IconBrandGoogleDrive size={14} />}
             size="sm"
+            radius="xl"
             variant="light"
             onClick={() => !disabled && onDriveImport?.()}
             loading={driveLoading}
@@ -55,6 +54,7 @@ export function UploadZone({ onFilesSelected, onDriveImport, driveLoading, disab
           <Button
             leftSection={<IconFolderOpen size={14} />}
             size="sm"
+            radius="xl"
             variant="subtle"
             onClick={() => !disabled && inputRef.current?.click()}
             disabled={disabled}

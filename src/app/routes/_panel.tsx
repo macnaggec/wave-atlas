@@ -1,19 +1,19 @@
 import { createFileRoute, Outlet, useMatches, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedSpot, useSpotPreview } from 'entities/Spot';
-import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTRPC } from 'shared/lib/trpc';
-import { setRenderedPanelExpandedSnapshot } from 'shared/model/panelExpansionStore';
-import { Loader, Skeleton, Text } from '@mantine/core';
+import { setRenderedPanelExpandedSnapshot, usePanelExpansionStore } from 'shared/model/panelExpansionStore';
+import { Loader, Skeleton, Text, Title } from '@mantine/core';
 import {
-  useCreateSurfSessionDraft,
-  type SessionFeedFilter,
   type SurfSessionItem,
 } from 'entities/SurfSession';
+import { EMPTY_BROWSE_FILTERS, type BrowseDateFilter, type BrowseFilters } from 'shared/model/browseFilters';
 import { SidePanel } from 'widgets/SidePanel';
 import { useCartStore } from 'entities/Commerce';
 import { CartDrawerHeader } from 'features/Cart';
 import { useUploadStore } from 'features/Upload';
+import { useAddSpotStore } from 'features/AddSpot';
 import { ScopeSwitcher } from 'widgets/SidePanel';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { FilterPills } from 'widgets/SidePanel';
@@ -25,25 +25,36 @@ import {
 import { formatDateRange } from 'shared/lib/dateUtils';
 import { useUser } from 'shared/hooks/useUser';
 import { useAuthModal } from 'features/Auth';
-import { getErrorMessage } from 'shared/lib/getErrorMessage';
-import { notify } from 'shared/lib/notifications';
+import { deriveAppChromePolicy } from 'shared/model/appChromePolicy';
 import { derivePanelTargetPolicy, deriveRenderedPanelState } from './model/panelLayoutPolicy';
 import { getPanelRouteMode } from './model/panelRouteMode';
 
 // ─── Contexts — shared with child routes ─────────────────────────────────────
 
 interface PanelFilterCtx {
-  activeFilter: SessionFeedFilter;
-  setActiveFilter: (f: SessionFeedFilter) => void;
+  filters: BrowseFilters;
+  setDateFilter: (date: BrowseDateFilter) => void;
+  setFavoriteSpotsOnly: (value: boolean) => void;
+  clearFilters: () => void;
+}
+
+interface PanelRouteBackAction {
+  /** Omitted for a chevron-only back control. */
+  label?: string;
+  onBack: () => void;
+  disabled?: boolean;
 }
 
 const PanelFilterContext = createContext<PanelFilterCtx>({
-  activeFilter: null,
-  setActiveFilter: () => { },
+  filters: EMPTY_BROWSE_FILTERS,
+  setDateFilter: () => { },
+  setFavoriteSpotsOnly: () => { },
+  clearFilters: () => { },
 });
 
 const PanelExpandedContext = createContext(false);
 const PanelFeedLayoutReadyContext = createContext<(ready: boolean) => void>(() => { });
+const PanelRouteBackActionContext = createContext<(action: PanelRouteBackAction | null) => void>(() => { });
 
 export function usePanelFilter() {
   return useContext(PanelFilterContext);
@@ -57,6 +68,10 @@ export function usePanelFeedLayoutReadyChange() {
   return useContext(PanelFeedLayoutReadyContext);
 }
 
+export function useSetPanelRouteBackAction() {
+  return useContext(PanelRouteBackActionContext);
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/_panel')({
@@ -64,9 +79,16 @@ export const Route = createFileRoute('/_panel')({
 });
 
 function PanelLayout() {
-  const [activeFilter, setActiveFilter] = useState<SessionFeedFilter>(null);
+  const [filters, setFilters] = useState<BrowseFilters>(EMPTY_BROWSE_FILTERS);
+  const setDateFilter = useCallback((date: BrowseDateFilter) => {
+    setFilters((current) => ({ ...current, date }));
+  }, []);
+  const setFavoriteSpotsOnly = useCallback((favoriteSpotsOnly: boolean) => {
+    setFilters((current) => ({ ...current, favoriteSpotsOnly }));
+  }, []);
+  const clearFilters = useCallback(() => setFilters(EMPTY_BROWSE_FILTERS), []);
   return (
-    <PanelFilterContext.Provider value={{ activeFilter, setActiveFilter }}>
+    <PanelFilterContext.Provider value={{ filters, setDateFilter, setFavoriteSpotsOnly, clearFilters }}>
       <PanelFrame>
         <Outlet />
       </PanelFrame>
@@ -75,37 +97,47 @@ function PanelLayout() {
 }
 
 function PanelFrame({ children }: { children: ReactNode }) {
-  const [userPreferredExpanded, setUserPreferredExpanded] = useState(false);
+  const userPreferredExpanded = usePanelExpansionStore((state) => state.browsingExpanded);
+  const galleryPreferredExpanded = usePanelExpansionStore((state) => state.galleryExpanded);
+  const setUserPreferredExpanded = usePanelExpansionStore((state) => state.setBrowsingPanelExpanded);
+  const setGalleryPreferredExpanded = usePanelExpansionStore((state) => state.setGalleryPanelExpanded);
+  const [routeBackAction, setRouteBackAction] = useState<PanelRouteBackAction | null>(null);
   const navigate = useNavigate();
   const router = useRouter();
   const matches = useMatches();
-  const { activeFilter, setActiveFilter } = usePanelFilter();
+  const { filters, setDateFilter, setFavoriteSpotsOnly } = usePanelFilter();
 
   const cartItems = useCartStore((state) => state.items);
   const { isAuthenticated } = useUser();
   const { open: openAuthModal } = useAuthModal();
   const trpc = useTRPC();
-  const { data: draftCounts } = useQuery({
-    ...trpc.users.myDraftCounts.queryOptions(),
+  const { data: activeWorkspace } = useQuery({
+    ...trpc.uploads.getActiveWorkspace.queryOptions(),
     enabled: isAuthenticated,
   });
-  const { mutateAsync: createDraft, isPending: isCreatingDraft } = useCreateSurfSessionDraft();
-  const hasDrafts = draftCounts?.hasDrafts ?? false;
+  const hasUnfinishedUpload = activeWorkspace?.kind === 'NEW_SESSION';
   const hasActiveTransfers = useUploadStore((s) => s.transfers.size > 0);
+  const isAddSpotActive = useAddSpotStore((s) => s.isActive);
+  const chromePolicy = deriveAppChromePolicy({ isAddSpotActive });
 
   const cartMatch = matches.find((match) => match.routeId === '/_panel/cart');
   const spotMatch = matches.find((match) => match.routeId === '/_panel/$spotId');
   const uploadMatch = matches.find((match) => match.routeId === '/_panel/upload');
-  const uploadDraftId = uploadMatch
-    ? (uploadMatch.search as { draftId?: string }).draftId
-    : undefined;
-  const { data: activeUploadDraft } = useQuery({
-    ...trpc.sessions.draft.queryOptions(uploadDraftId ?? ''),
-    enabled: isAuthenticated && !!uploadDraftId,
-  });
-  const galleryMatch = matches.find((match) => match.routeId === '/_panel/$spotId/gallery');
+  const spotGalleryMatch = matches.find((match) => match.routeId === '/_panel/$spotId/gallery');
+  const allGalleryMatch = matches.find((match) => match.routeId === '/_panel/gallery');
+  const galleryMatch = spotGalleryMatch ?? allGalleryMatch;
   const sessionDetailMatch = matches.find((match) => match.routeId === '/_panel/$spotId/session/$sessionId');
+  const cameFromCollections = (sessionDetailMatch?.search as { from?: string } | undefined)?.from === 'collections';
   const isDefaultIndex = matches.some((match) => match.routeId === '/_panel/');
+  const showsBrowseResults = isDefaultIndex || Boolean(spotMatch && !sessionDetailMatch) || Boolean(allGalleryMatch);
+
+  const handleFavoritesChange = useCallback((value: boolean) => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+    setFavoriteSpotsOnly(value);
+  }, [isAuthenticated, openAuthModal, setFavoriteSpotsOnly]);
 
   const cartFrom = cartMatch
     ? (cartMatch.search as { from?: string }).from
@@ -113,27 +145,18 @@ function PanelFrame({ children }: { children: ReactNode }) {
 
   const { spotId } = useParams({ strict: false });
 
-  const handleUpload = useCallback(async () => {
+  const handleUpload = useCallback(() => {
     if (!isAuthenticated) {
       openAuthModal();
       return;
     }
-
-    try {
-      const startsAt = new Date();
-      startsAt.setHours(6, 0, 0, 0);
-      const endsAt = new Date(startsAt);
-      endsAt.setHours(10, 0, 0, 0);
-      const draft = await createDraft({
-        spotId: spotId ?? null,
-        startsAt,
-        endsAt,
-      });
-      await navigate({ to: '/upload', search: { draftId: draft.id } });
-    } catch (error) {
-      notify.error(getErrorMessage(error), 'Unable to Start Upload');
-    }
-  }, [createDraft, isAuthenticated, navigate, openAuthModal, spotId]);
+    void navigate({
+      to: '/upload',
+      search: activeWorkspace
+        ? { workspaceId: activeWorkspace.id }
+        : { spotId: spotId ?? undefined },
+    });
+  }, [activeWorkspace, isAuthenticated, navigate, openAuthModal, spotId]);
 
   const { spot: activeSpot } = useSelectedSpot();
   const { data: cartFromSpot } = useSpotPreview(cartFrom ?? '', { enabled: !!cartFrom });
@@ -143,14 +166,37 @@ function PanelFrame({ children }: { children: ReactNode }) {
   const routeRequiresCompactMapInput = panelRouteMode === 'mapInput';
   const panelTargetPolicy = derivePanelTargetPolicy({
     userPreferredExpanded,
+    galleryPreferredExpanded,
     routeMode: panelRouteMode,
+    isAddSpotActive,
   });
+
+  useLayoutEffect(() => {
+    if (!routeRequiresExpanded) return;
+    setUserPreferredExpanded(true);
+    setGalleryPreferredExpanded(true);
+  }, [routeRequiresExpanded, setGalleryPreferredExpanded, setUserPreferredExpanded]);
+
+  const canWaitForFeedLayout = panelTargetPolicy.reason === 'userPreference';
+  const handlePanelExpandToggle = useMemo(
+    () =>
+      panelTargetPolicy.canUserToggle
+        ? () => {
+          if (panelRouteMode === 'galleryWorkspace') {
+            setGalleryPreferredExpanded(!galleryPreferredExpanded);
+          } else {
+            setUserPreferredExpanded(!userPreferredExpanded);
+          }
+        }
+        : undefined,
+    [galleryPreferredExpanded, panelRouteMode, panelTargetPolicy.canUserToggle, setGalleryPreferredExpanded, setUserPreferredExpanded, userPreferredExpanded],
+  );
 
   const [isExpanded, setIsExpanded] = useState(() => deriveRenderedPanelState({
     targetExpanded: panelTargetPolicy.expanded,
     targetReason: panelTargetPolicy.reason,
     isFeedLayoutReady: false,
-    canWaitForFeedLayout: panelRouteMode === 'browsing',
+    canWaitForFeedLayout,
     currentRenderedExpanded: false,
   }).expanded);
   const [feedLayoutReady, setFeedLayoutReady] = useState(false);
@@ -159,7 +205,7 @@ function PanelFrame({ children }: { children: ReactNode }) {
     targetExpanded: panelTargetPolicy.expanded,
     targetReason: panelTargetPolicy.reason,
     isFeedLayoutReady: feedLayoutReady,
-    canWaitForFeedLayout: panelRouteMode === 'browsing',
+    canWaitForFeedLayout,
     currentRenderedExpanded: isExpanded,
   });
 
@@ -202,45 +248,83 @@ function PanelFrame({ children }: { children: ReactNode }) {
       );
     }
 
-    if (spotMatch) {
+    if (spotMatch || allGalleryMatch || isDefaultIndex) {
       return (
         <ScopeSwitcher
           scope={galleryMatch ? 'gallery' : 'sessions'}
           onChange={(scope) => {
-            if (scope === 'gallery') void navigate({ to: '/$spotId/gallery', params: { spotId: spotId! } });
-            else void navigate({ to: '/$spotId', params: { spotId: spotId! } });
+            if (allGalleryMatch || isDefaultIndex) {
+              if (scope === 'sessions') {
+                setUserPreferredExpanded(isExpanded);
+                void navigate({ to: '/' });
+              } else {
+                setGalleryPreferredExpanded(isExpanded);
+                void navigate({ to: '/gallery' });
+              }
+              return;
+            }
+
+            if (scope === 'gallery') {
+              setGalleryPreferredExpanded(isExpanded);
+              void navigate({ to: '/$spotId/gallery', params: { spotId: spotId! } });
+            } else {
+              setUserPreferredExpanded(isExpanded);
+              void navigate({ to: '/$spotId', params: { spotId: spotId! } });
+            }
           }}
         />
       );
     }
 
+    if (uploadMatch) {
+      return <Title order={1} size="h4">{activeWorkspace?.kind === 'SESSION_EDIT' ? 'Edit session' : 'Upload'}</Title>;
+    }
+
     for (const match of [...matches].reverse()) {
       const panelHeader = (match.staticData as { panelHeader?: string }).panelHeader;
-      if (panelHeader) return <Text fw={600} size="lg">{panelHeader}</Text>;
+      if (panelHeader) return <Title order={1} size="h4">{panelHeader}</Title>;
     }
 
     return undefined;
   })();
 
   const subheader: ReactNode = (() => {
-    if (sessionDetailMatch || (!spotMatch && !isDefaultIndex)) return undefined;
+    if (sessionDetailMatch || (!spotMatch && !isDefaultIndex && !allGalleryMatch)) return undefined;
 
     return (
       <PanelSearchToolbar
         expanded={isExpanded}
         primary={(
           <FeedSearch
-            activeSpot={isDefaultIndex ? null : (activeSpot ?? null)}
-            onSpotSelect={isExpanded && isDefaultIndex
-              ? (spot) => void navigate({ to: '/$spotId', params: { spotId: spot.id } })
-              : undefined}
+            activeSpot={isDefaultIndex || allGalleryMatch ? null : (activeSpot ?? null)}
+            onSpotSelect={
+              isDefaultIndex
+                ? (isExpanded
+                  ? (spot) => void navigate({ to: '/$spotId', params: { spotId: spot.id } })
+                  : undefined)
+                : allGalleryMatch
+                  ? (spot) => void navigate({
+                    to: '/$spotId/gallery',
+                    params: { spotId: spot.id },
+                  })
+                : spotMatch
+                  ? (spot) => void navigate({
+                    to: spotGalleryMatch ? '/$spotId/gallery' : '/$spotId',
+                    params: { spotId: spot.id },
+                  })
+                  : undefined
+            }
+            onClear={
+              spotMatch
+                ? () => void navigate({ to: spotGalleryMatch ? '/gallery' : '/' })
+                : undefined
+            }
           />
         )}
         action={(
           <PanelRouteActionButton
-            onClick={() => { void handleUpload(); }}
-            disabled={isCreatingDraft}
-            showIndicator={hasDrafts}
+            onClick={handleUpload}
+            showIndicator={hasUnfinishedUpload}
           >
             {hasActiveTransfers ? (
               <>
@@ -252,55 +336,64 @@ function PanelFrame({ children }: { children: ReactNode }) {
         )}
         trailing={isExpanded ? (
           <>
-            <FilterPills active={activeFilter} onChange={setActiveFilter} />
+            <FilterPills
+              active={filters.date}
+              onChange={setDateFilter}
+              favoritesOnly={filters.favoriteSpotsOnly}
+              onFavoritesChange={showsBrowseResults ? handleFavoritesChange : undefined}
+            />
           </>
         ) : undefined}
       />
     );
   })();
 
+  const routeBackActionForPanel = uploadMatch ? routeBackAction : null;
+  const defaultBackAction = !panelTargetPolicy.usesBackNavigation || cartMatch || galleryMatch || routeRequiresCompactMapInput
+    ? undefined
+    : routeRequiresExpanded
+      ? () => {
+        if (sessionDetailMatch && router.history.canGoBack()) router.history.back();
+        else if (cameFromCollections) void navigate({ to: '/me/collections' });
+        else void navigate({ to: '/' });
+      }
+      : undefined;
+  const defaultBackLabel = sessionDetailMatch
+    ? (cameFromCollections ? 'Back to uploads' : 'Back to feed')
+    : undefined;
+
   return (
-    <PanelFeedLayoutReadyContext.Provider value={handleFeedLayoutReadyChange}>
-      <PanelExpandedContext.Provider value={isExpanded}>
-        {/* Compact-mode filter pills — float on the map beside the panel */}
-        {(spotMatch || isDefaultIndex) && !isExpanded && (
-          <FloatingPanelControls>
-            <FilterPills active={activeFilter} onChange={setActiveFilter} />
-          </FloatingPanelControls>
-        )}
-        <SidePanel
-          expanded={isExpanded}
-          onExpandToggle={
-            panelTargetPolicy.canUserToggle
-              ? () => setUserPreferredExpanded((prev) => !prev)
-              : undefined
-          }
-          onBack={
-            !panelTargetPolicy.usesBackNavigation
-              ? undefined
-              : routeRequiresCompactMapInput
-              ? () => {
-                if (activeUploadDraft?.spotId) {
-                  void navigate({ to: '/$spotId', params: { spotId: activeUploadDraft.spotId } });
-                }
-                else void navigate({ to: '/' });
-              }
-              : routeRequiresExpanded
-                ? () => {
-                  if (sessionDetailMatch) router.history.back();
-                  else if (galleryMatch) void navigate({ to: '/$spotId', params: { spotId: spotId! } });
-                  else void navigate({ to: '/' });
-                }
-                : undefined
-          }
-          backLabel={sessionDetailMatch || cartMatch ? 'Back to feed' : undefined}
-          headerFullWidth={Boolean(cartMatch)}
-          header={header}
-          subheader={subheader}
-        >
-          {children}
-        </SidePanel>
-      </PanelExpandedContext.Provider>
-    </PanelFeedLayoutReadyContext.Provider>
+    <PanelRouteBackActionContext.Provider value={setRouteBackAction}>
+      <PanelFeedLayoutReadyContext.Provider value={handleFeedLayoutReadyChange}>
+        <PanelExpandedContext.Provider value={isExpanded}>
+          {/* Compact-mode filter pills — float on the map beside the panel */}
+          {chromePolicy.showFloatingPanelControls && (spotMatch || isDefaultIndex || allGalleryMatch) && !isExpanded && (
+            <FloatingPanelControls>
+              <FilterPills
+                active={filters.date}
+                onChange={setDateFilter}
+                favoritesOnly={filters.favoriteSpotsOnly}
+                onFavoritesChange={showsBrowseResults ? handleFavoritesChange : undefined}
+              />
+            </FloatingPanelControls>
+          )}
+          {chromePolicy.showSidePanel && (
+            <SidePanel
+              expanded={isExpanded}
+              onExpandToggle={handlePanelExpandToggle}
+              onBack={routeBackActionForPanel?.onBack ?? defaultBackAction}
+              backLabel={routeBackActionForPanel?.label ?? defaultBackLabel}
+              backDisabled={routeBackActionForPanel?.disabled}
+              headerFullWidth={Boolean(cartMatch)}
+              header={header}
+              subheader={subheader}
+              hideSubheaderOnScroll={Boolean(subheader && (spotMatch || isDefaultIndex || allGalleryMatch))}
+            >
+              {children}
+            </SidePanel>
+          )}
+        </PanelExpandedContext.Provider>
+      </PanelFeedLayoutReadyContext.Provider>
+    </PanelRouteBackActionContext.Provider>
   );
 }

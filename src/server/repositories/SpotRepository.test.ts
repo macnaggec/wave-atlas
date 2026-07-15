@@ -16,6 +16,11 @@ vi.mock('server/db', () => ({
     spot: {
       findMany: vi.fn(),
     },
+    userFavoriteSpot: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 
@@ -24,6 +29,9 @@ import { SpotRepository } from './SpotRepository';
 
 const repo = new SpotRepository();
 const mockSpotFindMany = prisma.spot.findMany as ReturnType<typeof vi.fn>;
+const mockFavoriteFindUnique = prisma.userFavoriteSpot.findUnique as ReturnType<typeof vi.fn>;
+const mockFavoriteCreate = prisma.userFavoriteSpot.create as ReturnType<typeof vi.fn>;
+const mockFavoriteDelete = prisma.userFavoriteSpot.delete as ReturnType<typeof vi.fn>;
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -89,5 +97,45 @@ describe('SpotRepository.findSpotsByBounds', () => {
     const result = await repo.findSpotsByBounds(-90, -180, 90, 180);
 
     expect(result[0]!.coords).toEqual({ lat: -8.815, lng: 115.085 });
+  });
+});
+
+describe('SpotRepository.toggleSpotFavorite', () => {
+  it('creates a favorite row when none exists', async () => {
+    mockFavoriteFindUnique.mockResolvedValue(null);
+
+    const result = await repo.toggleSpotFavorite('spot-1', 'user-1');
+
+    expect(result).toBe(true);
+    expect(mockFavoriteCreate).toHaveBeenCalledWith({
+      data: { userId: 'user-1', spotId: 'spot-1' },
+    });
+    expect(mockFavoriteDelete).not.toHaveBeenCalled();
+  });
+
+  it('deletes the favorite row when one already exists', async () => {
+    mockFavoriteFindUnique.mockResolvedValue({ userId: 'user-1', spotId: 'spot-1' });
+
+    const result = await repo.toggleSpotFavorite('spot-1', 'user-1');
+
+    expect(result).toBe(false);
+    expect(mockFavoriteDelete).toHaveBeenCalledWith({
+      where: { userId_spotId: { userId: 'user-1', spotId: 'spot-1' } },
+    });
+    expect(mockFavoriteCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('SpotRepository.isSpotFavorited', () => {
+  it('returns true when a favorite row exists', async () => {
+    mockFavoriteFindUnique.mockResolvedValue({ userId: 'user-1', spotId: 'spot-1' });
+
+    await expect(repo.isSpotFavorited('spot-1', 'user-1')).resolves.toBe(true);
+  });
+
+  it('returns false when no favorite row exists', async () => {
+    mockFavoriteFindUnique.mockResolvedValue(null);
+
+    await expect(repo.isSpotFavorited('spot-1', 'user-1')).resolves.toBe(false);
   });
 });

@@ -2,6 +2,7 @@
 .container {
   flex: 1;
   height: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
   position: relative;
   min-width: 0;
@@ -19,7 +20,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--mantine-color-body);
+  background: var(--gallery-toolbar-bg, transparent);
   transition: transform 220ms ease;
 }
 
@@ -27,12 +28,13 @@
   transform: translateY(-100%);
 }
 
-/* Date section header */
+/* Date section header — thin one-line label; day grouping without a heavy band.
+   12px inset matches the panel toolbar chrome (PanelScrollChrome). */
 .divider {
   display: flex;
   align-items: center;
-  height: 48px;
-  padding: 0 4px;
+  height: 32px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
@@ -42,24 +44,20 @@
   color: var(--mantine-color-dimmed);
 }
 
-/* 3-column media row — mirrors BaseGallery grid */
+/* Media row — column count is driven by the panel width via --gallery-cols
+   (set on the container), not viewport media queries, since the gallery lives
+   in a resizable panel whose width is independent of the viewport. */
 .mediaRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--gallery-cols, 3), 1fr);
   gap: 10px;
-  padding: 5px 0;
+  padding: 5px 12px;
 }
 
-@media (max-width: 900px) {
-  .mediaRow {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .mediaRow {
-    grid-template-columns: 1fr;
-  }
+/* Dense grid: gapless, edge-to-edge tiles. */
+.container[data-dense] .mediaRow {
+  gap: 0;
+  padding: 0;
 }
 
 /* Card slot — relative so checkbox overlay can be absolute */

@@ -46,8 +46,8 @@ export interface ICloudinaryService {
   generateUploadSignature(folder?: string): CloudinarySignatureData;
   uploadFromUrl(sourceUrl: string, authHeaders: Record<string, string>, folder: string, resourceType?: 'image' | 'video'): Promise<RemoteUploadResult>;
   deleteAsset(publicId: string, resourceType?: 'image' | 'video'): Promise<void>;
-  generateDeliveryUrl(cloudinaryPublicId: string, transform: string): string;
-  generateSignedDownload(cloudinaryPublicId: string): { downloadUrl: string; expiresAt: number };
+  generateDeliveryUrl(cloudinaryPublicId: string, transform: string, resourceType?: 'image' | 'video', format?: string): string;
+  generateSignedDownload(cloudinaryPublicId: string, resourceType?: 'image' | 'video'): { downloadUrl: string; expiresAt: number };
   generatePermanentPreviewUrl(cloudinaryPublicId: string): string;
   tryGeneratePermanentPreviewUrl(cloudinaryPublicId: string): string | null;
 }
@@ -136,7 +136,6 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
     const timestamp = Math.round(Date.now() / 1000);
     const publicId = target.cloudinaryPublicId;
-    const folder = `wave-atlas/users/${target.photographerId}`;
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
       MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
@@ -167,21 +166,24 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       throw new BadRequestError('Upload receipt does not match the intended target');
     }
     const resourceType = toMediaResourceType(data.resourceType);
+    const cloudinaryResourceType = resourceType === 'video' ? 'video' : 'image';
     return {
       cloudinaryPublicId: data.publicId,
       resourceType: resourceType === 'image' ? 'PHOTO' : 'VIDEO',
-      thumbnailUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL),
-      lightboxUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK),
+      thumbnailUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL, cloudinaryResourceType, cloudinaryResourceType === 'video' ? 'jpg' : undefined),
+      lightboxUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK, cloudinaryResourceType),
     };
   }
 
   // ── RemoteImportPort ────────────────────────────────────────────────────────
 
   async importRemoteFile(input: RemoteImportInput): Promise<StoredAsset> {
+    const resourceType = input.target.expectedMediaType === 'VIDEO' ? 'video' : 'image';
     const result = await this.uploadFromUrl(
       input.sourceUrl,
       input.authHeaders,
-      `wave-atlas/users/${input.target.photographerId}`,
+      `swelldays/users/${input.target.photographerId}`,
+      resourceType,
     );
     return {
       cloudinaryPublicId: result.publicId,
@@ -232,10 +234,9 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
     const publicId = result.public_id;
 
-    // Regenerate signed URLs from publicId — mapToMediaItem() does the same on every read,
-    // so these stored values are never actually served but satisfy the DB schema.
-    const thumbnailUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL);
-    const lightboxUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK);
+    // Generate the signed preview URLs persisted with the media record and returned by gallery reads.
+    const thumbnailUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL, resourceType, resourceType === 'video' ? 'jpg' : undefined);
+    const lightboxUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK, resourceType);
 
     return {
       publicId,
@@ -259,8 +260,8 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
    * Short-lived download URLs (TTL + fl_attachment) are a separate concern handled by
    * generateSignedDownload, which calls cloudinary.url() directly with expires_at.
    */
-  generateDeliveryUrl(cloudinaryPublicId: string, transform: string): string {
-    return libGenerateDeliveryUrl(cloudinaryPublicId, transform);
+  generateDeliveryUrl(cloudinaryPublicId: string, transform: string, resourceType: 'image' | 'video' = 'image', format?: string): string {
+    return libGenerateDeliveryUrl(cloudinaryPublicId, transform, resourceType, format);
   }
 
   /**
@@ -270,7 +271,10 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
    *
    * @param cloudinaryPublicId - The public_id of the authenticated Cloudinary resource
    */
-  generateSignedDownload(cloudinaryPublicId: string): { downloadUrl: string; expiresAt: number } {
+  generateSignedDownload(
+    cloudinaryPublicId: string,
+    resourceType: 'image' | 'video' = 'image',
+  ): { downloadUrl: string; expiresAt: number } {
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
     if (!apiSecret) {
       throw new InternalServerError('Cloudinary misconfigured: missing CLOUDINARY_API_SECRET');
@@ -286,6 +290,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       expires_at: expiresAt,
       secure: true,
       flags: 'attachment',
+      resource_type: resourceType,
     });
 
     return { downloadUrl, expiresAt };
@@ -293,7 +298,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
   /**
    * Generates a permanent signed URL for the full-quality (no watermark) preview.
-   * Applies t_wave_atlas_lightbox_purchased to the authenticated original.
+   * Applies t_swelldays_lightbox to the authenticated original.
    * No TTL — the signature remains valid permanently. Only generated on purchase or for the owner.
    */
   generatePermanentPreviewUrl(cloudinaryPublicId: string): string {

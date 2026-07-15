@@ -1,56 +1,55 @@
 import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
-import { Text, Menu, Group, SimpleGrid, Skeleton } from '@mantine/core';
-import { IconShoppingBag, IconShare } from '@tabler/icons-react';
-import { SelectionToolbar } from 'shared/ui/BaseGallery';
-import type { MediaItem, PublicSpotMediaItem } from 'entities/Media';
-import { useGallerySelection } from 'shared/hooks/gallery';
+import { SimpleGrid, Skeleton } from '@mantine/core';
+import { useMediaFavorites, type MediaItem, type PublicSpotMediaItem } from 'entities/Media';
 import { useSpotMediaFeed, useSpotPreview } from 'entities/Spot';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
-import { toCartItem, useCartStore, useCartToggle } from 'entities/Commerce';
+import { useCartToggle } from 'entities/Commerce';
+import { useRenderedPanelExpandedSnapshot } from 'shared/model/panelExpansionStore';
 import PublicCard, { PublicCardAction } from './ui/cards/PublicCard';
 import MediaLightbox from './ui/MediaLightbox';
 import { GalleryDateSidebar } from './ui/GalleryDateSidebar';
 import { usePublicGalleryActions } from './model/usePublicGalleryActions';
-
-const ACTION_ICONS: Record<'cart' | 'share', React.FC<{ size?: number }>> = {
-  cart: IconShoppingBag,
-  share: IconShare,
-};
+import { usePanelGalleryColumns } from './model/usePanelGalleryColumns';
+import { EMPTY_BROWSE_FILTERS, type BrowseFilters } from 'shared/model/browseFilters';
+import { PanelScrollChrome } from 'shared/ui/PanelScrollChrome';
+import { GalleryEmptyState } from './ui/GalleryEmptyState';
 
 export interface PublicGalleryProps {
-  spotId: string;
+  /** Omit to browse published media across all spots instead of a single spot. */
+  spotId?: string;
   onShare?: (items: MediaItem[]) => void;
   emptyMessage?: string;
+  filters?: BrowseFilters;
+  onClearFilters?: () => void;
 }
 
 const PublicGallery: FC<PublicGalleryProps> = memo(({
   spotId,
   onShare,
-  emptyMessage = 'No media available.',
+  emptyMessage,
+  filters = EMPTY_BROWSE_FILTERS,
+  onClearFilters,
 }) => {
   const { flatItems, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useSpotMediaFeed(spotId);
+    useSpotMediaFeed({ spotId, filters });
 
-  const { data: spot } = useSpotPreview(spotId);
+  const { data: spot } = useSpotPreview(spotId ?? '', { enabled: !!spotId });
   const spotName = spot?.name ?? '';
 
   const { cartItemIds, toggleCartItem } = useCartToggle(spotName);
-  const addToCart = useCartStore((s) => s.add);
+  const { favoriteIds, toggleFavorite } = useMediaFavorites();
 
-  const { getCardActions, getCartBulkState, userId } = usePublicGalleryActions({
+  const { getCardActions, userId } = usePublicGalleryActions({
     cartItemIds,
+    favoriteItemIds: favoriteIds,
     hasShare: !!onShare,
   });
 
-  // ========================================================================
-  // SELECTION
-  // ========================================================================
-
-  const selection = useGallerySelection({
-    items: flatItems,
-    getId: (item) => item.id,
-  });
+  // Panel width drives column count and card density: compact packs a dense grid
+  // with actions moved to the lightbox; expanded keeps the roomy card layout.
+  const expanded = useRenderedPanelExpandedSnapshot();
+  const columns = usePanelGalleryColumns(expanded);
 
   // ========================================================================
   // LIGHTBOX STATE
@@ -76,7 +75,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   // VIRTUAL ROWS + SIDEBAR
   // ========================================================================
 
-  const rows = useMemo(() => buildGalleryRows(flatItems, 3), [flatItems]);
+  const rows = useMemo(() => buildGalleryRows(flatItems, columns), [flatItems, columns]);
 
   const highlights = useMemo(
     () =>
@@ -106,37 +105,18 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
       const item = flatItems.find((i) => i.id === itemId);
       if (!item) return;
       if (action === 'cart') toggleCartItem(item);
+      if (action === 'favorites') toggleFavorite(item);
       if (action === 'share') onShare?.([item]);
     },
-    [flatItems, toggleCartItem, onShare],
+    [flatItems, toggleCartItem, toggleFavorite, onShare],
   );
 
-  const renderMenuActions = useCallback(
-    (selectedItems: PublicSpotMediaItem[]) => {
-      const { actions, noActionsLabel } = getCartBulkState(selectedItems);
-      return (
-        <>
-          {actions.map(({ key, label, payload }) => {
-            const Icon = ACTION_ICONS[key];
-            return (
-              <Menu.Item
-                key={key}
-                leftSection={<Icon size={14} />}
-                onClick={() => {
-                  if (key === 'cart') payload.forEach((item) => addToCart(toCartItem(item, spotName)));
-                  if (key === 'share') onShare?.(payload);
-                  selection.disableSelectionMode();
-                }}
-              >
-                {label}
-              </Menu.Item>
-            );
-          })}
-          {actions.length === 0 && <Menu.Item disabled>{noActionsLabel}</Menu.Item>}
-        </>
-      );
+  const handleLightboxFavoriteToggle = useCallback(
+    (lightboxItem: { id: string }) => {
+      const item = flatItems.find((candidate) => candidate.id === lightboxItem.id);
+      if (item) toggleFavorite(item);
     },
-    [getCartBulkState, addToCart, spotName, onShare, selection],
+    [flatItems, toggleFavorite],
   );
 
   // ========================================================================
@@ -145,16 +125,39 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
 
   if (isLoading) {
     return (
-      <SimpleGrid cols={3} spacing={10} mt="md">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} height={120} radius="sm" />
-        ))}
-      </SimpleGrid>
+      <>
+        <PanelScrollChrome />
+        <SimpleGrid cols={columns} spacing={10} mt="md">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} height={120} radius="sm" />
+          ))}
+        </SimpleGrid>
+      </>
     );
   }
 
   if (flatItems.length === 0) {
-    return <Text c="dimmed" fs="italic">{emptyMessage}</Text>;
+    const hasDateFilter = filters.date !== null;
+    const hasActiveFilters = hasDateFilter || filters.favoriteSpotsOnly;
+    const description = hasDateFilter && filters.favoriteSpotsOnly
+      ? 'Try another date or turn off Favorites to widen the gallery.'
+      : hasDateFilter
+        ? 'Try another date to widen the gallery.'
+        : filters.favoriteSpotsOnly
+          ? 'Turn off Favorites to widen the gallery.'
+          : 'Published photos and clips will show up here. Use Upload above to add the first set.';
+
+    return (
+      <>
+        <PanelScrollChrome />
+        <GalleryEmptyState
+          title={emptyMessage ?? (hasActiveFilters ? 'No shots match this view' : 'No shots here yet')}
+          description={description}
+          actionLabel={hasActiveFilters ? 'Show all media' : undefined}
+          onAction={hasActiveFilters ? onClearFilters : undefined}
+        />
+      </>
+    );
   }
 
   return (
@@ -163,14 +166,10 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         <VirtualGallery
           ref={galleryRef}
           rows={rows}
-          selection={selection}
-          toolbar={
-            <Group justify="flex-end">
-              <SelectionToolbar selection={selection} renderActions={renderMenuActions} />
-            </Group>
-          }
-          renderCard={(item, context) => {
-            const { actions, activeActions, isOwn } = getCardActions(item, context.isSelectionMode);
+          columns={columns}
+          dense={!expanded}
+          renderCard={(item) => {
+            const { actions, activeActions, isOwn } = getCardActions(item, false);
             const isPurchased = item.viewerEntitlement.purchaseState === 'purchased';
             return (
               <PublicCard
@@ -178,9 +177,10 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
                 actions={actions}
                 activeActions={activeActions}
                 onAction={handleCardAction}
-                onCardClick={context.isSelectionMode ? undefined : handleCardClick}
+                onCardClick={() => handleCardClick(item.id)}
                 showOwnerBadge={isOwn}
                 showPurchasedBadge={isPurchased}
+                dense={!expanded}
               />
             );
           }}
@@ -188,11 +188,13 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
           onEndReached={hasNextPage ? fetchNextPage : undefined}
           isFetchingMore={isFetchingNextPage}
         />
-        <GalleryDateSidebar
-          highlights={highlights}
-          firstVisibleIndex={firstVisibleIndex}
-          galleryRef={galleryRef}
-        />
+        {expanded && (
+          <GalleryDateSidebar
+            highlights={highlights}
+            firstVisibleIndex={firstVisibleIndex}
+            galleryRef={galleryRef}
+          />
+        )}
       </div>
 
       <MediaLightbox
@@ -202,6 +204,8 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
         onClose={() => setLightboxIndex(null)}
         cartItemIds={cartItemIds}
         onCartToggle={toggleCartItem}
+        favoriteItemIds={favoriteIds}
+        onFavoriteToggle={handleLightboxFavoriteToggle}
         ownedItemIds={ownedItemIds}
         purchasedItemIds={purchasedItemIds}
       />

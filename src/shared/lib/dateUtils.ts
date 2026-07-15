@@ -5,6 +5,10 @@ export const isSameCalendarDay = (a: Date, b: Date): boolean =>
   a.getUTCMonth() === b.getUTCMonth() &&
   a.getUTCDate() === b.getUTCDate();
 
+/** Calendar-day key matching how gallery dates render in the viewer's locale. */
+export const getVisibleCalendarDayKey = (date: Date): string =>
+  date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
 /** "Apr 1, 2026" — short human-readable date for media cards and cart labels */
 export const formatShortDate = (date: Date | string): string =>
   new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

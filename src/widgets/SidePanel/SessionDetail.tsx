@@ -6,6 +6,7 @@ import type { SurfSessionItem } from 'entities/SurfSession';
 import { useCartToggle } from 'entities/Commerce';
 import { MediaLightbox, PublicCard, type LightboxMedia, type DisplayMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
+import { useMediaFavorites } from 'entities/Media';
 import { BaseGallery } from 'shared/ui/BaseGallery';
 import { PanelGalleryLayout } from 'shared/ui/PanelGalleryLayout';
 import styles from './SessionDetail.module.css';
@@ -21,6 +22,7 @@ export function SessionDetail({ session }: SessionDetailProps) {
 
   const { user } = useUser();
   const { cartItemIds, toggleCartItem } = useCartToggle(session.spot.name);
+  const { favoriteIds, toggleFavorite } = useMediaFavorites();
 
   const ownedItemIds = useMemo(
     () => new Set((media ?? []).filter((m) => m.photographerId === user?.id).map((m) => m.id)),
@@ -41,6 +43,14 @@ export function SessionDetail({ session }: SessionDetailProps) {
     [toggleCartItem],
   );
 
+  const handleFavoriteToggle = useCallback(
+    (lightboxItem: { id: string }) => {
+      const item = media?.find((candidate) => candidate.id === lightboxItem.id);
+      if (item) toggleFavorite(item);
+    },
+    [media, toggleFavorite],
+  );
+
   const photographerName = session.photographer.name ?? 'Unknown photographer';
 
   return (
@@ -56,7 +66,6 @@ export function SessionDetail({ session }: SessionDetailProps) {
             <Text component="span" size="xs" c="dimmed" truncate className={styles.metaLocation}>
               {session.spot.location}
             </Text>
-            <Text component="span" size="xs" c="dimmed" className={styles.separator}>·</Text>
             <IconCamera size={12} className={styles.metaIcon} />
             <Text component="span" size="xs" c="dimmed" truncate className={styles.metaPhotographer}>
               {photographerName}
@@ -77,9 +86,12 @@ export function SessionDetail({ session }: SessionDetailProps) {
               const isOwn = ownedItemIds.has(item.id);
               const isPurchased = purchasedItemIds.has(item.id);
               const isInCart = cartItemIds.has(item.id);
+              const isFavorite = favoriteIds.has(item.id);
               const displayMedia: DisplayMedia = {
                 id: item.id,
                 thumbnailUrl: item.thumbnailUrl,
+                price: item.price,
+                capturedAt: item.capturedAt,
                 resource: {
                   resourceType: item.type === 'VIDEO' ? 'video' : 'image',
                   url: item.type === 'VIDEO' ? item.lightboxUrl : item.thumbnailUrl,
@@ -90,9 +102,9 @@ export function SessionDetail({ session }: SessionDetailProps) {
               return (
                 <PublicCard
                   mediaItem={displayMedia}
-                  actions={item.price > 0 && !isOwn && !isPurchased ? ['cart'] : []}
-                  activeActions={isInCart ? ['cart'] : []}
-                  onAction={() => handleCartToggle(item)}
+                  actions={item.price > 0 && !isOwn && !isPurchased ? ['cart', 'favorites'] : ['favorites']}
+                  activeActions={[...(isInCart ? ['cart' as const] : []), ...(isFavorite ? ['favorites' as const] : [])]}
+                  onAction={(action) => action === 'cart' ? handleCartToggle(item) : toggleFavorite(item)}
                   onCardClick={() => setLightboxIndex(index)}
                   showOwnerBadge={isOwn}
                   showPurchasedBadge={isPurchased}
@@ -116,6 +128,8 @@ export function SessionDetail({ session }: SessionDetailProps) {
           onClose={() => setLightboxIndex(null)}
           cartItemIds={cartItemIds}
           onCartToggle={handleCartToggle}
+          favoriteItemIds={favoriteIds}
+          onFavoriteToggle={handleFavoriteToggle}
           ownedItemIds={ownedItemIds}
           purchasedItemIds={purchasedItemIds}
         />

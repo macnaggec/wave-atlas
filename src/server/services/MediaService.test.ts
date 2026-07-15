@@ -13,6 +13,8 @@ const mockMedia = {
   updateMedia: vi.fn(),
   updateManyMedia: vi.fn(),
   softDelete: vi.fn(),
+  hardDelete: vi.fn(),
+  hardDeleteMany: vi.fn(),
   findDraftsBySpot: vi.fn(),
   findByIds: vi.fn(),
   findByCloudinaryPublicId: vi.fn(),
@@ -31,18 +33,11 @@ const mockCloudinary = {
   generateUploadSignature: vi.fn(),
 };
 
-const mockSessions = {
-  createDraftMedia: vi.fn(),
-  removeDraftMedia: vi.fn(),
-  removeDraftMediaBatch: vi.fn(),
-};
-
 const service = new (MediaService as unknown as new (
   media: IMediaRepository,
   cloudinary: typeof mockCloudinary,
-  sessions: typeof mockSessions,
   entitlements: typeof mockEntitlements,
-) => MediaService)(mockMedia as unknown as IMediaRepository, mockCloudinary, mockSessions, mockEntitlements);
+) => MediaService)(mockMedia as unknown as IMediaRepository, mockCloudinary, mockEntitlements);
 
 // ---------------------------------------------------------------------------
 // Factories
@@ -135,42 +130,42 @@ describe('MediaService.updateMedia — price guard', () => {
 // ---------------------------------------------------------------------------
 
 describe('MediaService.deleteMedia — cleanup semantics', () => {
-  const draftMedia = {
+  const unpublishedMedia = {
     id: 'media-1',
     sessionId: 'session-1',
     photographerId: 'user-1',
-    cloudinaryPublicId: 'wave-atlas/users/user-1/photo',
+    cloudinaryPublicId: 'swelldays/users/user-1/photo',
     status: MEDIA_STATUS.DRAFT,
     resource: { resourceType: 'image' as const },
   };
 
   it('removes the DB row then attempts Cloudinary cleanup', async () => {
-    mockMedia.findById.mockResolvedValue(draftMedia);
-    mockSessions.removeDraftMedia.mockResolvedValue(undefined);
+    mockMedia.findById.mockResolvedValue(unpublishedMedia);
+    mockMedia.hardDelete.mockResolvedValue(undefined);
     mockCloudinary.deleteAsset.mockResolvedValue(undefined);
 
     await service.deleteMedia('user-1', 'media-1');
 
-    expect(mockSessions.removeDraftMedia).toHaveBeenCalledWith('session-1', 'user-1', 'media-1');
-    expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('wave-atlas/users/user-1/photo', 'image');
+    expect(mockMedia.hardDelete).toHaveBeenCalledWith('media-1');
+    expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('swelldays/users/user-1/photo', 'image');
   });
 
   it('does not propagate Cloudinary cleanup failure (best-effort)', async () => {
-    mockMedia.findById.mockResolvedValue(draftMedia);
-    mockSessions.removeDraftMedia.mockResolvedValue(undefined);
+    mockMedia.findById.mockResolvedValue(unpublishedMedia);
+    mockMedia.hardDelete.mockResolvedValue(undefined);
     mockCloudinary.deleteAsset.mockRejectedValue(new Error('provider down'));
 
     await expect(service.deleteMedia('user-1', 'media-1')).resolves.toBeUndefined();
   });
 
   it('soft-deletes published media without Cloudinary cleanup', async () => {
-    mockMedia.findById.mockResolvedValue({ ...draftMedia, status: MEDIA_STATUS.PUBLISHED });
+    mockMedia.findById.mockResolvedValue({ ...unpublishedMedia, status: MEDIA_STATUS.PUBLISHED });
     mockMedia.softDelete.mockResolvedValue(undefined);
 
     await service.deleteMedia('user-1', 'media-1');
 
     expect(mockMedia.softDelete).toHaveBeenCalledWith('media-1');
-    expect(mockSessions.removeDraftMedia).not.toHaveBeenCalled();
+    expect(mockMedia.hardDelete).not.toHaveBeenCalled();
     expect(mockCloudinary.deleteAsset).not.toHaveBeenCalled();
   });
 });
@@ -187,19 +182,19 @@ describe('MediaService.deleteMediaBatch — cleanup semantics', () => {
 
   it('removes DB rows then attempts Cloudinary cleanup for each item', async () => {
     mockMedia.findByIds.mockResolvedValue(draftItems);
-    mockSessions.removeDraftMediaBatch.mockResolvedValue(undefined);
+    mockMedia.hardDeleteMany.mockResolvedValue(undefined);
     mockCloudinary.deleteAsset.mockResolvedValue(undefined);
 
     await service.deleteMediaBatch('user-1', ['media-1', 'media-2']);
 
-    expect(mockSessions.removeDraftMediaBatch).toHaveBeenCalledWith('session-1', 'user-1', ['media-1', 'media-2']);
+    expect(mockMedia.hardDeleteMany).toHaveBeenCalledWith(['media-1', 'media-2']);
     expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('pub-1', 'image');
     expect(mockCloudinary.deleteAsset).toHaveBeenCalledWith('pub-2', 'video');
   });
 
   it('does not propagate Cloudinary cleanup failure for any item (best-effort)', async () => {
     mockMedia.findByIds.mockResolvedValue(draftItems);
-    mockSessions.removeDraftMediaBatch.mockResolvedValue(undefined);
+    mockMedia.hardDeleteMany.mockResolvedValue(undefined);
     mockCloudinary.deleteAsset.mockRejectedValue(new Error('provider down'));
 
     await expect(service.deleteMediaBatch('user-1', ['media-1', 'media-2'])).resolves.toBeUndefined();
@@ -209,7 +204,7 @@ describe('MediaService.deleteMediaBatch — cleanup semantics', () => {
     mockMedia.findByIds.mockResolvedValue([{ ...draftItems[0]!, status: MEDIA_STATUS.PUBLISHED }]);
 
     await expect(service.deleteMediaBatch('user-1', ['media-1'])).rejects.toThrow(BadRequestError);
-    expect(mockSessions.removeDraftMediaBatch).not.toHaveBeenCalled();
+    expect(mockMedia.hardDeleteMany).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestError when items span multiple sessions', async () => {
@@ -219,6 +214,6 @@ describe('MediaService.deleteMediaBatch — cleanup semantics', () => {
     ]);
 
     await expect(service.deleteMediaBatch('user-1', ['media-1', 'media-2'])).rejects.toThrow(BadRequestError);
-    expect(mockSessions.removeDraftMediaBatch).not.toHaveBeenCalled();
+    expect(mockMedia.hardDeleteMany).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { UploadService } from './UploadService';
+import { UploadService, type UploadWorkspaceVerifier } from './UploadService';
 import type { IUploadAttemptRepository } from 'server/repositories/UploadAttemptRepository';
 import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort } from 'server/ports/UploadAssetStorage';
-import type { ISurfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import { randomUUID } from 'node:crypto';
 import { ForbiddenError } from 'shared/errors';
 
@@ -10,13 +9,13 @@ const mockRepo: IUploadAttemptRepository = {
   beginLocalIdempotent: vi.fn(),
   beginDriveIdempotent: vi.fn(),
   markAcquiring: vi.fn(),
-  finalizeIntoDraft: vi.fn(),
+  finalizeIntoWorkspace: vi.fn(),
   cancelAttempt: vi.fn(),
+  cancelAttemptsForWorkspace: vi.fn(),
   findByIdForPhotographer: vi.fn(),
   findDriveDetails: vi.fn(),
-  listForDraft: vi.fn(),
+  listForWorkspace: vi.fn(),
   hasBlockingAttempts: vi.fn(),
-  removeCompletedDraftMedia: vi.fn(),
   findExpiredForReconciliation: vi.fn(),
   markCancelled: vi.fn(),
 };
@@ -34,43 +33,95 @@ const mockCleanup: AssetCleanupPort = {
   deleteStoredAsset: vi.fn(),
 };
 
-const mockSessions: Pick<ISurfSessionRepository, 'findDraftById'> = {
-  findDraftById: vi.fn(),
+const mockWorkspaces: UploadWorkspaceVerifier = {
+  ensureUploadableWorkspace: vi.fn(),
 };
 
-const service = new UploadService(mockRepo, mockDirect, mockImport, mockCleanup, mockSessions);
+const service = new UploadService(mockRepo, mockDirect, mockImport, mockCleanup, mockWorkspaces);
 
 const photographerId = randomUUID();
-const sessionId = randomUUID();
+const workspaceId = randomUUID();
 const attemptId = randomUUID();
 
 beforeEach(() => vi.clearAllMocks());
 
 describe('beginLocal', () => {
-  it('verifies draft ownership before creating an attempt', async () => {
-    vi.mocked(mockSessions.findDraftById).mockResolvedValue({
-      id: sessionId, photographerId: 'other-user',
-    } as never);
+  it('verifies active workspace ownership before creating an attempt', async () => {
+    vi.mocked(mockWorkspaces.ensureUploadableWorkspace).mockRejectedValue(new ForbiddenError('Nope'));
 
     await expect(
-      service.beginLocal(photographerId, { draftId: sessionId, clientRequestId: randomUUID(), declaredMimeType: 'image/jpeg', declaredByteSize: 1024 }),
-    ).rejects.toThrow();
+      service.beginLocal(photographerId, { workspaceId, clientRequestId: randomUUID(), declaredMimeType: 'image/jpeg', declaredByteSize: 1024 }),
+    ).rejects.toThrow(ForbiddenError);
+
+    expect(mockRepo.beginLocalIdempotent).not.toHaveBeenCalled();
   });
 
   it('returns a DirectUploadGrant with the attemptId filled in', async () => {
-    const draft = { id: sessionId, photographerId } as never;
     const attempt = { id: attemptId, cloudinaryPublicId: 'test/abc', clientRequestId: 'r1', source: 'LOCAL', status: 'READY', errorCode: null, createdAt: new Date() } as never;
     const grant = { attemptId: '', cloudinaryPublicId: 'test/abc', signature: 'sig', timestamp: 1, cloudName: 'c', apiKey: 'k', type: 'authenticated', eager: 'e', expiresAt: new Date() } as never;
 
-    vi.mocked(mockSessions.findDraftById).mockResolvedValue(draft);
+    vi.mocked(mockWorkspaces.ensureUploadableWorkspace).mockResolvedValue({ id: workspaceId });
     vi.mocked(mockRepo.beginLocalIdempotent).mockResolvedValue(attempt);
     vi.mocked(mockDirect.createUploadGrant).mockReturnValue(grant);
 
     const result = await service.beginLocal(photographerId, {
-      draftId: sessionId, clientRequestId: 'r1', declaredMimeType: 'image/jpeg', declaredByteSize: 1024,
+      workspaceId, clientRequestId: 'r1', declaredMimeType: 'image/jpeg', declaredByteSize: 1024,
     });
 
+    expect(mockRepo.beginLocalIdempotent).toHaveBeenCalledWith(expect.objectContaining({ workspaceId, photographerId }));
     expect(result.attemptId).toBe(attemptId);
+  });
+});
+
+describe('beginDrive', () => {
+  it('verifies active workspace ownership before creating an attempt', async () => {
+    vi.mocked(mockWorkspaces.ensureUploadableWorkspace).mockRejectedValue(new ForbiddenError('Nope'));
+
+    await expect(
+      service.beginDrive(photographerId, { workspaceId, clientRequestId: randomUUID(), remoteFileId: 'drive-1', declaredMimeType: 'image/jpeg' }),
+    ).rejects.toThrow(ForbiddenError);
+
+    expect(mockRepo.beginDriveIdempotent).not.toHaveBeenCalled();
+  });
+
+  it('returns the attemptId once the attempt is created', async () => {
+    const attempt = { id: attemptId, cloudinaryPublicId: 'test/abc', clientRequestId: 'r1', source: 'DRIVE', status: 'READY', errorCode: null, createdAt: new Date() } as never;
+
+    vi.mocked(mockWorkspaces.ensureUploadableWorkspace).mockResolvedValue({ id: workspaceId });
+    vi.mocked(mockRepo.beginDriveIdempotent).mockResolvedValue(attempt);
+
+    const result = await service.beginDrive(photographerId, {
+      workspaceId, clientRequestId: 'r1', remoteFileId: 'drive-1', declaredMimeType: 'image/jpeg',
+    });
+
+    expect(mockRepo.beginDriveIdempotent).toHaveBeenCalledWith(expect.objectContaining({ workspaceId, photographerId }));
+    expect(result.attemptId).toBe(attemptId);
+  });
+});
+
+describe('finalizeLocal', () => {
+  it('finalizes a verified provider receipt into a workspace asset', async () => {
+    vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue({
+      id: attemptId,
+      photographerId,
+      cloudinaryPublicId: 'test/abc',
+      status: 'READY',
+      source: 'LOCAL',
+      errorCode: null,
+      createdAt: new Date(),
+      clientRequestId: 'r1',
+    } as never);
+    vi.mocked(mockDirect.verifyUploadReceipt).mockResolvedValue({
+      cloudinaryPublicId: 'test/abc',
+      resourceType: 'PHOTO',
+      thumbnailUrl: 'thumb',
+      lightboxUrl: 'full',
+    });
+    vi.mocked(mockRepo.finalizeIntoWorkspace).mockResolvedValue({ id: 'asset-1', uploadAttemptId: attemptId });
+
+    await expect(
+      service.finalizeLocal(photographerId, { attemptId, providerReceipt: { ok: true } }),
+    ).resolves.toEqual({ assetId: 'asset-1' });
   });
 });
 
@@ -81,6 +132,7 @@ describe('processDrive', () => {
     vi.mocked(mockRepo.findDriveDetails).mockResolvedValue({
       remoteFileId: 'drive-file-1',
       cloudinaryPublicId: 'test/abc',
+      expectedMediaType: 'PHOTO',
     });
     vi.mocked(mockImport.importRemoteFile).mockResolvedValue({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO', thumbnailUrl: 't', lightboxUrl: 'l' });
     vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue(attempt);
@@ -88,7 +140,7 @@ describe('processDrive', () => {
     await service.processDrive(photographerId, { attemptId, accessToken: 'token' });
 
     expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO' });
-    expect(mockRepo.finalizeIntoDraft).not.toHaveBeenCalled();
+    expect(mockRepo.finalizeIntoWorkspace).not.toHaveBeenCalled();
   });
 
   it('cancels the attempt and preserves the provider error when import fails', async () => {
@@ -97,6 +149,7 @@ describe('processDrive', () => {
     vi.mocked(mockRepo.findDriveDetails).mockResolvedValue({
       remoteFileId: 'drive-file-1',
       cloudinaryPublicId: 'test/abc',
+      expectedMediaType: 'PHOTO',
     });
     vi.mocked(mockImport.importRemoteFile).mockRejectedValue(providerError);
     vi.mocked(mockRepo.cancelAttempt).mockResolvedValue();
@@ -106,45 +159,11 @@ describe('processDrive', () => {
     ).rejects.toBe(providerError);
 
     expect(mockRepo.cancelAttempt).toHaveBeenCalledWith(attemptId, photographerId);
-    expect(mockRepo.finalizeIntoDraft).not.toHaveBeenCalled();
+    expect(mockRepo.finalizeIntoWorkspace).not.toHaveBeenCalled();
   });
 });
 
-describe('discard cleanup', () => {
-  it('rejects another photographer\'s draft before removing its media', async () => {
-    vi.mocked(mockSessions.findDraftById).mockResolvedValue({
-      id: sessionId,
-      photographerId: 'other-user',
-    } as never);
-
-    await expect(service.discardDraft(photographerId, sessionId)).rejects.toThrow(ForbiddenError);
-
-    expect(mockRepo.removeCompletedDraftMedia).not.toHaveBeenCalled();
-  });
-
-  it('keeps authoritative draft cleanup successful when provider cleanup fails', async () => {
-    vi.mocked(mockSessions.findDraftById).mockResolvedValue({ id: sessionId, photographerId } as never);
-    vi.mocked(mockRepo.removeCompletedDraftMedia).mockResolvedValue([
-      { cloudinaryPublicId: 'test/photo', resourceType: 'PHOTO' },
-      { cloudinaryPublicId: 'test/video', resourceType: 'VIDEO' },
-    ]);
-    vi.mocked(mockCleanup.deleteStoredAsset)
-      .mockRejectedValueOnce(new Error('provider down'))
-      .mockResolvedValueOnce();
-
-    await expect(service.discardDraft(photographerId, sessionId)).resolves.toBeUndefined();
-
-    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledTimes(2);
-    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({
-      cloudinaryPublicId: 'test/photo',
-      resourceType: 'PHOTO',
-    });
-    expect(mockCleanup.deleteStoredAsset).toHaveBeenCalledWith({
-      cloudinaryPublicId: 'test/video',
-      resourceType: 'VIDEO',
-    });
-  });
-
+describe('discardAttempt', () => {
   it('keeps attempt cancellation successful when provider cleanup fails', async () => {
     vi.mocked(mockRepo.cancelAttempt).mockResolvedValue();
     vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue({

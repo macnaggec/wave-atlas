@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const beginLocalSchema = z.object({
-  draftId: z.string().uuid(),
+  workspaceId: z.string().uuid(),
   clientRequestId: z.string().uuid(),
   declaredMimeType: z.string().min(1).max(100),
   declaredByteSize: z.number().int().positive(),
@@ -14,7 +14,7 @@ export const finalizeLocalSchema = z.object({
 });
 
 export const beginDriveSchema = z.object({
-  draftId: z.string().uuid(),
+  workspaceId: z.string().uuid(),
   clientRequestId: z.string().uuid(),
   remoteFileId: z.string().min(1),
   declaredMimeType: z.string().min(1).max(100),
@@ -29,10 +29,10 @@ export const discardAttemptSchema = z.object({
   attemptId: z.string().uuid(),
 });
 
-export const discardDraftSchema = z.object({
-  draftId: z.string().uuid(),
+export const workspaceIdSchema = z.object({
+  workspaceId: z.string().uuid(),
 });
 
-export const listAttemptsForDraftSchema = z.object({
-  draftId: z.string().uuid(),
+export const listAttemptsForWorkspaceSchema = z.object({
+  workspaceId: z.string().uuid(),
 });

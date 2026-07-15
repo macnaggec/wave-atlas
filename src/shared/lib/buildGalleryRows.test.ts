@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { buildGalleryRows } from './buildGalleryRows';
 import type { GalleryRow } from './buildGalleryRows';
 
@@ -11,6 +11,10 @@ const JAN_2 = new Date(Date.UTC(2024, 0, 2, 10, 0, 0));
 const JAN_3 = new Date(Date.UTC(2024, 0, 3, 10, 0, 0));
 
 describe('buildGalleryRows', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns empty array for empty input', () => {
     expect(buildGalleryRows([])).toEqual([]);
   });
@@ -50,6 +54,23 @@ describe('buildGalleryRows', () => {
     expect(rows[2]!.type).toBe('divider');
     expect((rows[0]! as Extract<GalleryRow, { type: 'divider' }>).date).toEqual(JAN_1);
     expect((rows[2]! as Extract<GalleryRow, { type: 'divider' }>).date).toEqual(JAN_2);
+  });
+
+  it('groups adjacent items by the visible calendar date', () => {
+    const lateUtc = new Date('2026-06-23T22:30:00.000Z');
+    const sameVisibleDay = new Date('2026-06-24T06:00:00.000Z');
+    vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (this: Date) {
+      if (this.getTime() === lateUtc.getTime()) return 'Jun 24, 2026';
+      if (this.getTime() === sameVisibleDay.getTime()) return 'Jun 24, 2026';
+      return '';
+    });
+
+    const rows = buildGalleryRows([
+      makeItem('a', sameVisibleDay),
+      makeItem('b', lateUtc),
+    ]);
+
+    expect(rows.map((r) => r.type)).toEqual(['divider', 'media']);
   });
 
   it('handles 3 distinct dates correctly', () => {

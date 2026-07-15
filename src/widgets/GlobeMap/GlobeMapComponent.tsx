@@ -1,6 +1,7 @@
-import { useRef, useCallback, useState, useMemo, useEffect } from 'react';
+import { useRef, useCallback, useState, useMemo, useEffect, type ReactNode } from 'react';
 import Map, { MapRef, NavigationControl, Source, Layer, Popup, ViewStateChangeEvent, MapMouseEvent } from 'react-map-gl';
 import { Loader, Paper, Text } from '@mantine/core';
+import { materialClasses } from 'shared/ui/design-system';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl';
 
@@ -14,7 +15,17 @@ import { useSpotGeoJson } from './hooks/useSpotGeoJson';
 import { useMapInteraction } from './hooks/useMapInteraction';
 import { useMapImages } from './hooks/useMapImages';
 import { TempPinMarker } from './ui/TempPinMarker';
-import { clusterLayer, clusterCountLayer, getUnclusteredPointLayer, getIconLayer, globeFog, SPOT_INTERACTIVE_LAYERS } from './layerStyles';
+import { SelectedSpotPopup } from './ui/SelectedSpotPopup';
+import {
+  clusterLayer,
+  clusterCountLayer,
+  getUnclusteredPointLayer,
+  getIconLayer,
+  selectedSpotPointLayer,
+  selectedSpotIconLayer,
+  globeFog,
+  SPOT_INTERACTIVE_LAYERS,
+} from './layerStyles';
 
 import classes from './GlobeMap.module.css';
 
@@ -47,11 +58,18 @@ export interface GlobeMapProps {
   onSpotSelect: (spot: MapSpotProjection) => void;
   motionPolicy: GlobeMotionPolicy;
   interactionPolicy?: GlobeInteractionPolicy;
-  isPinPlacementActive?: boolean;
+  /** Px of the right edge of the viewport currently covered by the side panel — reserved as camera padding so a focused spot centers in the visible part of the map. */
+  sidebarOccludedPx?: number;
+  isCoordinatePickerActive?: boolean;
+  showNavigationControl?: boolean;
   tempPin?: LngLat | null;
   onMapCoordinateClick?: (coords: LngLat) => void;
   onUserExploreStart?: () => void;
   onUserExploreEnd?: () => void;
+  /** Reports the start of genuine camera movement, excluding clicks and pointer-down alone. */
+  onCameraGestureStart?: () => void;
+  /** Feature-owned content (e.g. a favorite toggle) rendered in the selected-spot popup — GlobeMap stays feature-agnostic. */
+  renderSelectedSpotContent?: (spot: MapSpotProjection) => ReactNode;
 }
 
 export function GlobeMapComponent({
@@ -61,11 +79,15 @@ export function GlobeMapComponent({
   onSpotSelect,
   motionPolicy,
   interactionPolicy = 'interactive',
-  isPinPlacementActive = false,
+  sidebarOccludedPx = 0,
+  isCoordinatePickerActive = false,
+  showNavigationControl = true,
   tempPin = null,
   onMapCoordinateClick,
   onUserExploreStart,
   onUserExploreEnd,
+  onCameraGestureStart,
+  renderSelectedSpotContent,
 }: GlobeMapProps) {
   const mapRef = useRef<MapRef>(null);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
@@ -73,8 +95,10 @@ export function GlobeMapComponent({
   const [isLoaded, setIsLoaded] = useState(false);
   const cameraState = useMapStore((s) => s.cameraState);
   const saveCameraState = useMapStore((s) => s.saveCameraState);
-  const acceptsMapInput = interactionPolicy === 'interactive';
-  const acceptsSpotInteraction = acceptsMapInput && !isPinPlacementActive;
+  // Gates camera movement only (pan/zoom/rotate/scroll). Spot clicks and the popup stay
+  // available even while backgrounded (e.g. sidebar expanded) — see acceptsSpotInteraction.
+  const acceptsCameraGestures = interactionPolicy === 'interactive';
+  const acceptsSpotInteraction = !isCoordinatePickerActive;
 
   // On hard nav to a spot URL with no prior session (camera at default Bali position),
   // derive the initial viewport from the spot coords at zoom 12 — same as the soft-nav
@@ -105,6 +129,7 @@ export function GlobeMapComponent({
     };
   });
   const focusedRouteSpotIdRef = useRef<string | null>(initialFocusedSpotId);
+  const lastShowPreviewRef = useRef(false);
 
   const {
     startSpinning,
@@ -126,10 +151,26 @@ export function GlobeMapComponent({
     [selectedSpotId]
   );
 
-  const spotsGeoJson = useSpotGeoJson(spots);
+  const selectedSpot = useMemo(
+    () => (selectedSpotId ? spots.find((s) => s.id === selectedSpotId) ?? null : null),
+    [spots, selectedSpotId]
+  );
+
+  // Excluded from the clustered source so it can never be folded into a cluster while
+  // zooming out — it's rendered separately below via an always-unclustered source, so
+  // its popup stays anchored to an individually visible spot instead of a cluster.
+  const clusterableSpots = useMemo(
+    () => (selectedSpotId ? spots.filter((s) => s.id !== selectedSpotId) : spots),
+    [spots, selectedSpotId]
+  );
+  const spotsGeoJson = useSpotGeoJson(clusterableSpots);
+  const selectedSpotList = useMemo(() => (selectedSpot ? [selectedSpot] : []), [selectedSpot]);
+  const selectedSpotGeoJson = useSpotGeoJson(selectedSpotList);
   const { loadImages } = useMapImages(mapRef);
 
   const executeFocusSpot = useCallback((spot: MapSpotProjection, showPreview: boolean) => {
+    lastShowPreviewRef.current = showPreview;
+
     const map = mapInstanceRef.current;
     if (!map) {
       pendingFocusRef.current = { spotId: spot.id, showPreview };
@@ -137,7 +178,7 @@ export function GlobeMapComponent({
     }
 
     const currentZoom = map.getZoom();
-    const padding = showPreview ? { top: 300 } : { top: 0 };
+    const padding = { top: showPreview ? 300 : 0, right: sidebarOccludedPx };
     const center: [number, number] = [spot.coords.lng, spot.coords.lat];
 
     if (currentZoom >= 12) {
@@ -157,7 +198,7 @@ export function GlobeMapComponent({
       duration: 1000,
       essential: true,
     });
-  }, []);
+  }, [sidebarOccludedPx]);
 
   const focusSpotById = useCallback((spotId: string, showPreview: boolean) => {
     const spot = spots.find((candidate) => candidate.id === spotId);
@@ -181,7 +222,12 @@ export function GlobeMapComponent({
     spots,
     onSpotClick: acceptsSpotInteraction
       ? (spot) => {
-        executeFocusSpot(spot, false);
+        // Already selected: the camera is already correctly focused on it (with the
+        // route-driven preview padding). Re-running with different padding here would
+        // just knock it out of place, so only re-focus when selecting a different spot.
+        if (spot.id !== selectedSpotId) {
+          executeFocusSpot(spot, false);
+        }
         onSpotSelect(spot);
       }
       : undefined,
@@ -207,6 +253,18 @@ export function GlobeMapComponent({
     }
   }, [focusSpotById, selectedSpotId]);
 
+  const prevSidebarOccludedPxRef = useRef(sidebarOccludedPx);
+
+  useEffect(() => {
+    const previousOccludedPx = prevSidebarOccludedPxRef.current;
+    prevSidebarOccludedPxRef.current = sidebarOccludedPx;
+
+    if (previousOccludedPx === sidebarOccludedPx) return;
+    if (!selectedSpotId) return;
+
+    focusSpotById(selectedSpotId, lastShowPreviewRef.current);
+  }, [sidebarOccludedPx, selectedSpotId, focusSpotById]);
+
   useEffect(() => {
     return () => {
       mapInstanceRef.current = null;
@@ -217,24 +275,32 @@ export function GlobeMapComponent({
   const handleMoveEnd = useCallback((e: ViewStateChangeEvent) => {
     const { longitude, latitude, zoom, pitch, bearing } = e.viewState;
     saveCameraState({ longitude, latitude, zoom, pitch, bearing });
-    if (!acceptsMapInput) return;
+    if (!acceptsCameraGestures) return;
 
     onUserExploreEnd?.();
-  }, [acceptsMapInput, onUserExploreEnd, saveCameraState]);
+  }, [acceptsCameraGestures, onUserExploreEnd, saveCameraState]);
 
   const handleUserInteractionStart = useCallback(() => {
-    if (!acceptsMapInput) return;
+    if (!acceptsCameraGestures) return;
 
     onUserExploreStart?.();
     onUserInteractionStart();
-  }, [acceptsMapInput, onUserExploreStart, onUserInteractionStart]);
+  }, [acceptsCameraGestures, onUserExploreStart, onUserInteractionStart]);
+
+  const handleCameraGestureStart = useCallback((event: ViewStateChangeEvent) => {
+    if (!acceptsCameraGestures) return;
+    if (!event.originalEvent) return;
+
+    onCameraGestureStart?.();
+    handleUserInteractionStart();
+  }, [acceptsCameraGestures, handleUserInteractionStart, onCameraGestureStart]);
 
   const handleUserInteractionEnd = useCallback(() => {
-    if (!acceptsMapInput) return;
+    if (!acceptsCameraGestures) return;
 
     onUserInteractionEnd();
     onUserExploreEnd?.();
-  }, [acceptsMapInput, onUserExploreEnd, onUserInteractionEnd]);
+  }, [acceptsCameraGestures, onUserExploreEnd, onUserInteractionEnd]);
 
   const handleLoad = useCallback((e: mapboxgl.MapboxEvent) => {
     mapInstanceRef.current = e.target as mapboxgl.Map;
@@ -272,8 +338,8 @@ export function GlobeMapComponent({
 
       <Map
         ref={mapRef}
-        cursor={isPinPlacementActive ? 'crosshair' : (selectedSpotId || !acceptsMapInput ? 'default' : cursor)}
-        interactive={acceptsMapInput}
+        cursor={isCoordinatePickerActive ? 'crosshair' : (selectedSpotId || !acceptsCameraGestures ? 'default' : cursor)}
+        interactive={true}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={resolvedInitialView}
         onMoveEnd={handleMoveEnd}
@@ -283,27 +349,27 @@ export function GlobeMapComponent({
         projection={{ name: 'globe' as any }}
         fog={globeFog}
         onLoad={handleLoad}
-        onClick={isPinPlacementActive ? handleCoordinateClick : (acceptsSpotInteraction ? onSpotClick : undefined)}
-        onDragStart={acceptsMapInput ? handleUserInteractionStart : undefined}
-        onDragEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
-        onZoomStart={acceptsMapInput ? handleUserInteractionStart : undefined}
-        onZoomEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
-        onRotateStart={acceptsMapInput ? handleUserInteractionStart : undefined}
-        onRotateEnd={acceptsMapInput ? handleUserInteractionEnd : undefined}
-        onMouseDown={acceptsMapInput ? handleUserInteractionStart : undefined}
-        onTouchStart={acceptsMapInput ? handleUserInteractionStart : undefined}
-        onWheel={acceptsMapInput ? handleUserInteractionStart : undefined}
+        onClick={isCoordinatePickerActive ? handleCoordinateClick : (acceptsSpotInteraction ? onSpotClick : undefined)}
+        onDragStart={acceptsCameraGestures ? handleCameraGestureStart : undefined}
+        onDragEnd={acceptsCameraGestures ? handleUserInteractionEnd : undefined}
+        onZoomStart={acceptsCameraGestures ? handleCameraGestureStart : undefined}
+        onZoomEnd={acceptsCameraGestures ? handleUserInteractionEnd : undefined}
+        onRotateStart={acceptsCameraGestures ? handleCameraGestureStart : undefined}
+        onRotateEnd={acceptsCameraGestures ? handleUserInteractionEnd : undefined}
+        onMouseDown={acceptsCameraGestures ? handleUserInteractionStart : undefined}
+        onTouchStart={acceptsCameraGestures ? handleUserInteractionStart : undefined}
+        onWheel={acceptsCameraGestures ? handleUserInteractionStart : undefined}
         interactiveLayerIds={acceptsSpotInteraction ? SPOT_INTERACTIVE_LAYERS : []}
         onMouseEnter={acceptsSpotInteraction ? onMouseEnter : undefined}
         onMouseLeave={acceptsSpotInteraction ? onMouseLeave : undefined}
-        scrollZoom={acceptsMapInput}
-        boxZoom={acceptsMapInput}
-        dragRotate={acceptsMapInput}
-        dragPan={acceptsMapInput}
-        keyboard={acceptsMapInput}
-        doubleClickZoom={acceptsMapInput}
-        touchZoomRotate={acceptsMapInput}
-        touchPitch={acceptsMapInput}
+        scrollZoom={acceptsCameraGestures}
+        boxZoom={acceptsCameraGestures}
+        dragRotate={acceptsCameraGestures}
+        dragPan={acceptsCameraGestures}
+        keyboard={acceptsCameraGestures}
+        doubleClickZoom={acceptsCameraGestures}
+        touchZoomRotate={acceptsCameraGestures}
+        touchPitch={acceptsCameraGestures}
         maxZoom={18}
         minZoom={1}
         trackResize={true}
@@ -322,26 +388,34 @@ export function GlobeMapComponent({
           <Layer {...unclusteredPointLayer} />
           <Layer {...iconLayer} />
         </Source>
+        <Source id="selected-spot" type="geojson" data={selectedSpotGeoJson}>
+          <Layer {...selectedSpotPointLayer} />
+          <Layer {...selectedSpotIconLayer} />
+        </Source>
         {/* Tooltip Popup (Only when not selected) */}
         {acceptsSpotInteraction && hoveredSpot && hoveredSpot.id !== selectedSpotId && (
           <Popup
             longitude={hoveredSpot.coords.lng}
             latitude={hoveredSpot.coords.lat}
-            offset={15}
+            offset={20}
             closeButton={false}
             closeOnClick={false}
             anchor="bottom"
             className={classes.popupTooltip}
           >
-            <Paper p="xs" shadow="xs" radius="sm" withBorder>
+            <Paper p="xs" shadow="xs" radius="sm" withBorder className={materialClasses.chrome}>
               <Text size="sm" fw={500}>{hoveredSpot.name}</Text>
             </Paper>
           </Popup>
         )}
 
-        <TempPinMarker tempPin={tempPin} isActive={isPinPlacementActive} />
+        {acceptsSpotInteraction && selectedSpot && (
+          <SelectedSpotPopup spot={selectedSpot} renderExtra={renderSelectedSpotContent} />
+        )}
 
-        <NavigationControl position="bottom-right" />
+        <TempPinMarker tempPin={tempPin} isActive={isCoordinatePickerActive} />
+
+        {showNavigationControl && <NavigationControl position="bottom-right" />}
       </Map>
     </div>
   );

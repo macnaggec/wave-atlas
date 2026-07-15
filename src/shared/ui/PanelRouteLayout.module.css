@@ -6,8 +6,7 @@
 }
 
 .header {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--wa-control-menu-hover);
+  padding: 8px 12px 20px;
 }
 
 .emptyRoot {
@@ -28,7 +27,7 @@
 
 .emptyTitle {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--wa-font-size-lg);
 }
 
 .emptyDescription {
@@ -78,6 +77,22 @@
   min-width: 0;
 }
 
+.toolbarPrimary :global(.mantine-Input-input) {
+  background: var(--wa-panel-control-background, var(--wa-control-fill));
+  backdrop-filter: var(--wa-panel-control-backdrop, blur(10px));
+  -webkit-backdrop-filter: var(--wa-panel-control-backdrop, blur(10px));
+  border-color: var(--wa-glass-border-media-overlay);
+  color: var(--wa-text-primary);
+}
+
+.toolbarPrimary :global(.mantine-Input-input::placeholder) {
+  color: var(--wa-text-muted);
+}
+
+.toolbarPrimary :global(.mantine-Input-section) {
+  color: var(--wa-text-primary);
+}
+
 .toolbarTrailing {
   margin-left: auto;
 }
@@ -88,16 +103,23 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  padding: 3px 10px;
-  border: 1px solid var(--wa-glass-border-status);
+  height: 2.25rem;
+  padding: 0 10px;
+  border: 1px solid var(--wa-glass-border-media-overlay);
   border-radius: 20px;
-  background: var(--wa-control-fill-hover);
+  background: var(--wa-panel-control-background, var(--wa-control-fill));
+  backdrop-filter: var(--wa-panel-control-backdrop, blur(10px));
+  -webkit-backdrop-filter: var(--wa-panel-control-backdrop, blur(10px));
   color: var(--wa-text-primary);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--wa-font-size-xs);
   line-height: 1.4;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.actionButton:hover {
+  background: var(--wa-control-fill-hover);
 }
 
 .actionButton:disabled {

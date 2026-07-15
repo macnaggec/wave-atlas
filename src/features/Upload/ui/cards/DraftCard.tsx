@@ -17,14 +17,11 @@ export interface ValidationState {
  * Props for DraftCard component
  */
 export interface DraftCardProps {
-  /** Image or video URL (blob:// for uploads, https:// for drafts) */
+  /** Image URL (JPEG poster frame for videos, thumbnail for images) */
   imageUrl: string;
 
   /** Resource type */
   resourceType: 'image' | 'video';
-
-  /** Video playback URL (for videos) */
-  playbackUrl?: string;
 
   /** Alt text */
   alt?: string;
@@ -59,7 +56,6 @@ export interface DraftCardProps {
 const DraftCard: FC<DraftCardProps> = memo(({
   imageUrl,
   resourceType,
-  playbackUrl,
   alt,
   overlays,
   actions,
@@ -70,7 +66,6 @@ const DraftCard: FC<DraftCardProps> = memo(({
       <BaseCard
         imageUrl={imageUrl}
         resourceType={resourceType}
-        playbackUrl={playbackUrl}
         alt={alt}
         overlays={overlays}
         actions={actions}

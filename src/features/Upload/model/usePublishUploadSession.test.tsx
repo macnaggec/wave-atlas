@@ -6,34 +6,48 @@ import type { MediaItem } from 'entities/Media';
 
 const mocks = vi.hoisted(() => ({
   clearQueue: vi.fn(),
-  createAndPublish: vi.fn(),
-  invalidateQueries: vi.fn(),
+  saveWorkspace: vi.fn().mockResolvedValue({ id: 'session-1' }),
+  invalidateQueries: vi.fn().mockResolvedValue(undefined),
   notifyError: vi.fn(),
 }));
 
-vi.mock('entities/SurfSession', () => ({
-  usePublishSession: () => ({
-    mutateAsync: mocks.createAndPublish,
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+  useMutation: (options: {
+    onSuccess?: (data: { id: string }, variables: { workspaceId: string }) => Promise<void> | void;
+  }) => ({
+    mutateAsync: async (variables: { workspaceId: string }) => {
+      const result = await mocks.saveWorkspace(variables);
+      await options.onSuccess?.(result, variables);
+      return result;
+    },
     isPending: false,
   }),
 }));
 
-vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
-  return {
-    ...actual,
-    useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
-  };
-});
+function queryFilter(path: string) {
+  return (input?: unknown) => ({ queryKey: [path, input] });
+}
 
 vi.mock('shared/lib/trpc', () => ({
   useTRPC: () => ({
+    uploads: {
+      saveWorkspace: { mutationOptions: (options?: object) => options ?? {} },
+      getActiveWorkspace: { queryFilter: queryFilter('uploads.getActiveWorkspace') },
+      getWorkspaceState: { queryFilter: queryFilter('uploads.getWorkspaceState') },
+    },
+    sessions: {
+      list: { pathFilter: () => ({ queryKey: ['sessions.list'] }) },
+      mine: { queryFilter: queryFilter('sessions.mine') },
+      byId: { queryFilter: queryFilter('sessions.byId') },
+      media: { queryFilter: queryFilter('sessions.media') },
+    },
     users: {
-      myDraftCounts: { queryKey: () => ['users', 'myDraftCounts'] },
-      myUploads: { queryKey: () => ['users', 'myUploads'] },
+      myDraftCounts: { queryFilter: queryFilter('users.myDraftCounts') },
+      myUploads: { queryFilter: queryFilter('users.myUploads') },
     },
     media: {
-      myDrafts: { queryKey: () => ['media', 'myDrafts'] },
+      myDrafts: { queryFilter: queryFilter('media.myDrafts') },
     },
   }),
 }));
@@ -48,59 +62,55 @@ vi.mock('./useClearUploadQueue', () => ({
   useClearUploadQueue: () => mocks.clearQueue,
 }));
 
+function makeMediaItem(id: string): MediaItem {
+  return {
+    id,
+    sessionId: 'session-1',
+    photographerId: 'photographer-1',
+    spotId: null,
+    capturedAt: new Date('2026-01-01T00:00:00Z'),
+    price: null,
+    lightboxUrl: `https://cdn.example.com/${id}.jpg`,
+    thumbnailUrl: `https://cdn.example.com/${id}-thumb.jpg`,
+    cloudinaryPublicId: id,
+    status: 'DRAFT',
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    resource: {
+      resourceType: 'image',
+      url: `https://cdn.example.com/${id}.jpg`,
+      assetId: `asset-${id}`,
+    },
+  };
+}
+
+function readyQueue(mediaIds: string[]): GalleryCard[] {
+  return mediaIds.map((mediaId) => ({
+    kind: 'asset' as const,
+    id: mediaId,
+    result: makeMediaItem(mediaId),
+  }));
+}
+
 describe('usePublishUploadSession', () => {
-  const startsDate = new Date('2026-01-01T00:00:00Z');
-  const startsAt = new Date(startsDate);
-  startsAt.setHours(6, 0, 0, 0);
-  const endsAt = new Date(startsDate);
-  endsAt.setHours(10, 0, 0, 0);
-
-  function makeMediaItem(id: string): MediaItem {
-    return {
-      id,
-      sessionId: 'session-1',
-      photographerId: 'photographer-1',
-      spotId: null,
-      capturedAt: new Date('2026-01-01T00:00:00Z'),
-      price: null,
-      lightboxUrl: `https://cdn.example.com/${id}.jpg`,
-      thumbnailUrl: `https://cdn.example.com/${id}-thumb.jpg`,
-      cloudinaryPublicId: id,
-      status: 'DRAFT',
-      createdAt: new Date('2026-01-01T00:00:00Z'),
-      resource: {
-        resourceType: 'image',
-        url: `https://cdn.example.com/${id}.jpg`,
-        assetId: `asset-${id}`,
-      },
-    };
-  }
-
-  function completedQueue(mediaIds: string[]): GalleryCard[] {
-    return mediaIds.map((mediaId) => ({
-      kind: 'draft' as const,
-      id: mediaId,
-      result: makeMediaItem(mediaId),
-    }));
-  }
+  const sessionDate = new Date('2026-01-01T00:00:00Z');
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.saveWorkspace.mockResolvedValue({ id: 'session-1' });
   });
 
-  it('publishes a valid session and clears only transient upload state', async () => {
-    mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
-    const onCancel = vi.fn();
+  it('saves a valid workspace and clears only transient upload state', async () => {
+    const onComplete = vi.fn();
     const { result } = renderHook(() =>
       usePublishUploadSession({
-        draftId: 'draft-1',
+        workspaceId: 'workspace-1',
         spot: { id: 'spot-1' },
-        queue: completedQueue(['media-1', 'media-2']),
-        sessionDate: startsDate,
+        queue: readyQueue(['media-1', 'media-2']),
+        sessionDate,
         sessionRange: [360, 600],
         photoPrice: 300,
         videoPrice: 500,
-        onCancel,
+        onComplete,
       }),
     );
 
@@ -108,125 +118,108 @@ describe('usePublishUploadSession', () => {
       await result.current.publish();
     });
 
-    expect(mocks.createAndPublish).toHaveBeenCalledWith('draft-1');
-    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
+    expect(mocks.saveWorkspace).toHaveBeenCalledWith({ workspaceId: 'workspace-1' });
     expect(mocks.clearQueue).toHaveBeenCalled();
-    expect(onCancel).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledWith('session-1');
   });
 
-  it('does not publish while any upload card still needs user action', async () => {
-    const onPublishFailed = vi.fn();
+  it('reports missing inputs in their visual order without saving', async () => {
     const { result } = renderHook(() =>
       usePublishUploadSession({
-        draftId: 'draft-1',
+        workspaceId: 'workspace-1',
         spot: null,
         queue: [],
-        sessionDate: startsDate,
-        sessionRange: [360, 600],
-        photoPrice: 300,
+        sessionDate: null,
+        sessionRange: [600, 360],
+        photoPrice: 200,
         videoPrice: 500,
-        onCancel: vi.fn(),
-        onPublishFailed,
+        onComplete: vi.fn(),
       }),
     );
+
+    expect(result.current.violations).toEqual(['spot', 'media', 'price', 'time']);
 
     await act(async () => {
       await result.current.publish();
     });
 
     expect(result.current.hasTriedPublish).toBe(true);
-    expect(result.current.filesErrorTick).toBe(1);
-    expect(onPublishFailed).toHaveBeenCalled();
-    expect(mocks.createAndPublish).not.toHaveBeenCalled();
+    expect(mocks.saveWorkspace).not.toHaveBeenCalled();
   });
 
-  it('notifies and keeps the queue open when publishing fails', async () => {
-    mocks.createAndPublish.mockRejectedValue(new Error('Network down'));
-    const onCancel = vi.fn();
+  it('does not save a workspace with an under-minimum price', async () => {
     const { result } = renderHook(() =>
       usePublishUploadSession({
-        draftId: 'draft-1',
+        workspaceId: 'workspace-1',
         spot: { id: 'spot-1' },
-        queue: completedQueue(['media-1']),
-        sessionDate: startsDate,
+        queue: readyQueue(['media-1']),
+        sessionDate,
         sessionRange: [360, 600],
-        photoPrice: 300,
+        photoPrice: 200,
         videoPrice: 500,
-        onCancel,
+        onComplete: vi.fn(),
       }),
     );
 
-    await act(async () => {
-      await result.current.publish();
-    });
-
-    expect(mocks.notifyError).toHaveBeenCalledWith('Network down', 'Publish Failed');
-    expect(mocks.clearQueue).not.toHaveBeenCalled();
-    expect(onCancel).not.toHaveBeenCalled();
-  });
-
-  it('does not publish while any upload card still needs user action', async () => {
-    mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
-    const onCancel = vi.fn();
-    const queue = [
-      ...completedQueue(['media-1']),
-      {
-        kind: 'attempt' as const,
-        id: 'upload-2',
-        source: 'LOCAL' as const,
-        status: 'FAILED' as const,
-        previewUrl: 'blob:failed',
-      },
-    ] satisfies GalleryCard[];
-
-    const { result } = renderHook(() =>
-      usePublishUploadSession({
-        draftId: 'draft-1',
-        spot: { id: 'spot-1' },
-        queue,
-        sessionDate: startsDate,
-        sessionRange: [360, 600],
-        photoPrice: 300,
-        videoPrice: 500,
-        onCancel,
-      }),
-    );
+    expect(result.current.violations).toEqual(['price']);
 
     await act(async () => {
       await result.current.publish();
     });
 
     expect(result.current.hasTriedPublish).toBe(true);
-    expect(mocks.createAndPublish).not.toHaveBeenCalled();
-    expect(mocks.clearQueue).not.toHaveBeenCalled();
-    expect(onCancel).not.toHaveBeenCalled();
+    expect(mocks.saveWorkspace).not.toHaveBeenCalled();
   });
 
-  it('does not publish while any upload card is still active', async () => {
-    mocks.createAndPublish.mockResolvedValue({ id: 'session-1' });
-    const onCancel = vi.fn();
+  it('notifies and keeps the queue open when save fails', async () => {
+    mocks.saveWorkspace.mockRejectedValue(new Error('Network down'));
+    const onComplete = vi.fn();
+    const { result } = renderHook(() =>
+      usePublishUploadSession({
+        workspaceId: 'workspace-1',
+        spot: { id: 'spot-1' },
+        queue: readyQueue(['media-1']),
+        sessionDate,
+        sessionRange: [360, 600],
+        photoPrice: 300,
+        videoPrice: 500,
+        onComplete,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.publish();
+    });
+
+    expect(mocks.notifyError).toHaveBeenCalledWith('Network down', 'Save Failed');
+    expect(mocks.clearQueue).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('does not save while any upload card is still active', async () => {
     const queue = [
-      ...completedQueue(['media-1']),
+      ...readyQueue(['media-1']),
       {
         kind: 'attempt' as const,
         id: 'upload-2',
         source: 'LOCAL' as const,
         status: 'ACQUIRING' as const,
         previewUrl: 'blob:active',
+        resourceType: 'image' as const,
         progress: 50,
       },
     ] satisfies GalleryCard[];
 
     const { result } = renderHook(() =>
       usePublishUploadSession({
-        draftId: 'draft-1',
+        workspaceId: 'workspace-1',
         spot: { id: 'spot-1' },
         queue,
-        sessionDate: startsDate,
+        sessionDate,
         sessionRange: [360, 600],
         photoPrice: 300,
         videoPrice: 500,
-        onCancel,
+        onComplete: vi.fn(),
       }),
     );
 
@@ -235,9 +228,6 @@ describe('usePublishUploadSession', () => {
     });
 
     expect(result.current.hasTriedPublish).toBe(true);
-    expect(result.current.filesErrorTick).toBe(1);
-    expect(mocks.createAndPublish).not.toHaveBeenCalled();
-    expect(mocks.clearQueue).not.toHaveBeenCalled();
-    expect(onCancel).not.toHaveBeenCalled();
+    expect(mocks.saveWorkspace).not.toHaveBeenCalled();
   });
 });

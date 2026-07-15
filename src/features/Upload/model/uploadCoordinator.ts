@@ -13,7 +13,7 @@ import type { UploadCommands } from './useUploadCommands';
 
 export type CoordinatorDeps = {
   commands: UploadCommands;
-  draftId: string;
+  workspaceId: string;
 };
 
 // ── Drive selection type ─────────────────────────────────────────────────────
@@ -30,18 +30,20 @@ export type DriveSelection = {
 export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promise<void> {
   const clientRequestId = uuidv4();
   const previewUrl = URL.createObjectURL(file);
+  const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
 
   useUploadStore.getState().addTransfer({
     source: 'local',
     clientRequestId,
     file,
     previewUrl,
+    resourceType,
     progress: 0,
   });
 
   try {
     const grant = await deps.commands.beginLocal({
-      draftId: deps.draftId,
+      workspaceId: deps.workspaceId,
       clientRequestId,
       declaredMimeType: file.type,
       declaredByteSize: file.size,
@@ -69,6 +71,8 @@ export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promi
       attemptId: grant.attemptId,
       providerReceipt: receipt,
     });
+
+    await deps.commands.invalidateWorkspaceState(deps.workspaceId);
 
     // Remove browser resources — MediaItem is now in Query cache.
     const completedTransfer = useUploadStore.getState().transfers.get(clientRequestId);
@@ -99,10 +103,11 @@ export async function startDriveUpload(
     source: 'drive',
     clientRequestId,
     previewUrl: '',  // Drive thumbnail URLs require auth — Cloudinary URL available after completion
+    resourceType: selection.declaredMimeType.startsWith('video/') ? 'video' : 'image',
   });
 
   const { attemptId } = await deps.commands.beginDrive({
-    draftId: deps.draftId,
+    workspaceId: deps.workspaceId,
     clientRequestId,
     remoteFileId: selection.remoteFileId,
     declaredMimeType: selection.declaredMimeType,
@@ -111,6 +116,8 @@ export async function startDriveUpload(
   useUploadStore.getState().updateTransfer(clientRequestId, { attemptId });
 
   await deps.commands.processDrive({ attemptId, accessToken: selection.accessToken });
+
+  await deps.commands.invalidateWorkspaceState(deps.workspaceId);
 
   // Remove browser thumbnail — MediaItem is now in Query cache.
   useUploadStore.getState().removeTransfer(clientRequestId);
@@ -147,15 +154,26 @@ export async function discardAttempt(
   }
 }
 
-export async function discardAllDraft(deps: CoordinatorDeps): Promise<void> {
+export async function discardAllWorkspace(deps: CoordinatorDeps): Promise<void> {
   const transfers = useUploadStore.getState().getAll();
 
   // Abort all in-flight local XHRs immediately.
   transfers.forEach(abortBrowserTransfer);
 
   // Single server transaction — awaited before previews or UI state clear.
-  await deps.commands.discardDraft({ draftId: deps.draftId });
+  await deps.commands.cancelWorkspace({ workspaceId: deps.workspaceId });
 
+  transfers.forEach(releaseBrowserTransferPreview);
+  useUploadStore.getState().clearTransfers();
+}
+
+/**
+ * Client-side-only abort used when the route is leaving after Save. Workspace Cancel is the
+ * server-side operation that marks attempts/assets cancelled when the user explicitly cancels.
+ */
+export function abortAllLocalTransfers(): void {
+  const transfers = useUploadStore.getState().getAll();
+  transfers.forEach(abortBrowserTransfer);
   transfers.forEach(releaseBrowserTransferPreview);
   useUploadStore.getState().clearTransfers();
 }

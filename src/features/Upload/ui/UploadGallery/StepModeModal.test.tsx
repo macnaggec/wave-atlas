@@ -64,13 +64,14 @@ describe('StepModeModal', () => {
       resource: { resourceType: 'image', url: 'https://cdn.example.com/media-1.jpg', assetId: 'asset-media-1' },
     };
     const cards = [
-      { kind: 'draft' as const, id: 'media-1', result: draftResult },
+      { kind: 'asset' as const, id: 'media-1', result: draftResult },
       {
         kind: 'attempt' as const,
         id: 'upload-2',
         source: 'LOCAL' as const,
         status: 'ACQUIRING' as const,
         previewUrl: 'blob:active',
+        resourceType: 'image' as const,
         progress: 40,
       },
     ] satisfies GalleryCard[];

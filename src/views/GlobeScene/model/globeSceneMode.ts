@@ -1,24 +1,24 @@
 export type GlobeSceneMode =
   | { kind: 'overview' }
   | { kind: 'spotFocused'; spotId: string }
-  | { kind: 'pinPlacement' }
+  | { kind: 'addSpotFlow' }
   | { kind: 'uploadSpotSelection' }
   | { kind: 'userExploring' };
 
 export interface GlobeSceneModeInput {
-  isPinPlacementActive: boolean;
+  isAddSpotActive: boolean;
   isUploadSpotSelectionActive: boolean;
   selectedSpotId: string | null;
   isUserExploring: boolean;
 }
 
 export function deriveGlobeSceneMode({
-  isPinPlacementActive,
+  isAddSpotActive,
   isUploadSpotSelectionActive,
   selectedSpotId,
   isUserExploring,
 }: GlobeSceneModeInput): GlobeSceneMode {
-  if (isPinPlacementActive) return { kind: 'pinPlacement' };
+  if (isAddSpotActive) return { kind: 'addSpotFlow' };
   if (isUploadSpotSelectionActive) return { kind: 'uploadSpotSelection' };
   if (selectedSpotId) return { kind: 'spotFocused', spotId: selectedSpotId };
   if (isUserExploring) return { kind: 'userExploring' };

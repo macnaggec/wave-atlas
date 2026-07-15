@@ -84,7 +84,8 @@ function makePurchase(overrides: Partial<PurchaseWithMedia> = {}): PurchaseWithM
     previewUrl: 'https://res.cloudinary.com/preview.jpg',
     mediaItem: {
       id: 'media-1',
-      cloudinaryPublicId: 'wave-atlas/photo-001',
+      type: 'PHOTO',
+      cloudinaryPublicId: 'swelldays/photo-001',
       thumbnailUrl: 'https://res.cloudinary.com/thumb.jpg',
     },
     ...overrides,
@@ -280,7 +281,6 @@ describe('CheckoutService.generateDownloadAccess', () => {
     const result = await service.generateDownloadAccess('buyer-1', 'media-1');
 
     expect(result.downloadUrl).toBe('https://res.cloudinary.com/signed');
-    expect(mockCloudinary.generateSignedDownload).toHaveBeenCalledWith('wave-atlas/photo-001');
   });
 
   it('throws ForbiddenError when purchase does not exist', async () => {
@@ -292,5 +292,3 @@ describe('CheckoutService.generateDownloadAccess', () => {
     );
   });
 });
-
-

@@ -8,7 +8,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: var(--wa-text-dimmed);
   border: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   transition: background-color 150ms ease, transform 150ms ease;
@@ -16,6 +16,6 @@
 }
 
 .indicator[data-active] {
-  background-color: rgba(255, 255, 255, 1);
+  background-color: var(--wa-text-inverse);
   transform: scale(1.25);
 }

@@ -1,13 +1,89 @@
-import { FC, memo, ReactNode, useEffect, useState } from 'react';
-import { Modal, Stack } from '@mantine/core';
-import { Carousel } from '@mantine/carousel';
+import {
+  FC,
+  memo,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { ActionIcon, Loader, Modal } from '@mantine/core';
+import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import classes from './CarouselLightbox.module.css';
-import carouselClasses from 'shared/ui/carousel.module.css';
+
+const lightboxIconActionData = { 'data-lightbox-icon-action': 'true' };
+const lightboxIconFrameData = { 'data-lightbox-icon-frame': 'chip' };
+const lightboxIndicatorsData = { 'data-lightbox-indicators-placement': 'below-media' };
+const fadeTransition = { duration: 0.16, ease: 'easeOut' } as const;
+const layoutTransition = { duration: 0.22, ease: 'easeOut' } as const;
+const reducedMotionTransition = { duration: 0 } as const;
+const slideSpring = { type: 'spring', stiffness: 340, damping: 34, mass: 0.9 } as const;
+const slideExitTransition = { duration: 0.18, ease: 'easeOut' } as const;
+const swipeThresholdPx = 48;
+const dragFollowMaxPx = 88;
+const dragFollowFactor = 0.5;
+const maxIndicatorItems = 10;
+const framelessModalStyles = {
+  content: {
+    '--mb-shadow': 'none',
+    '--modal-radius': '0',
+    '--paper-radius': '0',
+    '--paper-shadow': 'none',
+    background: 'transparent',
+    backgroundColor: 'transparent',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
+    border: '0',
+    borderRadius: '0',
+    boxShadow: 'none',
+  },
+};
+
+// Slides enter from the direction of travel and exit toward the opposite side,
+// so "next" reads as moving forward through the gallery. direction 0 (initial
+// open) degrades to a plain fade.
+const slideVariants = {
+  enter: (direction: number) => ({ x: direction * 56, opacity: 0, scale: 0.985 }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: { x: slideSpring, scale: slideSpring, opacity: fadeTransition },
+  },
+  exit: (direction: number) => ({
+    x: direction * -40,
+    opacity: 0,
+    transition: { x: slideExitTransition, opacity: fadeTransition },
+  }),
+};
+const reducedSlideVariants = {
+  enter: { opacity: 0 },
+  center: { opacity: 1, transition: reducedMotionTransition },
+  exit: { opacity: 0, transition: reducedMotionTransition },
+};
+
+function normalizeIndex(index: number, itemCount: number) {
+  if (itemCount <= 0) return 0;
+  return ((index % itemCount) + itemCount) % itemCount;
+}
+
+function isInteractiveSwipeTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest(
+    'button, a, input, textarea, select, video, [role="button"], [data-lightbox-ignore-swipe]',
+  ));
+}
+
+function preloadableUrl(item: CarouselLightboxItem | undefined) {
+  return item && item.type !== 'video' ? item.url : undefined;
+}
 
 export interface CarouselLightboxItem {
   id: string;
   url: string;
   type?: 'image' | 'video';
+  alt?: string;
 }
 
 export interface CarouselLightboxProps {
@@ -15,7 +91,11 @@ export interface CarouselLightboxProps {
   initialIndex: number;
   opened: boolean;
   onClose: () => void;
-  /** Receives the current carousel index; render context-specific actions per slide. */
+  /** Receives each slide index; render badges or metadata in a caption above that media item. */
+  renderOverlay?: (itemIndex: number) => ReactNode;
+  /** Receives the current carousel index; render icon actions in the floating control rail. */
+  renderActions?: (currentIndex: number) => ReactNode;
+  /** Backwards-compatible action slot for existing callers. */
   renderFooter?: (currentIndex: number) => ReactNode;
 }
 
@@ -23,47 +103,446 @@ export interface CarouselLightboxProps {
  * CarouselLightbox — navigable multi-item modal with keyboard, swipe, and prev/next controls.
  * Callers supply renderFooter to add context-specific actions per slide.
  */
-const CarouselLightbox: FC<CarouselLightboxProps> = memo(({ items, initialIndex, opened, onClose, renderFooter }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
+  items,
+  initialIndex,
+  opened,
+  onClose,
+  renderOverlay,
+  renderActions,
+  renderFooter,
+}) => {
+  const [nav, setNav] = useState({ index: initialIndex, direction: 0 });
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  // Elastic drag offset applied to the whole media layer while a touch swipe is in flight.
+  const dragX = useMotionValue(0);
+  const readyUrlsRef = useRef<Set<string>>(new Set());
+  const navStateRef = useRef({ committedIndex: initialIndex, pendingIndex: null as number | null, token: 0 });
+  // Known media dimensions by url. A mounted <video preload="metadata"> starts
+  // at the browser default 300x150 until its metadata parses, so without
+  // explicit width/height the frame reflows outside a React commit and framer
+  // animates the controls from stale positions.
+  const mediaDimensionsRef = useRef(new Map<string, { width: number; height: number }>());
+  const [, setMediaEpoch] = useState(0);
+  // Even a cached image mounts without synchronous dimensions, so the
+  // fit-content frame would collapse exactly when framer measures the control
+  // layout (the commit's layout pass) and the controls would fly in from stale
+  // positions. Holding the frame at its pre-swap size until the incoming
+  // media reports real dimensions keeps the measured layout stable; releasing
+  // the hold inside a React commit lets framer animate the old→new shift.
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [frameHold, setFrameHold] = useState<{ width: number; height: number } | null>(null);
+  const failedUrlsRef = useRef<Set<string>>(new Set());
+  // A failed load still reveals the chrome so the close control stays reachable.
+  const markMediaFailed = useCallback((url: string) => {
+    setFrameHold(null);
+    if (failedUrlsRef.current.has(url)) return;
+    failedUrlsRef.current.add(url);
+    setMediaEpoch((epoch) => epoch + 1);
+  }, []);
+  const adoptMediaDimensions = useCallback((url: string, width: number, height: number) => {
+    setFrameHold(null);
+    if (width <= 0) return;
+    const known = mediaDimensionsRef.current.get(url);
+    if (known?.width === width && known?.height === height) return;
+    mediaDimensionsRef.current.set(url, { width, height });
+    setMediaEpoch((epoch) => epoch + 1);
+  }, []);
 
-  // Sync currentIndex when the lightbox opens or a different item is targeted.
+  // Sync position when the lightbox opens or a different item is targeted.
   useEffect(() => {
-    if (opened) setCurrentIndex(initialIndex);
-  }, [initialIndex, opened]);
+    if (!opened) return;
+    const index = normalizeIndex(initialIndex, items.length);
+    navStateRef.current = { committedIndex: index, pendingIndex: null, token: navStateRef.current.token + 1 };
+    setFrameHold(null);
+    setNav({ index, direction: 0 });
+  }, [initialIndex, items.length, opened]);
 
+  // Framer layout animations re-measure only on React commits, so a slide must
+  // not commit before its media has dimensions: the fit-content frame would
+  // collapse, then the load reflow would displace the controls by the stale
+  // layout delta, sending them flying in from outside the viewport.
+  const whenMediaReady = useCallback((item: CarouselLightboxItem, onReady: () => void) => {
+    if (readyUrlsRef.current.has(item.url)) {
+      onReady();
+      return;
+    }
+    let settled = false;
+    const finish = (markReady: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (markReady) readyUrlsRef.current.add(item.url);
+      onReady();
+    };
+    // A stalled network must not freeze navigation; committing anyway just
+    // degrades to the pre-gate behaviour for that slide.
+    setTimeout(() => finish(false), 2000);
+
+    if (item.type === 'video') {
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        if (probe.videoWidth > 0) {
+          mediaDimensionsRef.current.set(item.url, { width: probe.videoWidth, height: probe.videoHeight });
+        }
+        finish(true);
+      };
+      probe.onerror = () => finish(false);
+      probe.src = item.url;
+      return;
+    }
+
+    const probe = new Image();
+    probe.src = item.url;
+    if (typeof probe.decode !== 'function') {
+      finish(false);
+      return;
+    }
+    probe.decode().then(() => {
+      // The mounted <img> may still refetch (e.g. non-cacheable authenticated
+      // URLs), so carry the dimensions over to keep its layout box stable.
+      if (probe.naturalWidth > 0) {
+        mediaDimensionsRef.current.set(item.url, { width: probe.naturalWidth, height: probe.naturalHeight });
+      }
+      finish(true);
+    }, () => finish(false));
+  }, []);
+
+  const navigateTo = useCallback((computeTarget: (currentIndex: number) => number, requestedDirection?: number) => {
+    if (items.length === 0) return;
+    const state = navStateRef.current;
+    const current = state.pendingIndex ?? normalizeIndex(state.committedIndex, items.length);
+    const target = normalizeIndex(computeTarget(current), items.length);
+    if (target === current) return;
+    const direction = requestedDirection ?? (target > current ? 1 : -1);
+    const item = items[target];
+    if (!item) return;
+
+    state.pendingIndex = target;
+    const token = ++state.token;
+    whenMediaReady(item, () => {
+      if (navStateRef.current.token !== token) return;
+      navStateRef.current.pendingIndex = null;
+      navStateRef.current.committedIndex = target;
+      const frameRect = frameRef.current?.getBoundingClientRect();
+      setFrameHold(frameRect && frameRect.width > 0
+        ? { width: frameRect.width, height: frameRect.height }
+        : null);
+      setNav({ index: target, direction });
+    });
+  }, [items, whenMediaReady]);
+
+  const activeIndex = normalizeIndex(nav.index, items.length);
+  const activeItem = items[activeIndex] ?? null;
+  const activeMediaDimensions = activeItem ? mediaDimensionsRef.current.get(activeItem.url) : undefined;
+  // Until the active media is sized, the fit-content frame is collapsed and
+  // every frame-anchored control would render piled up at its center (visible
+  // on first open, before any gate has stamped dimensions).
+  const chromeReady = !!activeMediaDimensions || (!!activeItem && failedUrlsRef.current.has(activeItem.url));
+  const chromeHiddenData = chromeReady ? undefined : true;
   const hasMultiple = items.length > 1;
+  const overlay = activeItem ? renderOverlay?.(activeIndex) : null;
+  const actions = activeItem ? (renderActions ?? renderFooter)?.(activeIndex) : null;
+  const motionFadeTransition = prefersReducedMotion ? reducedMotionTransition : fadeTransition;
+  const motionLayoutTransition = prefersReducedMotion ? reducedMotionTransition : layoutTransition;
+  const goToSlide = useCallback((index: number) => {
+    navigateTo(() => index);
+  }, [navigateTo]);
+  const goPrevious = useCallback(() => {
+    navigateTo((currentIndex) => currentIndex - 1, -1);
+  }, [navigateTo]);
+  const goNext = useCallback(() => {
+    navigateTo((currentIndex) => currentIndex + 1, 1);
+  }, [navigateTo]);
+  const settleDrag = useCallback(() => {
+    animate(dragX, 0, slideSpring);
+  }, [dragX]);
+  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (!hasMultiple || event.pointerType === 'mouse' || isInteractiveSwipeTarget(event.target)) {
+      swipeStartRef.current = null;
+      return;
+    }
+
+    swipeStartRef.current = { x: event.clientX, y: event.clientY };
+  }, [hasMultiple]);
+  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const swipeStart = swipeStartRef.current;
+    if (!swipeStart || prefersReducedMotion) return;
+
+    const deltaX = event.clientX - swipeStart.x;
+    const deltaY = event.clientY - swipeStart.y;
+    if (Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    dragX.set(Math.max(-dragFollowMaxPx, Math.min(dragFollowMaxPx, deltaX * dragFollowFactor)));
+  }, [dragX, prefersReducedMotion]);
+  const handlePointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const swipeStart = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!hasMultiple || !swipeStart) return;
+
+    settleDrag();
+    const deltaX = event.clientX - swipeStart.x;
+    const deltaY = event.clientY - swipeStart.y;
+    if (Math.abs(deltaX) < swipeThresholdPx || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    if (deltaX < 0) goNext();
+    else goPrevious();
+  }, [goNext, goPrevious, hasMultiple, settleDrag]);
+  const handlePointerCancel = useCallback(() => {
+    swipeStartRef.current = null;
+    settleDrag();
+  }, [settleDrag]);
+
+  useEffect(() => {
+    if (!opened || !hasMultiple) return undefined;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goPrevious();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goNext, goPrevious, hasMultiple, opened]);
+
+  // Warm the browser cache for the neighbouring slides so navigating never
+  // fades into a still-loading image.
+  const previousPreloadUrl = hasMultiple
+    ? preloadableUrl(items[normalizeIndex(activeIndex - 1, items.length)])
+    : undefined;
+  const nextPreloadUrl = hasMultiple
+    ? preloadableUrl(items[normalizeIndex(activeIndex + 1, items.length)])
+    : undefined;
+  useEffect(() => {
+    if (!opened) return;
+    [previousPreloadUrl, nextPreloadUrl].forEach((url) => {
+      if (!url) return;
+      const image = new Image();
+      image.src = url;
+      if (typeof image.decode === 'function') {
+        image.decode().then(() => {
+          readyUrlsRef.current.add(url);
+          if (image.naturalWidth > 0) {
+            mediaDimensionsRef.current.set(url, { width: image.naturalWidth, height: image.naturalHeight });
+          }
+        }, () => {});
+      }
+    });
+  }, [nextPreloadUrl, opened, previousPreloadUrl]);
 
   return (
-    <Modal opened={opened} onClose={onClose} size="xl" centered padding="md" withCloseButton>
-      <Stack gap="md">
-        {/* key forces Embla to snap to the correct slide when initialIndex changes */}
-        <Carousel
-          key={initialIndex}
-          height="100%"
-          initialSlide={initialIndex}
-          withControls={hasMultiple}
-          withIndicators={hasMultiple && items.length <= 10}
-          onSlideChange={setCurrentIndex}
-          classNames={{
-            root: classes.root,
-            controls: classes.controls,
-            indicators: carouselClasses.indicators,
-            indicator: carouselClasses.indicator,
-          }}
-          emblaOptions={{ align: 'center', loop: true }}
-        >
-          {items.map((item) => (
-            <Carousel.Slide key={item.id}>
-              {item.type === 'video'
-                ? <video src={item.url} className={classes.media} controls preload="metadata" />
-                : <img src={item.url} alt="Media preview" className={classes.media} />
-              }
-            </Carousel.Slide>
-          ))}
-        </Carousel>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      centered
+      padding={0}
+      withCloseButton={false}
+      classNames={{
+        inner: classes.inner,
+        content: classes.content,
+        body: classes.body,
+      }}
+      styles={framelessModalStyles}
+    >
+      <div className={classes.stage} data-lightbox-stage data-lightbox-loading={chromeReady ? undefined : true}>
+        {activeItem && !chromeReady && (
+          <div className={classes.loading} data-lightbox-media-loader>
+            <Loader size="md" color="var(--wa-text-muted)" />
+          </div>
+        )}
+        {activeItem && (
+          <div
+            className={classes.mediaSurface}
+            data-lightbox-media-surface
+          >
+            <AnimatePresence initial={false} mode="popLayout">
+              {overlay && (
+                <motion.div
+                  key={`caption-${activeItem.id}`}
+                  className={classes.mediaCaption}
+                  data-lightbox-caption-transition
+                  data-lightbox-media-caption
+                  data-lightbox-chrome-hidden={chromeHiddenData}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={motionFadeTransition}
+                >
+                  {overlay}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-        {renderFooter?.(currentIndex)}
-      </Stack>
+            <div
+              ref={frameRef}
+              className={classes.mediaFrame}
+              style={frameHold ? { minWidth: frameHold.width, minHeight: frameHold.height } : undefined}
+              data-lightbox-active-media-id={activeItem.id}
+              data-lightbox-media-frame="frameless"
+              data-lightbox-resize-animation="none"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+            >
+              <motion.div className={classes.dragLayer} style={{ x: dragX }} data-lightbox-drag-layer>
+                <AnimatePresence initial={false} mode="popLayout" custom={nav.direction}>
+                  <motion.div
+                    key={activeItem.id}
+                    className={classes.mediaTransition}
+                    data-lightbox-media-transition
+                    custom={nav.direction}
+                    variants={prefersReducedMotion ? reducedSlideVariants : slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                  >
+                    {activeItem.type === 'video'
+                      ? (
+                        <video
+                          src={activeItem.url}
+                          className={classes.media}
+                          controls
+                          preload="metadata"
+                          width={activeMediaDimensions?.width}
+                          height={activeMediaDimensions?.height}
+                          onLoadedMetadata={(event) => {
+                            adoptMediaDimensions(activeItem.url, event.currentTarget.videoWidth, event.currentTarget.videoHeight);
+                          }}
+                          onError={() => markMediaFailed(activeItem.url)}
+                        />
+                      )
+                      : (
+                        <img
+                          src={activeItem.url}
+                          alt={activeItem.alt ?? 'Media preview'}
+                          className={classes.media}
+                          width={activeMediaDimensions?.width}
+                          height={activeMediaDimensions?.height}
+                          onLoad={(event) => {
+                            adoptMediaDimensions(activeItem.url, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
+                          }}
+                          onError={() => markMediaFailed(activeItem.url)}
+                        />
+                      )
+                    }
+                  </motion.div>
+                </AnimatePresence>
+              </motion.div>
+
+              <div
+                className={classes.staticChrome}
+                data-lightbox-static-chrome="media-frame"
+                data-lightbox-chrome-hidden={chromeHiddenData}
+              >
+                {hasMultiple && (
+                  <div className={classes.mediaControls} data-lightbox-media-controls>
+                    <motion.div
+                      className={`${classes.controlAnchor} ${classes.previousControlAnchor}`}
+                      data-lightbox-control-anchor="previous"
+                      data-lightbox-layout-animation="position-only"
+                      layout="position"
+                      transition={motionLayoutTransition}
+                    >
+                      <ActionIcon
+                        aria-label="Previous media"
+                        {...lightboxIconActionData}
+                        {...lightboxIconFrameData}
+                        variant="subtle"
+                        size={44}
+                        radius="xl"
+                        onClick={goPrevious}
+                      >
+                        <IconChevronLeft size={24} stroke={2} />
+                      </ActionIcon>
+                    </motion.div>
+
+                    <motion.div
+                      className={`${classes.controlAnchor} ${classes.nextControlAnchor}`}
+                      data-lightbox-control-anchor="next"
+                      data-lightbox-layout-animation="position-only"
+                      layout="position"
+                      transition={motionLayoutTransition}
+                    >
+                      <ActionIcon
+                        aria-label="Next media"
+                        {...lightboxIconActionData}
+                        {...lightboxIconFrameData}
+                        variant="subtle"
+                        size={44}
+                        radius="xl"
+                        onClick={goNext}
+                      >
+                        <IconChevronRight size={24} stroke={2} />
+                      </ActionIcon>
+                    </motion.div>
+                  </div>
+                )}
+
+                <motion.div
+                  className={classes.controlRail}
+                  data-lightbox-control-rail
+                  data-lightbox-layout-animation="position-only"
+                  layout="position"
+                  transition={motionLayoutTransition}
+                >
+                  <ActionIcon
+                    aria-label="Close preview"
+                    data-lightbox-icon-action="true"
+                    data-lightbox-icon-frame="chip"
+                    variant="subtle"
+                    size={44}
+                    radius="xl"
+                    onClick={onClose}
+                  >
+                    <IconX size={24} stroke={2} />
+                  </ActionIcon>
+
+                  {actions && (
+                    <div className={classes.floatingActions} data-lightbox-floating-actions>
+                      {actions}
+                    </div>
+                  )}
+                </motion.div>
+
+                {hasMultiple && (
+                  <motion.div
+                    className={classes.indicators}
+                    {...lightboxIndicatorsData}
+                    data-lightbox-layout-animation="position-only"
+                    layout="position"
+                    transition={motionLayoutTransition}
+                  >
+                    {items.length <= maxIndicatorItems
+                      ? items.map((indicatorItem, indicatorIndex) => (
+                        <button
+                          key={indicatorItem.id}
+                          type="button"
+                          className={classes.indicator}
+                          data-active={indicatorIndex === activeIndex ? true : undefined}
+                          aria-label={`Show media ${indicatorIndex + 1}`}
+                          onClick={() => goToSlide(indicatorIndex)}
+                        />
+                      ))
+                      : (
+                        <span className={classes.counter} data-lightbox-position-counter>
+                          {activeIndex + 1} / {items.length}
+                        </span>
+                      )}
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 });

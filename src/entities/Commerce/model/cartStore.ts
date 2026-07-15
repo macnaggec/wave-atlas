@@ -40,7 +40,7 @@ export const useCartStore = create<CartStore>()(
       hasItem: (id) => get().items.some((i) => i.id === id),
     }),
     {
-      name: 'wave-atlas-cart',
+      name: 'swelldays-cart',
       storage: createJSONStorage(() => localStorage),
     }
   )

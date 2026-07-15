@@ -1,48 +1,38 @@
 import { FC, memo, ReactNode } from 'react';
-import { Modal, Stack } from '@mantine/core';
+import { CarouselLightbox, type CarouselLightboxItem } from 'shared/ui/CarouselLightbox';
 
-export interface BaseLightboxItem {
-  id: string;
-  url: string;
-  type?: 'image' | 'video';
-}
+export type BaseLightboxItem = CarouselLightboxItem;
 
 export interface BaseLightboxProps {
   /** null = modal closed */
   item: BaseLightboxItem | null;
   onClose: () => void;
-  /** Render price, actions, or any context-specific footer content. */
+  /** Render badges or metadata in the caption above the media. */
+  renderOverlay?: () => ReactNode;
+  /** Render icon actions in the floating control rail. */
+  renderActions?: () => ReactNode;
+  /** Backwards-compatible action slot for existing single-item callers. */
   renderFooter?: () => ReactNode;
 }
 
-const mediaStyle: React.CSSProperties = {
-  width: '100%',
-  maxHeight: '55vh',
-  objectFit: 'contain',
-  display: 'block',
-};
-
 /**
- * BaseLightbox — minimal modal shell for single-item preview.
+ * BaseLightbox — single-item adapter over CarouselLightbox.
  *
- * No carousel, no index state. Pass item=null to close.
- * For multi-item navigation use CarouselLightbox.
+ * Maps the item/null open-closed API onto the shared lightbox, which owns the
+ * modal shell, media readiness, loader, and control chrome. With a single item
+ * the carousel renders no navigation controls.
  */
-const BaseLightbox: FC<BaseLightboxProps> = memo(({ item, onClose, renderFooter }) => {
-  return (
-    <Modal opened={item !== null} onClose={onClose} size="xl" centered padding="md" withCloseButton>
-      {item && (
-        <Stack gap="md">
-          {item.type === 'video'
-            ? <video src={item.url} style={mediaStyle} controls preload="metadata" />
-            : <img src={item.url} alt="Media preview" style={mediaStyle} />
-          }
-          {renderFooter?.()}
-        </Stack>
-      )}
-    </Modal>
-  );
-});
+const BaseLightbox: FC<BaseLightboxProps> = memo(({ item, onClose, renderOverlay, renderActions, renderFooter }) => (
+  <CarouselLightbox
+    items={item ? [item] : []}
+    initialIndex={0}
+    opened={item !== null}
+    onClose={onClose}
+    renderOverlay={renderOverlay}
+    renderActions={renderActions}
+    renderFooter={renderFooter}
+  />
+));
 
 BaseLightbox.displayName = 'BaseLightbox';
 export default BaseLightbox;

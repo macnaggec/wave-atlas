@@ -9,18 +9,18 @@
 .content {
   display: flex;
   flex-direction: column;
-  max-height: 92vh;
+  height: 92vh;
   overflow: hidden;
 }
 
 .header {
   min-height: 0;
-  padding: 8px 12px;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-bottom: 1px solid var(--wa-control-fill);
 }
 
 .title {
-  font-size: 13px;
+  font-size: var(--wa-font-size-base);
 }
 
 .close {

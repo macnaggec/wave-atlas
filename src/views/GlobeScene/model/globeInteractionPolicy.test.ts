@@ -13,7 +13,16 @@ describe('deriveGlobeInteractionPolicy', () => {
     expect(deriveGlobeInteractionPolicy({
       sceneMode: { kind: 'overview' },
       isRenderedPanelExpanded: true,
+      canCompactPanelFromMap: false,
     })).toBe('background');
+  });
+
+  it('keeps the globe interactive when map exploration can compact the expanded panel', () => {
+    expect(deriveGlobeInteractionPolicy({
+      sceneMode: { kind: 'overview' },
+      isRenderedPanelExpanded: true,
+      canCompactPanelFromMap: true,
+    })).toBe('interactive');
   });
 
   it('backgrounds focused spot navigation while the panel is expanded', () => {
@@ -24,7 +33,7 @@ describe('deriveGlobeInteractionPolicy', () => {
   });
 
   it.each([
-    { kind: 'pinPlacement' },
+    { kind: 'addSpotFlow' },
     { kind: 'uploadSpotSelection' },
   ] as const)('keeps intentional map mode $kind interactive while the panel is expanded', (sceneMode) => {
     expect(deriveGlobeInteractionPolicy({

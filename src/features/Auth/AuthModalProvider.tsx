@@ -19,7 +19,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
         onClose={close}
         centered
         size="sm"
-        title="Sign in to Wave Atlas"
+        title="Sign in to Swelldays"
       >
         <AuthPage onSuccess={close} />
       </Modal>

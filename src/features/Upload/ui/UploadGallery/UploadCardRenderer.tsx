@@ -23,8 +23,8 @@ interface UploadCardRendererProps {
  * UploadCardRenderer - Memoized card renderer
  *
  * Dispatches rendering by card.kind:
- *   'draft'     — server-only MediaItem, always shows DraftCard overlays
- *   'uploading' — pipeline item, shows progress/error overlays until completed
+ *   'existing' / 'asset' — ready workspace media, always shows DraftCard overlays
+ *   'attempt'            — pipeline item, shows progress/error overlays until completed
  *
  * Handles both uploading and completed states.
  */
@@ -39,7 +39,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     return <Skeleton radius="md" className={classes.importingCard} />;
   }
 
-  const mediaItem = item.kind === 'draft' ? item.result : null;
+  const mediaItem = item.kind !== 'attempt' ? item.result : null;
 
   // Use thumbnailUrl (JPEG poster frame) for both image and video drafts.
   // Video attempts use previewUrl which is a blob URL — renders fine as <img>
@@ -56,7 +56,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
     ? `Media ${mediaItem.resource.assetId}`
     : 'Upload preview';
 
-  const overlays = item.kind === 'draft'
+  const overlays = item.kind !== 'attempt'
     ? (mediaItem ? renderDraftOverlay(mediaItem) : null)
     : renderUploadOverlay(
         item.status,
@@ -168,4 +168,3 @@ function renderUploadOverlay(
     </Group>
   );
 }
-

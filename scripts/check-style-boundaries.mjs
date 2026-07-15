@@ -37,6 +37,7 @@ const isMigratedMaterialSurface = (file) => (
   || file.startsWith('src/features/Cart/')
   || file.startsWith('src/features/Purchases/')
   || file.startsWith('src/features/Upload/ui/UploadGallery/')
+  || file === 'src/features/Upload/ui/steps/helpers.tsx'
   || file.startsWith('src/shared/ui/BaseGallery/')
   || file.startsWith('src/shared/ui/BaseLightbox/')
   || file.startsWith('src/shared/ui/CarouselLightbox/')
@@ -45,7 +46,9 @@ const isMigratedMaterialSurface = (file) => (
   || file.startsWith('src/widgets/SidePanel/SessionFeed')
   || file.startsWith('src/widgets/SidePanel/SidePanel')
   || file.startsWith('src/widgets/LeftStrip/LeftStrip')
+  || file === 'src/widgets/LeftStrip/CartControl.tsx'
   || file.startsWith('src/views/GlobeScene/')
+  || file === 'src/widgets/GlobeMap/LocationPicker.module.css'
   || /^src\/app\/routes\/_panel.*\.tsx$/.test(file)
 );
 

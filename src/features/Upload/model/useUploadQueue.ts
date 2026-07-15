@@ -1,22 +1,24 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from 'shared/lib/trpc';
+import { MEDIA_STATUS, type MediaItem } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
-import type { AttemptCard, DraftCard, GalleryCard } from './types';
+import type { AttemptCard, GalleryCard } from './types';
 import type { UploadAttemptProjection } from 'shared/types/upload';
+import type {
+  UploadWorkspaceAssetProjection,
+  UploadWorkspaceExistingMedia,
+  UploadWorkspaceState,
+} from 'shared/types/uploadWorkspace';
 
-export function useUploadQueue(draftId: string) {
-  const trpc = useTRPC();
-  const { data: attempts = [] } = useQuery(trpc.uploads.listForDraft.queryOptions({ draftId }));
-  const { data: draftMedia = [] } = useQuery(trpc.sessions.draftMedia.queryOptions(draftId));
+export function useUploadQueue(workspaceState: UploadWorkspaceState | undefined) {
   const transferMap = useUploadStore(s => s.transfers);
 
   const queue = useMemo<GalleryCard[]>(() => {
     const transfers = Array.from(transferMap.values());
     const cards: GalleryCard[] = [];
     const attemptIdsSeen = new Set<string>();
+    const stagedRemovalIds = new Set(workspaceState?.stagedRemovalIds ?? []);
+    const attempts = workspaceState?.attempts ?? [];
 
-    // Attempt cards: merge server attempt projection with browser transfer.
     for (const attempt of attempts as UploadAttemptProjection[]) {
       attemptIdsSeen.add(attempt.id);
       const transfer = transfers.find(t => t.attemptId === attempt.id);
@@ -27,13 +29,13 @@ export function useUploadQueue(draftId: string) {
         source: attempt.source,
         status: localError ? 'FAILED' : attempt.status,
         previewUrl: transfer?.previewUrl ?? '',
+        resourceType: transfer?.resourceType ?? 'image',
         progress: transfer?.source === 'local' ? transfer.progress : undefined,
         errorCode: localError ?? attempt.errorCode ?? undefined,
       };
       cards.push(card);
     }
 
-    // Browser-only transfers that have no server attempt yet (pending window).
     for (const t of transfers) {
       if (t.attemptId && attemptIdsSeen.has(t.attemptId)) continue;
       const localError = t.source === 'local' ? t.error : undefined;
@@ -43,28 +45,88 @@ export function useUploadQueue(draftId: string) {
         source: t.source.toUpperCase() as AttemptCard['source'],
         status: localError ? 'FAILED' : 'pending',
         previewUrl: t.previewUrl,
+        resourceType: t.resourceType,
         progress: t.source === 'local' ? t.progress : undefined,
         errorCode: localError,
       };
       cards.push(card);
     }
 
-    // Draft cards: completed media items from server.
-    for (const media of draftMedia) {
-      const card: DraftCard = { kind: 'draft', id: media.id, result: media };
-      cards.push(card);
+    if (workspaceState) {
+      for (const media of workspaceState.existingMedia) {
+        if (stagedRemovalIds.has(media.id)) continue;
+        cards.push({
+          kind: 'existing',
+          id: media.id,
+          result: existingMediaToItem(workspaceState, media),
+        });
+      }
+
+      for (const asset of workspaceState.assets) {
+        cards.push({
+          kind: 'asset',
+          id: asset.id,
+          result: assetToItem(workspaceState, asset),
+        });
+      }
     }
 
     return cards;
-  }, [attempts, draftMedia, transferMap]);
+  }, [workspaceState, transferMap]);
 
   const hasActiveUploads = queue.some(
     c => c.kind === 'attempt' && ['pending', 'READY', 'ACQUIRING', 'FINALIZING'].includes(c.status),
   );
 
-  const selectableItems = queue.filter(
-    c => c.kind === 'draft' || (c.kind === 'attempt' && c.status === 'COMPLETED'),
-  );
+  const selectableItems = queue.filter(c => c.kind !== 'attempt');
 
   return { queue, hasActiveUploads, selectableItems };
+}
+
+function resourceType(type: 'PHOTO' | 'VIDEO'): 'image' | 'video' {
+  return type === 'VIDEO' ? 'video' : 'image';
+}
+
+function existingMediaToItem(state: UploadWorkspaceState, media: UploadWorkspaceExistingMedia): MediaItem {
+  return {
+    id: media.id,
+    sessionId: state.workspace.targetSessionId ?? state.workspace.id,
+    photographerId: '',
+    spotId: state.workspace.spotId,
+    capturedAt: media.capturedAt,
+    dateSource: 'fallback',
+    price: media.price,
+    lightboxUrl: media.lightboxUrl,
+    thumbnailUrl: media.thumbnailUrl,
+    cloudinaryPublicId: media.cloudinaryPublicId,
+    status: MEDIA_STATUS.PUBLISHED,
+    createdAt: media.capturedAt,
+    resource: {
+      resourceType: resourceType(media.type),
+      url: media.lightboxUrl,
+      assetId: media.cloudinaryPublicId,
+    },
+  };
+}
+
+function assetToItem(state: UploadWorkspaceState, asset: UploadWorkspaceAssetProjection): MediaItem {
+  return {
+    id: asset.id,
+    sessionId: state.workspace.targetSessionId ?? state.workspace.id,
+    photographerId: '',
+    spotId: state.workspace.spotId,
+    capturedAt: asset.capturedAt,
+    dateSource: 'fallback',
+    price: null,
+    lightboxUrl: asset.lightboxUrl,
+    thumbnailUrl: asset.thumbnailUrl,
+    cloudinaryPublicId: asset.cloudinaryPublicId,
+    status: MEDIA_STATUS.DRAFT,
+    createdAt: asset.createdAt,
+    resource: {
+      resourceType: resourceType(asset.type),
+      url: asset.lightboxUrl,
+      assetId: asset.cloudinaryPublicId,
+    },
+  };
 }

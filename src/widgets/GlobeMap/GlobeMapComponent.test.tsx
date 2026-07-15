@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobeMapComponent } from './GlobeMapComponent';
+import { SPOT_INTERACTIVE_LAYERS } from './layerStyles';
 import type { Spot } from 'entities/Spot';
 import type { LngLat } from 'shared/types/coordinates';
 
@@ -13,9 +14,11 @@ const mocks = vi.hoisted(() => ({
   startSpinning: vi.fn(),
   stopSpinning: vi.fn(),
   tempPinMarker: vi.fn(),
+  selectedSpotPopup: vi.fn(),
   flyTo: vi.fn(),
   easeTo: vi.fn(),
   getZoom: vi.fn(() => 1.5),
+  navigationControl: vi.fn(),
 }));
 
 vi.mock('mapbox-gl', () => ({
@@ -31,6 +34,8 @@ vi.mock('react-map-gl', () => ({
     interactive,
     onClick,
     onDragStart,
+    onMouseDown,
+    onZoomStart,
     onLoad,
     onMouseEnter,
     onMoveEnd,
@@ -50,7 +55,9 @@ vi.mock('react-map-gl', () => ({
     interactiveLayerIds?: string[];
     interactive?: boolean;
     onClick?: (event: { lngLat: { lng: number; lat: number } }) => void;
-    onDragStart?: () => void;
+    onDragStart?: (event: { originalEvent?: Event }) => void;
+    onMouseDown?: () => void;
+    onZoomStart?: (event: { originalEvent?: Event }) => void;
     onLoad: (event: { target: unknown }) => void;
     onMouseEnter?: () => void;
     onMoveEnd?: (event: { viewState: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number } }) => void;
@@ -99,8 +106,17 @@ vi.mock('react-map-gl', () => ({
       <button type="button" onClick={() => onMouseEnter?.()}>
         Enter spot
       </button>
-      <button type="button" onClick={() => onDragStart?.()}>
+      <button type="button" onClick={() => onDragStart?.({ originalEvent: new MouseEvent('mousedown') })}>
         Drag globe
+      </button>
+      <button type="button" onClick={() => onZoomStart?.({ originalEvent: new WheelEvent('wheel') })}>
+        Zoom globe
+      </button>
+      <button type="button" onClick={() => onZoomStart?.({ originalEvent: undefined })}>
+        Programmatic zoom
+      </button>
+      <button type="button" onClick={() => onMouseDown?.()}>
+        Press globe
       </button>
       <button type="button" onClick={() => onWheel?.()}>
         Wheel globe
@@ -116,7 +132,10 @@ vi.mock('react-map-gl', () => ({
     </div>
   ),
   Layer: () => null,
-  NavigationControl: () => null,
+  NavigationControl: () => {
+    mocks.navigationControl();
+    return <div data-testid="navigation-control" />;
+  },
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Source: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -182,6 +201,13 @@ vi.mock('./ui/TempPinMarker', () => ({
   },
 }));
 
+vi.mock('./ui/SelectedSpotPopup', () => ({
+  SelectedSpotPopup: (props: { spot: Spot }) => {
+    mocks.selectedSpotPopup(props);
+    return null;
+  },
+}));
+
 const spots: Spot[] = [
   {
     id: 'spot-1',
@@ -215,19 +241,19 @@ describe('GlobeMapComponent motion policy', () => {
   });
 });
 
-describe('GlobeMapComponent pin placement', () => {
+describe('GlobeMapComponent coordinate picking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('reports coordinate clicks upward while pin placement is active', () => {
+  it('reports coordinate clicks upward while coordinate picking is active', () => {
     const onMapCoordinateClick = vi.fn();
     render(
       <GlobeMapComponent
         spots={spots}
         onSpotSelect={vi.fn()}
         motionPolicy="paused"
-        isPinPlacementActive={true}
+        isCoordinatePickerActive={true}
         tempPin={[151, -34]}
         onMapCoordinateClick={onMapCoordinateClick}
       />,
@@ -240,6 +266,23 @@ describe('GlobeMapComponent pin placement', () => {
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
     expect(mocks.tempPinMarker).toHaveBeenCalledWith({ tempPin: [151, -34], isActive: true });
   });
+
+  it('hides map chrome when navigation controls are disabled', () => {
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        isCoordinatePickerActive={true}
+        showNavigationControl={false}
+        tempPin={[151, -34]}
+        onMapCoordinateClick={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('navigation-control')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-cursor', 'crosshair');
+  });
 });
 
 describe('GlobeMapComponent interaction policy', () => {
@@ -247,7 +290,7 @@ describe('GlobeMapComponent interaction policy', () => {
     vi.clearAllMocks();
   });
 
-  it('backgrounds the map without accepting spot navigation clicks or hover popups', () => {
+  it('blocks camera gestures while backgrounded but keeps spot clicks and hover popups working', () => {
     const onSpotSelect = vi.fn();
     render(
       <GlobeMapComponent
@@ -258,18 +301,22 @@ describe('GlobeMapComponent interaction policy', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive', 'false');
-    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive-layers', '');
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute('data-interactive', 'true');
+    expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute(
+      'data-interactive-layers',
+      SPOT_INTERACTIVE_LAYERS.join(','),
+    );
     expect(screen.getByRole('button', { name: /click map/i })).toHaveAttribute(
       'data-map-handlers',
       'false,false,false,false,false,false,false,false',
     );
-    expect(screen.queryByText('Uluwatu')).not.toBeInTheDocument();
+    expect(screen.getByText('Uluwatu')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
     fireEvent.click(screen.getByRole('button', { name: /click map/i }));
 
-    expect(onSpotSelect).not.toHaveBeenCalled();
-    expect(mocks.flyTo).not.toHaveBeenCalled();
+    expect(onSpotSelect).toHaveBeenCalledWith(spots[0]);
+    expect(mocks.flyTo).toHaveBeenCalled();
   });
 
   it('keeps Mapbox camera handlers enabled while interactive', () => {
@@ -286,6 +333,45 @@ describe('GlobeMapComponent interaction policy', () => {
       'data-map-handlers',
       'true,true,true,true,true,true,true,true',
     );
+  });
+
+  it('reports genuine drag and zoom starts without treating pointer-down or spot clicks as camera gestures', () => {
+    const onCameraGestureStart = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        interactionPolicy="interactive"
+        onCameraGestureStart={onCameraGestureStart}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /press globe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+    expect(onCameraGestureStart).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /drag globe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /zoom globe/i }));
+    expect(onCameraGestureStart).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not treat programmatic selected-spot recentering as a camera gesture', () => {
+    const onCameraGestureStart = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        interactionPolicy="interactive"
+        onCameraGestureStart={onCameraGestureStart}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /programmatic zoom/i }));
+
+    expect(onCameraGestureStart).not.toHaveBeenCalled();
   });
 
   it('does not report user exploration while backgrounded', () => {
@@ -343,7 +429,7 @@ describe('GlobeMapComponent selected spot focus', () => {
       expect(mocks.flyTo).toHaveBeenCalledWith({
         center: [115.085, -8.815],
         zoom: 12,
-        padding: { top: 300 },
+        padding: { top: 300, right: 0 },
         duration: 1000,
         essential: true,
       });
@@ -375,7 +461,7 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(mocks.flyTo).toHaveBeenCalledWith({
       center: [115.085, -8.815],
       zoom: 12,
-      padding: { top: 300 },
+      padding: { top: 300, right: 0 },
       duration: 1000,
       essential: true,
     });
@@ -417,7 +503,7 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(mocks.flyTo).toHaveBeenCalledWith({
       center: [115.085, -8.815],
       zoom: 12,
-      padding: { top: 300 },
+      padding: { top: 300, right: 0 },
       duration: 1000,
       essential: true,
     });
@@ -449,7 +535,7 @@ describe('GlobeMapComponent selected spot focus', () => {
       expect(mocks.flyTo).toHaveBeenCalledWith({
         center: [115.085, -8.815],
         zoom: 12,
-        padding: { top: 300 },
+        padding: { top: 300, right: 0 },
         duration: 1000,
         essential: true,
       });
@@ -472,7 +558,7 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(mocks.flyTo).toHaveBeenCalledWith({
       center: [115.085, -8.815],
       zoom: 12,
-      padding: { top: 0 },
+      padding: { top: 0, right: 0 },
       duration: 1000,
       essential: true,
     });
@@ -490,7 +576,7 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(mocks.flyTo).toHaveBeenCalledWith({
       center: [115.085, -8.815],
       zoom: 12,
-      padding: { top: 300 },
+      padding: { top: 300, right: 0 },
       duration: 1000,
       essential: true,
     });
@@ -513,7 +599,7 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(mocks.flyTo).toHaveBeenCalledWith({
       center: [115.085, -8.815],
       zoom: 12,
-      padding: { top: 0 },
+      padding: { top: 0, right: 0 },
       duration: 1000,
       essential: true,
     });
@@ -523,5 +609,182 @@ describe('GlobeMapComponent selected spot focus', () => {
     expect(flyToCallOrder).toBeDefined();
     expect(selectionCallOrder).toBeDefined();
     expect(flyToCallOrder!).toBeLessThan(selectionCallOrder!);
+  });
+
+  it('does not re-run the focus camera move when clicking the already-selected spot', () => {
+    const onSpotSelect = vi.fn();
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={onSpotSelect}
+        motionPolicy="paused"
+      />,
+    );
+
+    // Map load triggers the one-time route-driven focus (with preview padding).
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+    mocks.flyTo.mockClear();
+    mocks.easeTo.mockClear();
+
+    // Clicking the marker for the already-selected spot must not re-focus with
+    // different (non-preview) padding — that would knock the camera out of place.
+    fireEvent.click(screen.getByRole('button', { name: /click map/i }));
+
+    expect(mocks.flyTo).not.toHaveBeenCalled();
+    expect(mocks.easeTo).not.toHaveBeenCalled();
+    expect(onSpotSelect).toHaveBeenCalledWith(spots[0]);
+  });
+
+  it('reserves the given sidebar-occluded width as right padding so the spot centers in the visible part of the map', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={500}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={500}
+      />,
+    );
+
+    expect(mocks.flyTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      zoom: 12,
+      padding: { top: 300, right: 500 },
+      duration: 1000,
+      essential: true,
+    });
+  });
+});
+
+describe('GlobeMapComponent selected spot popup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the selected-spot popup once the spot is selected', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    expect(mocks.selectedSpotPopup).not.toHaveBeenCalled();
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+      />,
+    );
+
+    expect(mocks.selectedSpotPopup).toHaveBeenCalledWith({ spot: spots[0] });
+  });
+
+  it('still renders the selected-spot popup while backgrounded, since the sidebar covering the map is the point', () => {
+    render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        interactionPolicy="background"
+      />,
+    );
+
+    expect(mocks.selectedSpotPopup).toHaveBeenCalledWith({ spot: spots[0] });
+  });
+});
+
+describe('GlobeMapComponent sidebar occlusion changes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getZoom.mockReturnValue(12);
+  });
+
+  it('re-centers the already-focused spot into the newly visible area when the occlusion width changes', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={250}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={250}
+      />,
+    );
+    mocks.easeTo.mockClear();
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId="spot-1"
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={750}
+      />,
+    );
+
+    expect(mocks.easeTo).toHaveBeenCalledWith({
+      center: [115.085, -8.815],
+      padding: { top: 300, right: 750 },
+      duration: 600,
+      essential: true,
+    });
+  });
+
+  it('does not move the camera when the occlusion width changes with no spot selected', () => {
+    const { rerender } = render(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={250}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /load map/i }));
+    mocks.easeTo.mockClear();
+
+    rerender(
+      <GlobeMapComponent
+        spots={spots}
+        selectedSpotId={null}
+        onSpotSelect={vi.fn()}
+        motionPolicy="paused"
+        sidebarOccludedPx={750}
+      />,
+    );
+
+    expect(mocks.easeTo).not.toHaveBeenCalled();
   });
 });

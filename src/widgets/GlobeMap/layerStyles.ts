@@ -1,9 +1,21 @@
 import { LayerProps, Fog } from 'react-map-gl';
 
+// Mapbox paint specs take plain JS, not CSS custom properties, so these are
+// kept as local constants in sync with tokens.css.
+const ACCENT_MARKER = '#3b82f6';
+// Same glass family as --wa-surface-chrome / --wa-glass-border-chrome (the
+// popup background, materials.module.css .chrome), but boosted in opacity:
+// popups sit on a blurred backdrop-filter, while this is a flat canvas
+// circle with no blur, so it needs more alpha to read against the globe.
+const MARKER_SUBSTRATE_COLOR = 'rgba(255, 255, 255, 0.32)';
+const MARKER_SUBSTRATE_BORDER = 'rgba(255, 255, 255, 0.4)';
+
 export const SPOT_INTERACTIVE_LAYERS: string[] = [
   'clusters',
   'unclustered-point',
   'unclustered-point-icon',
+  'selected-spot-point',
+  'selected-spot-icon',
 ];
 
 export const globeFog: Fog = {
@@ -56,8 +68,7 @@ export const getUnclusteredPointLayer = (activeSpotId: string | number | null): 
   source: 'spots',
   filter: ['!', ['has', 'point_count']],
   paint: {
-    'circle-color': '#ffffff',
-    'circle-opacity': 0.7, // Kinda transparent
+    'circle-color': MARKER_SUBSTRATE_COLOR,
     'circle-radius': [
       'case',
       ['==', ['get', 'id'], activeSpotId],
@@ -65,8 +76,7 @@ export const getUnclusteredPointLayer = (activeSpotId: string | number | null): 
       14   // Default radius (verified + unverified)
     ],
     'circle-stroke-width': 1,
-    'circle-stroke-color': '#ffffff',
-    'circle-stroke-opacity': 0.5
+    'circle-stroke-color': MARKER_SUBSTRATE_BORDER
   }
 });
 
@@ -96,10 +106,41 @@ export const getIconLayer = (activeSpotId: string | number | null): LayerProps =
       '#f59e0b', // Active: Orange
       ['get', 'isUnverified'],
       '#9ca3af', // Unverified: Grey
-      '#3b82f6'  // Verified (default): Blue
+      ACCENT_MARKER  // Verified (default): Blue
     ],
     'icon-opacity': 1
   }
 });
+
+// Selected spot lives in its own always-unclustered source (see GlobeMapComponent),
+// so it stays individually visible instead of being folded into a cluster while
+// zooming out — which would otherwise leave its popup pointing at a cluster.
+export const selectedSpotPointLayer: LayerProps = {
+  id: 'selected-spot-point',
+  type: 'circle',
+  source: 'selected-spot',
+  paint: {
+    'circle-color': MARKER_SUBSTRATE_COLOR,
+    'circle-radius': 14,
+    'circle-stroke-width': 1,
+    'circle-stroke-color': MARKER_SUBSTRATE_BORDER
+  }
+};
+
+export const selectedSpotIconLayer: LayerProps = {
+  id: 'selected-spot-icon',
+  type: 'symbol',
+  source: 'selected-spot',
+  layout: {
+    'icon-image': 'custom-marker',
+    'icon-size': 0.12,
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true
+  },
+  paint: {
+    'icon-color': '#f59e0b', // Active: Orange — this source only ever holds the selected spot
+    'icon-opacity': 1
+  }
+};
 
 

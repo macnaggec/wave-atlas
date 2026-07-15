@@ -1,7 +1,6 @@
 import { memo } from 'react';
-import { Anchor, Group, Text, ActionIcon } from '@mantine/core';
-import { IconChevronLeft, IconX } from '@tabler/icons-react';
-import { useNavigate } from '@tanstack/react-router';
+import { Anchor, Group, Text } from '@mantine/core';
+import { IconChevronLeft } from '@tabler/icons-react';
 import styles from './CartDrawerHeader.module.css';
 
 interface CartDrawerHeaderProps {
@@ -11,23 +10,21 @@ interface CartDrawerHeaderProps {
 }
 
 /**
- * CartDrawerHeader — 3-column header for the cart panel.
+ * CartDrawerHeader — navigation/title row for the cart panel.
  *
- * Left: optional back link to the originating spot.
- * Center: "Cart (n)" title.
- * Right: close button (navigates to /).
+ * Optional originating spot link sits on the left edge while the cart title stays centered.
  */
 export const CartDrawerHeader = memo(function CartDrawerHeader({
   itemCount,
   spotName,
   onBack,
 }: CartDrawerHeaderProps) {
-  const navigate = useNavigate();
+  const backLabel = spotName ?? 'Back to feed';
 
   return (
     <div className={styles.header}>
-      <div>
-        {spotName && onBack && (
+      <div className={styles.headerStart}>
+        {onBack && (
           <Anchor
             component="button"
             size="xs"
@@ -36,24 +33,15 @@ export const CartDrawerHeader = memo(function CartDrawerHeader({
           >
             <Group gap={2} align="center">
               <IconChevronLeft size={12} />
-              {spotName}
+              {backLabel}
             </Group>
           </Anchor>
         )}
       </div>
-      <Text fw={600} size="lg" ta="center">
+      <Text className={styles.headerTitle} fw={600} size="lg" ta="center">
         Cart{itemCount > 0 ? ` (${itemCount})` : ''}
       </Text>
-      <div className={styles.headerEnd}>
-        <ActionIcon
-          variant="subtle"
-          size="sm"
-          aria-label="Close cart"
-          onClick={() => void navigate({ to: '/' })}
-        >
-          <IconX size={16} />
-        </ActionIcon>
-      </div>
+      <div aria-hidden="true" />
     </div>
   );
 });

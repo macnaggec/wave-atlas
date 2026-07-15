@@ -1,65 +1,11 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure, protectedProcedure } from 'server/trpc';
 import { surfSessionRepository } from 'server/repositories/SurfSessionRepository';
 import { surfSessionService } from 'server/services/SurfSessionService';
 import { mediaService } from 'server/services/MediaService';
-import { MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 
 export const sessionsRouter = router({
-  /** Return the photographer's active upload draft, creating it when absent. */
-  create: protectedProcedure
-    .input(
-      z.object({
-        spotId: z.uuid().nullable().optional(),
-        startsAt: z.coerce.date().nullable().optional(),
-        endsAt: z.coerce.date().nullable().optional(),
-        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
-        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
-      }),
-    )
-    .mutation(({ input, ctx }) =>
-      surfSessionService.create(ctx.user.id, {
-        spotId: input.spotId,
-        startsAt: input.startsAt,
-        endsAt: input.endsAt,
-        photoPrice: input.photoPrice,
-        videoPrice: input.videoPrice,
-      }),
-    ),
-
-  draft: protectedProcedure
-    .input(z.uuid())
-    .query(({ input: sessionId, ctx }) => surfSessionService.getDraft(ctx.user.id, sessionId)),
-
-  latestDraft: protectedProcedure.query(({ ctx }) =>
-    surfSessionRepository.findLatestDraftByPhotographer(ctx.user.id),
-  ),
-
-  updateDraft: protectedProcedure
-    .input(
-      z.object({
-        draftId: z.uuid(),
-        spotId: z.uuid().nullable().optional(),
-        startsAt: z.coerce.date().nullable().optional(),
-        endsAt: z.coerce.date().nullable().optional(),
-        photoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
-        videoPrice: z.number().int().min(MIN_MEDIA_PRICE_CENTS).optional(),
-      }).refine(
-        ({ draftId: _draftId, ...changes }) => Object.values(changes).some((value) => value !== undefined),
-        'At least one draft field is required',
-      ),
-    )
-    .mutation(({ input: { draftId, ...changes }, ctx }) =>
-      surfSessionService.updateDraft(ctx.user.id, draftId, changes),
-    ),
-
-  /** Draft media for a specific session (authenticated, must be the owner). */
-  draftMedia: protectedProcedure
-    .input(z.uuid())
-    .query(({ input: sessionId, ctx }) =>
-      surfSessionRepository.findDraftMediaBySession(sessionId, ctx.user.id),
-    ),
-
   /** Paginated list of published sessions, optionally filtered by spot and date range. */
   list: publicProcedure
     .input(
@@ -69,17 +15,20 @@ export const sessionsRouter = router({
         limit: z.number().min(1).max(50).default(20),
         dateFrom: z.coerce.date().optional(),
         dateTo: z.coerce.date().optional(),
+        favoritesOnly: z.boolean().optional(),
       }),
     )
-    .query(({ input }) =>
-      surfSessionRepository.listPublished({
+    .query(({ input, ctx }) => {
+      if (input.favoritesOnly && !ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      return surfSessionRepository.listPublished({
         spotId: input.spotId,
         cursor: input.cursor,
         limit: input.limit,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
-      }),
-    ),
+        favoriteUserId: input.favoritesOnly ? ctx.user?.id : undefined,
+      });
+    }),
 
   /** All sessions belonging to the authenticated photographer. */
   mine: protectedProcedure.query(({ ctx }) =>
@@ -96,10 +45,10 @@ export const sessionsRouter = router({
     .input(z.uuid())
     .query(({ input: sessionId, ctx }) => mediaService.findPublishedBySession(sessionId, ctx.user?.id)),
 
-  /** Publish all draft media in a session and mark the session as published. */
-  publish: protectedProcedure
+  /** Removes a published session from public view; buyers keep access to already-purchased media. */
+  retire: protectedProcedure
     .input(z.uuid())
     .mutation(({ input: sessionId, ctx }) =>
-      surfSessionService.publish(ctx.user.id, sessionId),
+      surfSessionService.retire(ctx.user.id, sessionId),
     ),
 });

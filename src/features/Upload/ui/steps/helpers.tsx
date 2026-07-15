@@ -6,7 +6,7 @@ export function StepPill({ icon, label }: { icon: ReactNode; label: string }) {
     <>
       <Group px="md" py="xs" gap="xs">
         {icon}
-        <Text size="sm" fw={500} style={{ color: '#fff' }}>{label}</Text>
+        <Text size="sm" fw={500} style={{ color: 'var(--wa-text-inverse)' }}>{label}</Text>
       </Group>
       <Divider />
     </>

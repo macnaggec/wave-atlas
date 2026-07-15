@@ -23,6 +23,10 @@ const DownloadButton = memo(function DownloadButton({
   disabled,
   onDownload,
 }: DownloadButtonProps) {
+  const isLightboxSize = size === 'md';
+  const actionSize = isLightboxSize ? 44 : size;
+  const iconSize = isLightboxSize ? 24 : 14;
+
   const handleClick = useCallback(
     (_event: MouseEvent<HTMLButtonElement>) => {
       onDownload(mediaItemId);
@@ -31,16 +35,20 @@ const DownloadButton = memo(function DownloadButton({
   );
 
   return (
-    <Tooltip label="Download original" withArrow>
+    <Tooltip label="Download original" withArrow withinPortal zIndex={4000}>
       <ActionIcon
-        variant={size === 'md' ? 'light' : 'subtle'}
-        size={size}
+        data-lightbox-icon-action={isLightboxSize ? 'true' : undefined}
+        data-lightbox-icon-frame={isLightboxSize ? 'chip' : undefined}
+        data-lightbox-tooltip-layer={isLightboxSize ? 'above-media' : undefined}
+        variant="subtle"
+        size={actionSize}
+        radius="xl"
         loading={loading}
         disabled={disabled}
         onClick={handleClick}
         aria-label="Download original file"
       >
-        <IconDownload size={size === 'md' ? 16 : 14} />
+        <IconDownload size={iconSize} stroke={2} />
       </ActionIcon>
     </Tooltip>
   );

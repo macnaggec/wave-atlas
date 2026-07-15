@@ -15,15 +15,19 @@ import { Route as PageRouteImport } from './routes/_page'
 import { Route as PanelIndexRouteImport } from './routes/_panel.index'
 import { Route as PanelUploadRouteImport } from './routes/_panel.upload'
 import { Route as PanelMeRouteImport } from './routes/_panel.me'
+import { Route as PanelGalleryRouteImport } from './routes/_panel.gallery'
 import { Route as PanelCartRouteImport } from './routes/_panel.cart'
 import { Route as PanelSpotIdRouteImport } from './routes/_panel.$spotId'
 import { Route as PageOrderSuccessRouteImport } from './routes/_page.order-success'
-import { Route as PageAccountRouteImport } from './routes/_page.account'
+import { Route as PageAdminRouteImport } from './routes/_page.admin'
 import { Route as PanelMeIndexRouteImport } from './routes/_panel.me.index'
 import { Route as PanelSpotIdIndexRouteImport } from './routes/_panel.$spotId.index'
-import { Route as PanelMePurchasesRouteImport } from './routes/_panel.me.purchases'
-import { Route as PanelMeFavoritesRouteImport } from './routes/_panel.me.favorites'
+import { Route as PanelMeEarningsRouteImport } from './routes/_panel.me.earnings'
+import { Route as PanelMeCollectionsRouteImport } from './routes/_panel.me.collections'
 import { Route as PanelSpotIdGalleryRouteImport } from './routes/_panel.$spotId.gallery'
+import { Route as PanelMeCollectionsIndexRouteImport } from './routes/_panel.me.collections.index'
+import { Route as PanelMeCollectionsPurchasesRouteImport } from './routes/_panel.me.collections.purchases'
+import { Route as PanelMeCollectionsFavoritesRouteImport } from './routes/_panel.me.collections.favorites'
 import { Route as PanelSpotIdSessionSessionIdRouteImport } from './routes/_panel.$spotId.session.$sessionId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -54,6 +58,11 @@ const PanelMeRoute = PanelMeRouteImport.update({
   path: '/me',
   getParentRoute: () => PanelRoute,
 } as any)
+const PanelGalleryRoute = PanelGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => PanelRoute,
+} as any)
 const PanelCartRoute = PanelCartRouteImport.update({
   id: '/cart',
   path: '/cart',
@@ -69,9 +78,9 @@ const PageOrderSuccessRoute = PageOrderSuccessRouteImport.update({
   path: '/order-success',
   getParentRoute: () => PageRoute,
 } as any)
-const PageAccountRoute = PageAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const PageAdminRoute = PageAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => PageRoute,
 } as any)
 const PanelMeIndexRoute = PanelMeIndexRouteImport.update({
@@ -84,14 +93,14 @@ const PanelSpotIdIndexRoute = PanelSpotIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PanelSpotIdRoute,
 } as any)
-const PanelMePurchasesRoute = PanelMePurchasesRouteImport.update({
-  id: '/purchases',
-  path: '/purchases',
+const PanelMeEarningsRoute = PanelMeEarningsRouteImport.update({
+  id: '/earnings',
+  path: '/earnings',
   getParentRoute: () => PanelMeRoute,
 } as any)
-const PanelMeFavoritesRoute = PanelMeFavoritesRouteImport.update({
-  id: '/favorites',
-  path: '/favorites',
+const PanelMeCollectionsRoute = PanelMeCollectionsRouteImport.update({
+  id: '/collections',
+  path: '/collections',
   getParentRoute: () => PanelMeRoute,
 } as any)
 const PanelSpotIdGalleryRoute = PanelSpotIdGalleryRouteImport.update({
@@ -99,6 +108,23 @@ const PanelSpotIdGalleryRoute = PanelSpotIdGalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => PanelSpotIdRoute,
 } as any)
+const PanelMeCollectionsIndexRoute = PanelMeCollectionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PanelMeCollectionsRoute,
+} as any)
+const PanelMeCollectionsPurchasesRoute =
+  PanelMeCollectionsPurchasesRouteImport.update({
+    id: '/purchases',
+    path: '/purchases',
+    getParentRoute: () => PanelMeCollectionsRoute,
+  } as any)
+const PanelMeCollectionsFavoritesRoute =
+  PanelMeCollectionsFavoritesRouteImport.update({
+    id: '/favorites',
+    path: '/favorites',
+    getParentRoute: () => PanelMeCollectionsRoute,
+  } as any)
 const PanelSpotIdSessionSessionIdRoute =
   PanelSpotIdSessionSessionIdRouteImport.update({
     id: '/session/$sessionId',
@@ -109,101 +135,123 @@ const PanelSpotIdSessionSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof PanelIndexRoute
   '/auth': typeof AuthRoute
-  '/account': typeof PageAccountRoute
+  '/admin': typeof PageAdminRoute
   '/order-success': typeof PageOrderSuccessRoute
   '/$spotId': typeof PanelSpotIdRouteWithChildren
   '/cart': typeof PanelCartRoute
+  '/gallery': typeof PanelGalleryRoute
   '/me': typeof PanelMeRouteWithChildren
   '/upload': typeof PanelUploadRoute
   '/$spotId/gallery': typeof PanelSpotIdGalleryRoute
-  '/me/favorites': typeof PanelMeFavoritesRoute
-  '/me/purchases': typeof PanelMePurchasesRoute
+  '/me/collections': typeof PanelMeCollectionsRouteWithChildren
+  '/me/earnings': typeof PanelMeEarningsRoute
   '/$spotId/': typeof PanelSpotIdIndexRoute
   '/me/': typeof PanelMeIndexRoute
   '/$spotId/session/$sessionId': typeof PanelSpotIdSessionSessionIdRoute
+  '/me/collections/favorites': typeof PanelMeCollectionsFavoritesRoute
+  '/me/collections/purchases': typeof PanelMeCollectionsPurchasesRoute
+  '/me/collections/': typeof PanelMeCollectionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PanelIndexRoute
   '/auth': typeof AuthRoute
-  '/account': typeof PageAccountRoute
+  '/admin': typeof PageAdminRoute
   '/order-success': typeof PageOrderSuccessRoute
   '/cart': typeof PanelCartRoute
+  '/gallery': typeof PanelGalleryRoute
   '/upload': typeof PanelUploadRoute
   '/$spotId/gallery': typeof PanelSpotIdGalleryRoute
-  '/me/favorites': typeof PanelMeFavoritesRoute
-  '/me/purchases': typeof PanelMePurchasesRoute
+  '/me/earnings': typeof PanelMeEarningsRoute
   '/$spotId': typeof PanelSpotIdIndexRoute
   '/me': typeof PanelMeIndexRoute
   '/$spotId/session/$sessionId': typeof PanelSpotIdSessionSessionIdRoute
+  '/me/collections/favorites': typeof PanelMeCollectionsFavoritesRoute
+  '/me/collections/purchases': typeof PanelMeCollectionsPurchasesRoute
+  '/me/collections': typeof PanelMeCollectionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_page': typeof PageRouteWithChildren
   '/_panel': typeof PanelRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_page/account': typeof PageAccountRoute
+  '/_page/admin': typeof PageAdminRoute
   '/_page/order-success': typeof PageOrderSuccessRoute
   '/_panel/$spotId': typeof PanelSpotIdRouteWithChildren
   '/_panel/cart': typeof PanelCartRoute
+  '/_panel/gallery': typeof PanelGalleryRoute
   '/_panel/me': typeof PanelMeRouteWithChildren
   '/_panel/upload': typeof PanelUploadRoute
   '/_panel/': typeof PanelIndexRoute
   '/_panel/$spotId/gallery': typeof PanelSpotIdGalleryRoute
-  '/_panel/me/favorites': typeof PanelMeFavoritesRoute
-  '/_panel/me/purchases': typeof PanelMePurchasesRoute
+  '/_panel/me/collections': typeof PanelMeCollectionsRouteWithChildren
+  '/_panel/me/earnings': typeof PanelMeEarningsRoute
   '/_panel/$spotId/': typeof PanelSpotIdIndexRoute
   '/_panel/me/': typeof PanelMeIndexRoute
   '/_panel/$spotId/session/$sessionId': typeof PanelSpotIdSessionSessionIdRoute
+  '/_panel/me/collections/favorites': typeof PanelMeCollectionsFavoritesRoute
+  '/_panel/me/collections/purchases': typeof PanelMeCollectionsPurchasesRoute
+  '/_panel/me/collections/': typeof PanelMeCollectionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
-    | '/account'
+    | '/admin'
     | '/order-success'
     | '/$spotId'
     | '/cart'
+    | '/gallery'
     | '/me'
     | '/upload'
     | '/$spotId/gallery'
-    | '/me/favorites'
-    | '/me/purchases'
+    | '/me/collections'
+    | '/me/earnings'
     | '/$spotId/'
     | '/me/'
     | '/$spotId/session/$sessionId'
+    | '/me/collections/favorites'
+    | '/me/collections/purchases'
+    | '/me/collections/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/account'
+    | '/admin'
     | '/order-success'
     | '/cart'
+    | '/gallery'
     | '/upload'
     | '/$spotId/gallery'
-    | '/me/favorites'
-    | '/me/purchases'
+    | '/me/earnings'
     | '/$spotId'
     | '/me'
     | '/$spotId/session/$sessionId'
+    | '/me/collections/favorites'
+    | '/me/collections/purchases'
+    | '/me/collections'
   id:
     | '__root__'
     | '/_page'
     | '/_panel'
     | '/auth'
-    | '/_page/account'
+    | '/_page/admin'
     | '/_page/order-success'
     | '/_panel/$spotId'
     | '/_panel/cart'
+    | '/_panel/gallery'
     | '/_panel/me'
     | '/_panel/upload'
     | '/_panel/'
     | '/_panel/$spotId/gallery'
-    | '/_panel/me/favorites'
-    | '/_panel/me/purchases'
+    | '/_panel/me/collections'
+    | '/_panel/me/earnings'
     | '/_panel/$spotId/'
     | '/_panel/me/'
     | '/_panel/$spotId/session/$sessionId'
+    | '/_panel/me/collections/favorites'
+    | '/_panel/me/collections/purchases'
+    | '/_panel/me/collections/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -256,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanelMeRouteImport
       parentRoute: typeof PanelRoute
     }
+    '/_panel/gallery': {
+      id: '/_panel/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof PanelGalleryRouteImport
+      parentRoute: typeof PanelRoute
+    }
     '/_panel/cart': {
       id: '/_panel/cart'
       path: '/cart'
@@ -277,11 +332,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageOrderSuccessRouteImport
       parentRoute: typeof PageRoute
     }
-    '/_page/account': {
-      id: '/_page/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof PageAccountRouteImport
+    '/_page/admin': {
+      id: '/_page/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof PageAdminRouteImport
       parentRoute: typeof PageRoute
     }
     '/_panel/me/': {
@@ -298,18 +353,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanelSpotIdIndexRouteImport
       parentRoute: typeof PanelSpotIdRoute
     }
-    '/_panel/me/purchases': {
-      id: '/_panel/me/purchases'
-      path: '/purchases'
-      fullPath: '/me/purchases'
-      preLoaderRoute: typeof PanelMePurchasesRouteImport
+    '/_panel/me/earnings': {
+      id: '/_panel/me/earnings'
+      path: '/earnings'
+      fullPath: '/me/earnings'
+      preLoaderRoute: typeof PanelMeEarningsRouteImport
       parentRoute: typeof PanelMeRoute
     }
-    '/_panel/me/favorites': {
-      id: '/_panel/me/favorites'
-      path: '/favorites'
-      fullPath: '/me/favorites'
-      preLoaderRoute: typeof PanelMeFavoritesRouteImport
+    '/_panel/me/collections': {
+      id: '/_panel/me/collections'
+      path: '/collections'
+      fullPath: '/me/collections'
+      preLoaderRoute: typeof PanelMeCollectionsRouteImport
       parentRoute: typeof PanelMeRoute
     }
     '/_panel/$spotId/gallery': {
@@ -318,6 +373,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/$spotId/gallery'
       preLoaderRoute: typeof PanelSpotIdGalleryRouteImport
       parentRoute: typeof PanelSpotIdRoute
+    }
+    '/_panel/me/collections/': {
+      id: '/_panel/me/collections/'
+      path: '/'
+      fullPath: '/me/collections/'
+      preLoaderRoute: typeof PanelMeCollectionsIndexRouteImport
+      parentRoute: typeof PanelMeCollectionsRoute
+    }
+    '/_panel/me/collections/purchases': {
+      id: '/_panel/me/collections/purchases'
+      path: '/purchases'
+      fullPath: '/me/collections/purchases'
+      preLoaderRoute: typeof PanelMeCollectionsPurchasesRouteImport
+      parentRoute: typeof PanelMeCollectionsRoute
+    }
+    '/_panel/me/collections/favorites': {
+      id: '/_panel/me/collections/favorites'
+      path: '/favorites'
+      fullPath: '/me/collections/favorites'
+      preLoaderRoute: typeof PanelMeCollectionsFavoritesRouteImport
+      parentRoute: typeof PanelMeCollectionsRoute
     }
     '/_panel/$spotId/session/$sessionId': {
       id: '/_panel/$spotId/session/$sessionId'
@@ -330,12 +406,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface PageRouteChildren {
-  PageAccountRoute: typeof PageAccountRoute
+  PageAdminRoute: typeof PageAdminRoute
   PageOrderSuccessRoute: typeof PageOrderSuccessRoute
 }
 
 const PageRouteChildren: PageRouteChildren = {
-  PageAccountRoute: PageAccountRoute,
+  PageAdminRoute: PageAdminRoute,
   PageOrderSuccessRoute: PageOrderSuccessRoute,
 }
 
@@ -357,15 +433,30 @@ const PanelSpotIdRouteWithChildren = PanelSpotIdRoute._addFileChildren(
   PanelSpotIdRouteChildren,
 )
 
+interface PanelMeCollectionsRouteChildren {
+  PanelMeCollectionsFavoritesRoute: typeof PanelMeCollectionsFavoritesRoute
+  PanelMeCollectionsPurchasesRoute: typeof PanelMeCollectionsPurchasesRoute
+  PanelMeCollectionsIndexRoute: typeof PanelMeCollectionsIndexRoute
+}
+
+const PanelMeCollectionsRouteChildren: PanelMeCollectionsRouteChildren = {
+  PanelMeCollectionsFavoritesRoute: PanelMeCollectionsFavoritesRoute,
+  PanelMeCollectionsPurchasesRoute: PanelMeCollectionsPurchasesRoute,
+  PanelMeCollectionsIndexRoute: PanelMeCollectionsIndexRoute,
+}
+
+const PanelMeCollectionsRouteWithChildren =
+  PanelMeCollectionsRoute._addFileChildren(PanelMeCollectionsRouteChildren)
+
 interface PanelMeRouteChildren {
-  PanelMeFavoritesRoute: typeof PanelMeFavoritesRoute
-  PanelMePurchasesRoute: typeof PanelMePurchasesRoute
+  PanelMeCollectionsRoute: typeof PanelMeCollectionsRouteWithChildren
+  PanelMeEarningsRoute: typeof PanelMeEarningsRoute
   PanelMeIndexRoute: typeof PanelMeIndexRoute
 }
 
 const PanelMeRouteChildren: PanelMeRouteChildren = {
-  PanelMeFavoritesRoute: PanelMeFavoritesRoute,
-  PanelMePurchasesRoute: PanelMePurchasesRoute,
+  PanelMeCollectionsRoute: PanelMeCollectionsRouteWithChildren,
+  PanelMeEarningsRoute: PanelMeEarningsRoute,
   PanelMeIndexRoute: PanelMeIndexRoute,
 }
 
@@ -375,6 +466,7 @@ const PanelMeRouteWithChildren =
 interface PanelRouteChildren {
   PanelSpotIdRoute: typeof PanelSpotIdRouteWithChildren
   PanelCartRoute: typeof PanelCartRoute
+  PanelGalleryRoute: typeof PanelGalleryRoute
   PanelMeRoute: typeof PanelMeRouteWithChildren
   PanelUploadRoute: typeof PanelUploadRoute
   PanelIndexRoute: typeof PanelIndexRoute
@@ -383,6 +475,7 @@ interface PanelRouteChildren {
 const PanelRouteChildren: PanelRouteChildren = {
   PanelSpotIdRoute: PanelSpotIdRouteWithChildren,
   PanelCartRoute: PanelCartRoute,
+  PanelGalleryRoute: PanelGalleryRoute,
   PanelMeRoute: PanelMeRouteWithChildren,
   PanelUploadRoute: PanelUploadRoute,
   PanelIndexRoute: PanelIndexRoute,

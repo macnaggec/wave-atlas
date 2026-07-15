@@ -7,22 +7,19 @@ vi.hoisted(() => {
 });
 
 const mocks = vi.hoisted(() => ({
-  updateDraft: vi.fn(),
+  retire: vi.fn(),
+  listPublished: vi.fn(),
 }));
 
 vi.mock('server/services/SurfSessionService', () => ({
   surfSessionService: {
-    create: vi.fn(),
-    getDraft: vi.fn(),
-    updateDraft: mocks.updateDraft,
-    publish: vi.fn(),
+    retire: mocks.retire,
   },
 }));
 
 vi.mock('server/repositories/SurfSessionRepository', () => ({
   surfSessionRepository: {
-    findDraftMediaBySession: vi.fn(),
-    listPublished: vi.fn(),
+    listPublished: mocks.listPublished,
     findByPhotographer: vi.fn(),
     findPublishedById: vi.fn(),
   },
@@ -34,21 +31,47 @@ vi.mock('server/services/MediaService', () => ({
 
 import { sessionsRouter } from './sessions';
 
-describe('sessionsRouter.updateDraft', () => {
-  it('rejects a persisted media price below the product floor', async () => {
+describe('sessionsRouter.list favorites filter', () => {
+  it('derives the favorite owner from the authenticated viewer', async () => {
+    mocks.listPublished.mockResolvedValue({ items: [], nextCursor: null });
     const caller = sessionsRouter.createCaller({
       session: {} as never,
       user: { id: 'user-1' } as never,
     });
 
-    const updateDraft = () => (caller as unknown as {
-      updateDraft: (input: { draftId: string; photoPrice: number }) => Promise<unknown>;
-    }).updateDraft({
-      draftId: '11111111-1111-4111-8111-111111111111',
-      photoPrice: 299,
+    await caller.list({ limit: 20, favoritesOnly: true });
+
+    expect(mocks.listPublished).toHaveBeenCalledWith({
+      spotId: undefined,
+      cursor: undefined,
+      limit: 20,
+      dateFrom: undefined,
+      dateTo: undefined,
+      favoriteUserId: 'user-1',
+    });
+  });
+
+  it('rejects favorite-only filtering without an authenticated viewer', async () => {
+    const caller = sessionsRouter.createCaller({ session: null, user: null });
+
+    await expect(caller.list({ limit: 20, favoritesOnly: true })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
+describe('sessionsRouter.retire', () => {
+  it('delegates to the session service with the authenticated photographer', async () => {
+    mocks.retire.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });
+    const caller = sessionsRouter.createCaller({
+      session: {} as never,
+      user: { id: 'user-1' } as never,
     });
 
-    await expect(Promise.resolve().then(updateDraft)).rejects.toMatchObject({ code: 'BAD_REQUEST' });
-    expect(mocks.updateDraft).not.toHaveBeenCalled();
+    await expect(caller.retire('11111111-1111-4111-8111-111111111111')).resolves.toEqual({
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(mocks.retire).toHaveBeenCalledWith('user-1', '11111111-1111-4111-8111-111111111111');
   });
 });

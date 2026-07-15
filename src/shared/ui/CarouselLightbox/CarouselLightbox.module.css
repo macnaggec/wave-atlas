@@ -1,19 +1,280 @@
-.root {
-  height: clamp(300px, 55vh, 600px);
+.inner {
+  padding: clamp(1.25rem, 5vw, 4.5rem);
+}
+
+.content {
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: min(92vw, 1120px);
+}
+
+.body {
+  overflow: visible;
+  padding: 0;
+}
+
+.stage {
+  --lightbox-media-control-gap: 0.75rem;
+
+  position: relative;
+  display: grid;
+  width: min(92vw, 1120px);
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.mediaSurface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.mediaCaption {
+  align-self: flex-start;
+}
+
+.mediaFrame {
+  position: relative;
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+  max-height: min(68vh, calc(100dvh - 9rem));
+  place-items: center;
+}
+
+.dragLayer {
+  display: grid;
+  grid-area: 1 / 1;
+  place-items: center;
+  max-width: 100%;
+}
+
+.mediaTransition {
+  display: grid;
+  grid-area: 1 / 1;
+  place-items: center;
 }
 
 .media {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
   display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(68vh, calc(100dvh - 9rem));
+  object-fit: contain;
 }
 
-.controls {
-  opacity: 0;
-  transition: opacity 150ms ease;
+video.media {
+  width: min(100%, 1120px);
 }
 
-.root:hover .controls {
+.staticChrome {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
   opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+/* Until the active media is sized, the collapsed frame would pile every
+   anchored control at its center — keep the chrome invisible instead. */
+.staticChrome[data-lightbox-chrome-hidden] {
+  opacity: 0;
+}
+
+.staticChrome[data-lightbox-chrome-hidden] :global([data-lightbox-icon-action]),
+.staticChrome[data-lightbox-chrome-hidden] .indicator {
+  pointer-events: none;
+}
+
+.mediaCaption[data-lightbox-chrome-hidden] {
+  visibility: hidden;
+}
+
+.stage[data-lightbox-loading] {
+  min-height: 12rem;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.staticChrome :global([data-lightbox-icon-action]),
+.staticChrome .indicator {
+  pointer-events: auto;
+}
+
+.mediaControls {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 0;
+  pointer-events: none;
+}
+
+.controlAnchor {
+  position: absolute;
+  top: 50%;
+  margin-top: -1.375rem;
+  pointer-events: auto;
+}
+
+.previousControlAnchor {
+  right: calc(100% + var(--lightbox-media-control-gap));
+}
+
+.nextControlAnchor {
+  left: calc(100% + var(--lightbox-media-control-gap));
+}
+
+.controlRail {
+  position: absolute;
+  top: 0;
+  left: calc(100% + var(--lightbox-media-control-gap));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+
+.stage :global([data-lightbox-icon-action]) {
+  color: var(--wa-text-media-overlay);
+  background: var(--wa-control-fill);
+  border: 1px solid var(--wa-glass-border);
+  box-shadow: var(--wa-glass-shadow-chrome);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.stage :global([data-lightbox-icon-action] svg) {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.stage :global([data-lightbox-icon-action]:hover) {
+  background: var(--wa-control-fill-hover);
+  border-color: var(--wa-control-border);
+}
+
+.stage :global([data-lightbox-icon-action]:active) {
+  transform: scale(0.96);
+}
+
+.floatingActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+
+.floatingActions > * {
+  max-width: min(72vw, 22rem);
+}
+
+.indicators {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  margin-top: 0;
+}
+
+/* The button is an enlarged tap target; the visible dot is drawn by ::before
+   and stretches into a pill when active. */
+.indicator {
+  position: relative;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  border: 0;
+  box-shadow: none;
+}
+
+.indicator::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.375rem;
+  height: 0.375rem;
+  background-color: var(--wa-control-indicator);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  transition:
+    background-color 150ms ease,
+    width 180ms ease;
+}
+
+.indicator:hover::before {
+  background-color: var(--wa-text-primary);
+}
+
+.indicator[data-active]::before {
+  width: 1rem;
+  background-color: var(--wa-text-inverse);
+}
+
+.counter {
+  padding: 0.125rem 0.625rem;
+  font-size: var(--wa-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--wa-text-status);
+  background: var(--wa-surface-status);
+  backdrop-filter: var(--wa-glass-blur-status);
+  -webkit-backdrop-filter: var(--wa-glass-blur-status);
+  border: 1px solid var(--wa-glass-border-status);
+  border-radius: 999px;
+}
+
+@media (max-width: 760px) {
+  .inner {
+    padding: 1rem;
+  }
+
+  .mediaFrame,
+  .media {
+    max-height: calc(100dvh - 2rem);
+  }
+
+  /* Prev/next chips are redundant on touch: swipe and indicators cover
+     navigation, and the anchors would overflow the viewport. */
+  .mediaControls {
+    display: none;
+  }
+
+  /* Keep the rail reachable: overlay it on the media instead of hanging it
+     off-screen past the right edge. */
+  .controlRail {
+    top: 0.5rem;
+    right: 0.5rem;
+    left: auto;
+  }
 }

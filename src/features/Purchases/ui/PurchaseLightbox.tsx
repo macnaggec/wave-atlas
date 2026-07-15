@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { Group } from '@mantine/core';
 import { BaseLightbox } from 'shared/ui/BaseLightbox';
 import DownloadButton from './DownloadButton';
 
@@ -39,17 +38,15 @@ const PurchaseLightbox = memo(function PurchaseLightbox({
     <BaseLightbox
       item={item}
       onClose={onClose}
-      renderFooter={() =>
+      renderActions={() =>
         purchase && (
-          <Group justify="flex-end">
-            <DownloadButton
-              mediaItemId={purchase.mediaItem.id}
-              size="md"
-              loading={isDownloading}
-              disabled={isAnyDownloading}
-              onDownload={onDownload}
-            />
-          </Group>
+          <DownloadButton
+            mediaItemId={purchase.mediaItem.id}
+            size="md"
+            loading={isDownloading}
+            disabled={isAnyDownloading}
+            onDownload={onDownload}
+          />
         )
       }
     />

@@ -12,7 +12,7 @@ describe('deriveGlobeMotionPolicy', () => {
   });
 
   it.each<GlobeSceneMode>([
-    { kind: 'pinPlacement' },
+    { kind: 'addSpotFlow' },
     { kind: 'uploadSpotSelection' },
     { kind: 'spotFocused', spotId: 'spot-1' },
     { kind: 'userExploring' },

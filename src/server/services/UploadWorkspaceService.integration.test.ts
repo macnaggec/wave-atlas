@@ -1,0 +1,198 @@
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { prisma } from 'server/db';
+import { UploadWorkspaceService } from './UploadWorkspaceService';
+
+const service = new UploadWorkspaceService();
+
+async function clearTestData() {
+  await (prisma as any).uploadWorkspaceMediaChange.deleteMany();
+  await (prisma as any).uploadWorkspaceAsset.deleteMany();
+  await prisma.uploadAttempt.deleteMany();
+  await prisma.purchase.deleteMany();
+  await prisma.mediaItem.deleteMany();
+  await (prisma as any).uploadWorkspace.deleteMany();
+  await prisma.surfSession.deleteMany();
+  await prisma.spot.deleteMany();
+  await prisma.user.deleteMany();
+}
+
+async function seedPublishedSessionWithOnePhoto(options: { purchased?: boolean } = {}) {
+  const photographer = await prisma.user.create({
+    data: { email: `workspace-${crypto.randomUUID()}@example.com` },
+  });
+  const spot = await prisma.spot.create({
+    data: { name: 'Pipeline', location: 'North Shore' },
+  });
+  const session = await prisma.surfSession.create({
+    data: {
+      photographerId: photographer.id,
+      spotId: spot.id,
+      startsAt: new Date('2026-01-01T06:00:00Z'),
+      endsAt: new Date('2026-01-01T08:00:00Z'),
+      photoPrice: 700,
+      videoPrice: 1200,
+      status: 'PUBLISHED',
+    },
+  });
+  const original = await prisma.mediaItem.create({
+    data: {
+      sessionId: session.id,
+      photographerId: photographer.id,
+      spotId: spot.id,
+      type: 'PHOTO',
+      status: 'PUBLISHED',
+      price: 700,
+      capturedAt: new Date('2026-01-01T06:30:00Z'),
+      lightboxUrl: 'https://res.cloudinary.com/test/original.jpg',
+      thumbnailUrl: 'https://res.cloudinary.com/test/original-thumb.jpg',
+      cloudinaryPublicId: `swelldays/users/${photographer.id}/original-${crypto.randomUUID()}`,
+    },
+  });
+
+  if (options.purchased) {
+    await prisma.purchase.create({
+      data: {
+        mediaItemId: original.id,
+        amountPaid: 700,
+        platformFee: 70,
+        photographerEarned: 630,
+      },
+    });
+  }
+
+  return { photographer, spot, session, original };
+}
+
+async function addReadyWorkspaceAsset(workspaceId: string, photographerId: string) {
+  return (prisma as any).uploadWorkspaceAsset.create({
+    data: {
+      workspaceId,
+      photographerId,
+      type: 'PHOTO',
+      status: 'READY',
+      capturedAt: new Date('2026-01-01T07:00:00Z'),
+      lightboxUrl: 'https://res.cloudinary.com/test/replacement.jpg',
+      thumbnailUrl: 'https://res.cloudinary.com/test/replacement-thumb.jpg',
+      cloudinaryPublicId: `swelldays/users/${photographerId}/replacement-${crypto.randomUUID()}`,
+    },
+  });
+}
+
+beforeEach(clearTestData);
+afterAll(async () => {
+  await clearTestData();
+  await prisma.$disconnect();
+});
+
+describe('UploadWorkspaceService session edits', () => {
+  it('replaces the only existing session item with a new workspace asset on save', async () => {
+    const { photographer, session, original } = await seedPublishedSessionWithOnePhoto();
+
+    const workspace = await service.startSessionEdit(photographer.id, session.id);
+    await service.stageMediaRemoval(photographer.id, workspace.id, original.id);
+    const replacement = await addReadyWorkspaceAsset(workspace.id, photographer.id);
+
+    await service.saveWorkspace(photographer.id, workspace.id);
+
+    expect(await prisma.surfSession.findUnique({ where: { id: session.id } })).toMatchObject({
+      status: 'PUBLISHED',
+    });
+    expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toBeNull();
+    const liveMedia = await prisma.mediaItem.findMany({
+      where: { sessionId: session.id, status: 'PUBLISHED', deletedAt: null },
+    });
+    expect(liveMedia).toHaveLength(1);
+    expect(liveMedia[0]).toMatchObject({
+      cloudinaryPublicId: replacement.cloudinaryPublicId,
+      price: 700,
+      status: 'PUBLISHED',
+    });
+  });
+
+  it('soft-deletes a staged removal that has already been purchased', async () => {
+    const { photographer, session, original } = await seedPublishedSessionWithOnePhoto({ purchased: true });
+
+    const workspace = await service.startSessionEdit(photographer.id, session.id);
+    await service.stageMediaRemoval(photographer.id, workspace.id, original.id);
+    await addReadyWorkspaceAsset(workspace.id, photographer.id);
+
+    await service.saveWorkspace(photographer.id, workspace.id);
+
+    expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toMatchObject({
+      status: 'DELETED',
+    });
+  });
+
+  it('blocks saving an edit that would leave the session with zero live media', async () => {
+    const { photographer, session, original } = await seedPublishedSessionWithOnePhoto();
+
+    const workspace = await service.startSessionEdit(photographer.id, session.id);
+    await service.stageMediaRemoval(photographer.id, workspace.id, original.id);
+
+    await expect(service.saveWorkspace(photographer.id, workspace.id)).rejects.toThrow('at least one media');
+
+    expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toMatchObject({
+      status: 'PUBLISHED',
+      deletedAt: null,
+    });
+  });
+
+  it('keeps the live session visible and unchanged when an edit is opened and cancelled', async () => {
+    const { photographer, session, original } = await seedPublishedSessionWithOnePhoto();
+
+    const workspace = await service.startSessionEdit(photographer.id, session.id);
+    await service.stageMediaRemoval(photographer.id, workspace.id, original.id);
+    await addReadyWorkspaceAsset(workspace.id, photographer.id);
+
+    await service.cancelWorkspace(photographer.id, workspace.id);
+
+    expect(await prisma.surfSession.findUnique({ where: { id: session.id } })).toMatchObject({
+      status: 'PUBLISHED',
+      spotId: session.spotId,
+    });
+    expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toMatchObject({
+      status: 'PUBLISHED',
+      deletedAt: null,
+    });
+    expect(await (prisma as any).uploadWorkspaceMediaChange.count({ where: { workspaceId: workspace.id } })).toBe(0);
+  });
+
+  it('hard-deletes media after clearing stale staged-removal rows from cancelled workspaces', async () => {
+    const { photographer, session, original } = await seedPublishedSessionWithOnePhoto();
+    const staleWorkspace = await (prisma as any).uploadWorkspace.create({
+      data: {
+        photographerId: photographer.id,
+        kind: 'SESSION_EDIT',
+        status: 'CANCELLED',
+        targetSessionId: session.id,
+        spotId: session.spotId,
+        startsAt: session.startsAt,
+        endsAt: session.endsAt,
+        photoPrice: session.photoPrice,
+        videoPrice: session.videoPrice,
+      },
+    });
+    await (prisma as any).uploadWorkspaceMediaChange.create({
+      data: { workspaceId: staleWorkspace.id, mediaItemId: original.id },
+    });
+
+    const workspace = await service.startSessionEdit(photographer.id, session.id);
+    await service.stageMediaRemoval(photographer.id, workspace.id, original.id);
+    await addReadyWorkspaceAsset(workspace.id, photographer.id);
+
+    await service.saveWorkspace(photographer.id, workspace.id);
+
+    expect(await prisma.mediaItem.findUnique({ where: { id: original.id } })).toBeNull();
+    expect(await (prisma as any).uploadWorkspaceMediaChange.count({ where: { mediaItemId: original.id } })).toBe(0);
+  });
+
+  it('uses one active workspace slot for both new uploads and session edits', async () => {
+    const { photographer, session } = await seedPublishedSessionWithOnePhoto();
+
+    await service.startNewWorkspace(photographer.id, {});
+
+    await expect(service.startSessionEdit(photographer.id, session.id)).rejects.toThrow(
+      'Finish or cancel your active upload before editing a session',
+    );
+  });
+});

@@ -88,7 +88,11 @@ export class CheckoutService {
 
     if (!purchase) throw new ForbiddenError('You have not purchased this item');
 
-    return this.cloudinary.generateSignedDownload(purchase.mediaItem.cloudinaryPublicId);
+    const resourceType = purchase.mediaItem.type === 'VIDEO' ? 'video' : 'image';
+    return this.cloudinary.generateSignedDownload(
+      purchase.mediaItem.cloudinaryPublicId,
+      resourceType,
+    );
   }
 
   private async fetchAndValidateCartItems(buyerId: string | null, itemIds: string[]) {
@@ -141,7 +145,7 @@ export class CheckoutService {
     totalCents: number,
   ): Promise<string> {
     const successUrl = buyerId
-      ? `${APP_URL}/me/purchases?order=${orderId}`
+      ? `${APP_URL}/me/collections/purchases?order=${orderId}`
       : `${APP_URL}/order-success?orderId=${orderId}`;
 
     try {

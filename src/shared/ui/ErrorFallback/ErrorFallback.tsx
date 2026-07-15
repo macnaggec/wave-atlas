@@ -1,4 +1,5 @@
 import { Container, Title, Text, Button, Stack, Paper, Group } from '@mantine/core';
+import { materialClasses } from 'shared/ui/design-system';
 import classes from './ErrorFallback.module.css';
 import { IconAlertTriangle, IconRefresh, IconHome } from '@tabler/icons-react';
 import { useNavigate } from '@tanstack/react-router';
@@ -28,7 +29,7 @@ export const ErrorFallback = memo(({
 
   return (
     <Container size="sm" py="xl">
-      <Paper shadow="md" p="xl" radius="md" withBorder>
+      <Paper shadow="md" p="xl" radius="md" withBorder className={materialClasses.panel}>
         <Stack align="center" gap="lg">
           <IconAlertTriangle size={64} color="var(--mantine-color-red-6)" />
 

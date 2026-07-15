@@ -1,0 +1,164 @@
+.sidebar {
+  --upload-gutter: 16px;
+  --upload-section-gap: 12px;
+  --upload-control-height: 36px;
+  --upload-compact-inset: 8px;
+  --upload-block-padding-top: 12px;
+  --upload-block-padding-bottom: 16px;
+  --upload-label-gap: 12px;
+  --upload-nested-gap: 16px;
+  --upload-micro-gap: 8px;
+  --upload-empty-padding: 24px;
+
+  flex: 1;
+}
+
+.validationSection {
+  min-width: 0;
+}
+
+.spotSection {
+  padding: var(--upload-compact-inset) var(--upload-gutter);
+}
+
+.mediaSection {
+  padding-inline: var(--upload-gutter);
+}
+
+.sidebar :global([data-upload-status]) {
+  height: var(--upload-control-height);
+  padding-inline: var(--upload-gutter);
+}
+
+.sidebar :global([data-upload-zone]) {
+  padding-block: var(--upload-empty-padding);
+}
+
+.sidebar :global([data-upload-block]) {
+  padding:
+    var(--upload-block-padding-top)
+    var(--upload-gutter)
+    var(--upload-block-padding-bottom);
+}
+
+.sidebar :global([data-upload-block-title]) {
+  margin-bottom: var(--upload-label-gap);
+}
+
+.footerActions {
+  padding: var(--upload-block-padding-top) var(--upload-gutter);
+}
+
+.spotSection :global(.mantine-Input-input) {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.spotSection[data-ready='true'] :global(.mantine-Input-input) {
+  box-shadow: inset 3px 0 0 var(--wa-accent-spot);
+}
+
+.spotSection[aria-invalid='true'] :global(.mantine-Input-input) {
+  box-shadow: inset 3px 0 0 var(--wa-status-danger);
+}
+
+.spotSection[data-validation-pulse='true'] :global(.mantine-Input-input),
+.mediaSection[data-validation-pulse='true'] [data-upload-module] {
+  animation: validationControlPulse 0.9s ease forwards;
+}
+
+.mediaSection [data-upload-module] {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.mediaSection[data-ready='true'] [data-upload-module] {
+  box-shadow: inset 3px 0 0 var(--wa-accent-spot);
+}
+
+.mediaSection[aria-invalid='true'] [data-upload-module] {
+  box-shadow: inset 3px 0 0 var(--wa-status-danger);
+}
+
+/* Always sticky so Cancel and Publish stay reachable while the form scrolls;
+   data-ready only switches the publish emphasis, not the footer position. */
+.publishFooter {
+  margin-top: auto;
+  position: sticky;
+  z-index: 4;
+  bottom: 0;
+}
+
+.cancelButton {
+  color: var(--wa-text-dimmed);
+  background: color-mix(in srgb, var(--wa-status-danger) 6%, var(--wa-control-fill));
+  border-color: color-mix(in srgb, var(--wa-status-danger) 22%, var(--wa-glass-border-media-overlay));
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.cancelButton:hover {
+  color: var(--wa-status-danger);
+  background: color-mix(in srgb, var(--wa-status-danger) 12%, var(--wa-control-fill));
+  border-color: color-mix(in srgb, var(--wa-status-danger) 42%, var(--wa-glass-border-media-overlay));
+}
+
+.cancelButton:active {
+  transform: translateY(1px);
+}
+
+.publishButton {
+  min-width: 164px;
+  color: var(--wa-text-muted);
+  background: color-mix(in srgb, var(--wa-accent-spot) 6%, var(--wa-control-fill));
+  border-color: color-mix(in srgb, var(--wa-accent-spot) 22%, var(--wa-glass-border-media-overlay));
+  box-shadow: none;
+  transition: color 160ms ease, transform 120ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.publishButton:hover {
+  color: var(--wa-text-primary-action);
+  background: color-mix(in srgb, var(--wa-accent-spot) 12%, var(--wa-control-fill));
+  border-color: color-mix(in srgb, var(--wa-accent-spot) 42%, var(--wa-glass-border-media-overlay));
+}
+
+.publishButton:active {
+  transform: translateY(1px);
+}
+
+.publishFooter[data-ready='true'] .publishButton {
+  color: var(--wa-text-primary-action);
+  background: color-mix(in srgb, var(--wa-accent-spot) 22%, transparent);
+  border-color: color-mix(in srgb, var(--wa-accent-spot) 68%, transparent);
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--wa-accent-spot) 30%, transparent),
+    0 0 16px color-mix(in srgb, var(--wa-accent-spot) 18%, transparent);
+}
+
+.publishFooter[data-ready='true'] .publishButton:hover {
+  background: color-mix(in srgb, var(--wa-accent-spot) 30%, transparent);
+  border-color: color-mix(in srgb, var(--wa-accent-spot) 82%, transparent);
+}
+
+@keyframes validationControlPulse {
+  0%, 100% {
+    box-shadow: inset 3px 0 0 var(--wa-status-danger);
+  }
+
+  20%, 60% {
+    box-shadow:
+      inset 3px 0 0 var(--wa-status-danger),
+      0 0 0 1.5px var(--wa-status-danger),
+      0 0 8px var(--wa-status-danger-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotSection[data-validation-pulse='true'] :global(.mantine-Input-input),
+  .mediaSection[data-validation-pulse='true'] [data-upload-module] {
+    animation: none;
+  }
+
+  .publishButton,
+  .cancelButton,
+  .spotSection :global(.mantine-Input-input) {
+    transition: none;
+  }
+}

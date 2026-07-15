@@ -1,218 +1,73 @@
-import { MediaStatus, MediaType, Prisma, SurfSessionStatus } from '@prisma/client';
+import { MediaStatus, SurfSessionStatus } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
 import { BadRequestError } from 'shared/errors';
-import { mapToMediaItem } from './mappers';
-import type { MediaItem, MediaResourceType } from 'shared/types/media';
-import type { SurfSessionDraft, SurfSessionItem, SurfSessionPage } from 'shared/types/surfSession';
-
-export type CreateSurfSessionData = {
-  spotId?: string | null;
-  photographerId: string;
-  startsAt?: Date | null;
-  endsAt?: Date | null;
-  photoPrice?: number;
-  videoPrice?: number;
-};
-
-export type UpdateSurfSessionDraftData = {
-  spotId?: string | null;
-  startsAt?: Date | null;
-  endsAt?: Date | null;
-  photoPrice?: number;
-  videoPrice?: number;
-};
-
-export type CreateDraftMediaData = {
-  sessionId: string;
-  photographerId: string;
-  resourceType: MediaResourceType;
-  cloudinaryPublicId: string;
-  thumbnailUrl: string;
-  lightboxUrl: string;
-  capturedAt: Date;
-};
+import type { SurfSessionItem, SurfSessionPage } from 'shared/types/surfSession';
 
 export interface ISurfSessionRepository {
-  getOrCreateActiveDraft(data: CreateSurfSessionData): Promise<SurfSessionDraft>;
-  createDraftMedia(data: CreateDraftMediaData): Promise<MediaItem>;
-  removeDraftMedia(sessionId: string, photographerId: string, mediaId: string): Promise<void>;
-  removeDraftMediaBatch(sessionId: string, photographerId: string, mediaIds: string[]): Promise<void>;
-  findDraftMediaBySession(sessionId: string, photographerId: string): Promise<MediaItem[]>;
-  listPublished(filter: { spotId?: string; cursor?: string; limit: number; dateFrom?: Date; dateTo?: Date }): Promise<SurfSessionPage>;
+  listPublished(filter: { spotId?: string; cursor?: string; limit: number; dateFrom?: Date; dateTo?: Date; favoriteUserId?: string }): Promise<SurfSessionPage>;
   findByPhotographer(photographerId: string): Promise<SurfSessionItem[]>;
-  updateDraft(sessionId: string, photographerId: string, data: UpdateSurfSessionDraftData): Promise<{ id: string }>;
-  findDraftById(sessionId: string): Promise<SurfSessionDraft | null>;
-  findLatestDraftByPhotographer(photographerId: string): Promise<SurfSessionDraft | null>;
   findPublishedById(sessionId: string): Promise<SurfSessionItem | null>;
-  publish(sessionId: string, photographerId: string): Promise<{ mediaIds: string[] }>;
+  retire(sessionId: string, photographerId: string): Promise<{ id: string }>;
 }
 
-const draftInclude = {
-  spot: { select: { id: true, name: true, location: true } },
-  _count: { select: { mediaItems: { where: { deletedAt: null } } } },
-} satisfies Prisma.SurfSessionInclude;
+type SessionProjectionRow = {
+  id: string;
+  spotId: string | null;
+  photographerId: string;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  status: SurfSessionStatus;
+  createdAt: Date;
+  spot: { id: string; name: string; location: string } | null;
+  photographer: { id: string; name: string | null } | null;
+  mediaItems: Array<{ thumbnailUrl: string }>;
+  _count: { mediaItems: number };
+};
 
-function mapToDraft(
-  row: Prisma.SurfSessionGetPayload<{ include: typeof draftInclude }>,
-): SurfSessionDraft {
+function toSessionItem(row: SessionProjectionRow): SurfSessionItem | null {
+  if (!row.spotId || !row.startsAt || !row.endsAt || !row.spot || !row.photographer) return null;
   return {
     id: row.id,
     spotId: row.spotId,
     photographerId: row.photographerId,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
-    photoPrice: row.photoPrice,
-    videoPrice: row.videoPrice,
     status: row.status,
     createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
     spot: row.spot,
+    photographer: row.photographer,
+    thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
     mediaCount: row._count.mediaItems,
   };
 }
 
+const sessionProjectionInclude = {
+  spot: { select: { id: true, name: true, location: true } },
+  photographer: { select: { id: true, name: true } },
+  mediaItems: {
+    where: { status: MediaStatus.PUBLISHED, deletedAt: null },
+    orderBy: { capturedAt: 'asc' },
+    take: 1,
+    select: { thumbnailUrl: true },
+  },
+  _count: {
+    select: {
+      mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } },
+    },
+  },
+} as const;
+
 export class SurfSessionRepository implements ISurfSessionRepository {
-  getOrCreateActiveDraft(data: CreateSurfSessionData): Promise<SurfSessionDraft> {
-    return runQuery(async () => {
-      const existing = await this.findLatestDraftByPhotographer(data.photographerId);
-      if (existing) return existing;
-
-      let row;
-      try {
-        row = await prisma.surfSession.create({
-          data: {
-            spotId: data.spotId,
-            photographerId: data.photographerId,
-            startsAt: data.startsAt,
-            endsAt: data.endsAt,
-            photoPrice: data.photoPrice,
-            videoPrice: data.videoPrice,
-            status: SurfSessionStatus.DRAFT,
-          },
-          include: draftInclude,
-        });
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          const winner = await this.findLatestDraftByPhotographer(data.photographerId);
-          if (winner) return winner;
-        }
-        throw error;
-      }
-
-      return mapToDraft(row);
-    });
-  }
-
-  createDraftMedia(data: CreateDraftMediaData): Promise<MediaItem> {
-    return runQuery(async () => {
-      const row = await prisma.$transaction(async (tx) => {
-        const draft = await tx.surfSession.findFirst({
-          where: {
-            id: data.sessionId,
-            photographerId: data.photographerId,
-            status: SurfSessionStatus.DRAFT,
-          },
-          select: { id: true },
-        });
-        if (!draft) throw new BadRequestError('Session is not an editable draft');
-
-        return tx.mediaItem.create({
-          data: {
-            sessionId: draft.id,
-            photographerId: data.photographerId,
-            type: data.resourceType === 'video' ? MediaType.VIDEO : MediaType.PHOTO,
-            cloudinaryPublicId: data.cloudinaryPublicId,
-            thumbnailUrl: data.thumbnailUrl,
-            lightboxUrl: data.lightboxUrl,
-            capturedAt: data.capturedAt,
-            status: MediaStatus.DRAFT,
-          },
-        });
-      });
-      return mapToMediaItem(row);
-    });
-  }
-
-  removeDraftMedia(sessionId: string, photographerId: string, mediaId: string): Promise<void> {
-    return runQuery(async () => {
-      await prisma.$transaction(async (tx) => {
-        const removed = await tx.mediaItem.deleteMany({
-          where: {
-            id: mediaId,
-            sessionId,
-            photographerId,
-            status: MediaStatus.DRAFT,
-            deletedAt: null,
-            session: { status: SurfSessionStatus.DRAFT },
-          },
-        });
-        if (removed.count !== 1) {
-          throw new BadRequestError('Media is not part of an editable draft');
-        }
-      });
-    });
-  }
-
-  removeDraftMediaBatch(sessionId: string, photographerId: string, mediaIds: string[]): Promise<void> {
-    return runQuery(async () => {
-      await prisma.$transaction(async (tx) => {
-        const uniqueIds = [...new Set(mediaIds)];
-        const removed = await tx.mediaItem.deleteMany({
-          where: {
-            id: { in: uniqueIds },
-            sessionId,
-            photographerId,
-            status: MediaStatus.DRAFT,
-            deletedAt: null,
-            session: { status: SurfSessionStatus.DRAFT },
-          },
-        });
-        if (removed.count !== uniqueIds.length) {
-          throw new BadRequestError('Some media are not part of the editable draft');
-        }
-      });
-    });
-  }
-
-  findDraftMediaBySession(sessionId: string, photographerId: string): Promise<MediaItem[]> {
-    return runQuery(async () => {
-      const rows = await prisma.mediaItem.findMany({
-        where: {
-          sessionId,
-          photographerId,
-          status: MediaStatus.DRAFT,
-          deletedAt: null,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      return rows.map(mapToMediaItem);
-    });
-  }
-
-  updateDraft(
-    sessionId: string,
-    photographerId: string,
-    data: UpdateSurfSessionDraftData,
-  ): Promise<{ id: string }> {
-    return runQuery(async () => {
-      const updated = await prisma.surfSession.updateMany({
-        where: { id: sessionId, photographerId, status: SurfSessionStatus.DRAFT },
-        data,
-      });
-      if (updated.count !== 1) {
-        throw new BadRequestError('Session is not an editable draft');
-      }
-      return { id: sessionId };
-    });
-  }
-
-  listPublished(filter: { spotId?: string; cursor?: string; limit: number; dateFrom?: Date; dateTo?: Date }): Promise<SurfSessionPage> {
+  listPublished(filter: { spotId?: string; cursor?: string; limit: number; dateFrom?: Date; dateTo?: Date; favoriteUserId?: string }): Promise<SurfSessionPage> {
     return runQuery(async () => {
       const rows = await prisma.surfSession.findMany({
         where: {
           status: SurfSessionStatus.PUBLISHED,
           ...(filter.spotId ? { spotId: filter.spotId } : {}),
+          ...(filter.favoriteUserId ? {
+            spot: { favoritedBy: { some: { userId: filter.favoriteUserId } } },
+          } : {}),
           ...(filter.dateFrom || filter.dateTo ? {
             startsAt: {
               ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
@@ -223,42 +78,19 @@ export class SurfSessionRepository implements ISurfSessionRepository {
         take: filter.limit + 1,
         ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
         orderBy: { createdAt: 'desc' },
-        include: {
-          spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { status: MediaStatus.PUBLISHED, deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
-            take: 1,
-            select: { thumbnailUrl: true, cloudinaryPublicId: true },
-          },
-          _count: {
-            select: {
-              mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } },
-            },
-          },
-        },
+        include: sessionProjectionInclude,
       });
 
       const hasMore = rows.length > filter.limit;
-      const items = (hasMore ? rows.slice(0, -1) : rows).flatMap((row) => {
-        if (!row.spotId || !row.startsAt || !row.endsAt || !row.spot) return [];
-        return [{
-          id: row.id,
-          spotId: row.spotId,
-          photographerId: row.photographerId,
-          startsAt: row.startsAt,
-          endsAt: row.endsAt,
-          status: row.status,
-          createdAt: row.createdAt,
-          spot: row.spot,
-          thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-          mediaCount: row._count.mediaItems,
-        }];
+      const pageRows = hasMore ? rows.slice(0, -1) : rows;
+      const items = pageRows.flatMap((row) => {
+        const item = toSessionItem(row);
+        return item ? [item] : [];
       });
 
       return {
         items,
-        nextCursor: hasMore ? rows[rows.length - 2]!.id : null,
+        nextCursor: hasMore ? pageRows[pageRows.length - 1]?.id ?? null : null,
       };
     });
   }
@@ -268,60 +100,13 @@ export class SurfSessionRepository implements ISurfSessionRepository {
       const rows = await prisma.surfSession.findMany({
         where: { photographerId, status: SurfSessionStatus.PUBLISHED },
         orderBy: { createdAt: 'desc' },
-        include: {
-          spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
-            take: 1,
-            select: { thumbnailUrl: true, cloudinaryPublicId: true },
-          },
-          _count: {
-            select: { mediaItems: { where: { deletedAt: null } } },
-          },
-        },
+        include: sessionProjectionInclude,
       });
 
       return rows.flatMap((row) => {
-        if (!row.spotId || !row.startsAt || !row.endsAt || !row.spot) return [];
-        return [{
-          id: row.id,
-          spotId: row.spotId,
-          photographerId: row.photographerId,
-          startsAt: row.startsAt,
-          endsAt: row.endsAt,
-          status: row.status,
-          createdAt: row.createdAt,
-          spot: row.spot,
-          thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-          mediaCount: row._count.mediaItems,
-        }];
+        const item = toSessionItem(row);
+        return item ? [item] : [];
       });
-    });
-  }
-
-  findDraftById(sessionId: string): Promise<SurfSessionDraft | null> {
-    return runQuery(async () => {
-      const row = await prisma.surfSession.findUnique({
-        where: { id: sessionId },
-        include: draftInclude,
-      });
-
-      if (!row) return null;
-
-      return mapToDraft(row);
-    });
-  }
-
-  findLatestDraftByPhotographer(photographerId: string): Promise<SurfSessionDraft | null> {
-    return runQuery(async () => {
-      const row = await prisma.surfSession.findFirst({
-        where: { photographerId, status: SurfSessionStatus.DRAFT },
-        orderBy: { updatedAt: 'desc' },
-        include: draftInclude,
-      });
-      if (!row) return null;
-      return mapToDraft(row);
     });
   }
 
@@ -329,105 +114,33 @@ export class SurfSessionRepository implements ISurfSessionRepository {
     return runQuery(async () => {
       const row = await prisma.surfSession.findFirst({
         where: { id: sessionId, status: SurfSessionStatus.PUBLISHED },
-        include: {
-          spot: { select: { id: true, name: true, location: true } },
-          mediaItems: {
-            where: { status: MediaStatus.PUBLISHED, deletedAt: null },
-            orderBy: { capturedAt: 'asc' },
-            take: 1,
-            select: { thumbnailUrl: true },
-          },
-          _count: {
-            select: { mediaItems: { where: { status: MediaStatus.PUBLISHED, deletedAt: null } } },
-          },
-        },
+        include: sessionProjectionInclude,
       });
 
-      if (!row || !row.spotId || !row.startsAt || !row.endsAt || !row.spot) return null;
-      return {
-        id: row.id,
-        spotId: row.spotId,
-        photographerId: row.photographerId,
-        startsAt: row.startsAt,
-        endsAt: row.endsAt,
-        status: row.status,
-        createdAt: row.createdAt,
-        spot: row.spot,
-        thumbnailUrl: row.mediaItems[0]?.thumbnailUrl ?? null,
-        mediaCount: row._count.mediaItems,
-      };
+      return row ? toSessionItem(row) : null;
     });
   }
 
-  /** Atomically publishes all DRAFT media in the session and marks it PUBLISHED. */
-  publish(sessionId: string, photographerId: string): Promise<{ mediaIds: string[] }> {
+  /** Soft-deletes a published session and its media items; purchases keep referencing retained rows. */
+  retire(sessionId: string, photographerId: string): Promise<{ id: string }> {
     return runQuery(() =>
       prisma.$transaction(async (tx) => {
-        const draft = await tx.surfSession.findFirst({
-          where: { id: sessionId, photographerId, status: SurfSessionStatus.DRAFT },
-          select: {
-            id: true,
-            spotId: true,
-            startsAt: true,
-            endsAt: true,
-            photoPrice: true,
-            videoPrice: true,
-            mediaItems: {
-              select: { id: true, type: true, photographerId: true, status: true, deletedAt: true },
-            },
-          },
+        const deletedAt = new Date();
+
+        await tx.mediaItem.updateMany({
+          where: { sessionId, photographerId, deletedAt: null },
+          data: { status: MediaStatus.DELETED, deletedAt },
         });
-
-        if (!draft || !draft.spotId || !draft.startsAt || !draft.endsAt) {
-          throw new BadRequestError('Session is not a publishable draft');
-        }
-        if (draft.startsAt >= draft.endsAt) {
-          throw new BadRequestError('Session end time must be after its start time');
-        }
-
-        const mediaItems = draft.mediaItems;
-        if (mediaItems.length === 0) {
-          throw new BadRequestError('Draft session has no media');
-        }
-        if (mediaItems.some((item) =>
-          item.photographerId !== photographerId ||
-          item.status !== MediaStatus.DRAFT ||
-          item.deletedAt !== null
-        )) {
-          throw new BadRequestError('One or more session media items are not publishable');
-        }
-
-        const photoIds = mediaItems.filter((item) => item.type === MediaType.PHOTO).map((item) => item.id);
-        if (photoIds.length > 0) {
-          const updatedPhotos = await tx.mediaItem.updateMany({
-            where: { id: { in: photoIds }, sessionId, photographerId, status: MediaStatus.DRAFT, deletedAt: null },
-            data: { spotId: draft.spotId, price: draft.photoPrice, status: MediaStatus.PUBLISHED },
-          });
-          if (updatedPhotos.count !== photoIds.length) {
-            throw new BadRequestError('One or more session media items are not publishable');
-          }
-        }
-
-        const videoIds = mediaItems.filter((item) => item.type === MediaType.VIDEO).map((item) => item.id);
-        if (videoIds.length > 0) {
-          const updatedVideos = await tx.mediaItem.updateMany({
-            where: { id: { in: videoIds }, sessionId, photographerId, status: MediaStatus.DRAFT, deletedAt: null },
-            data: { spotId: draft.spotId, price: draft.videoPrice, status: MediaStatus.PUBLISHED },
-          });
-          if (updatedVideos.count !== videoIds.length) {
-            throw new BadRequestError('One or more session media items are not publishable');
-          }
-        }
 
         const sessionUpdate = await tx.surfSession.updateMany({
-          where: { id: sessionId, photographerId, status: SurfSessionStatus.DRAFT },
-          data: { status: SurfSessionStatus.PUBLISHED },
+          where: { id: sessionId, photographerId, status: SurfSessionStatus.PUBLISHED },
+          data: { status: SurfSessionStatus.DELETED },
         });
         if (sessionUpdate.count !== 1) {
-          throw new BadRequestError('Session is not a publishable draft');
+          throw new BadRequestError('Session is not a removable published session');
         }
 
-        return { mediaIds: mediaItems.map((item) => item.id) };
+        return { id: sessionId };
       }),
     );
   }

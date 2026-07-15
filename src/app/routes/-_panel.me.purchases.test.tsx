@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCartStore } from 'entities/Commerce/model/cartStore';
 import type { CartItem } from 'entities/Commerce/model/types';
 import { render } from 'test/setup/render';
-import { Route } from './_panel.me.purchases';
+import { Route } from './_panel.me.collections.purchases';
 
 const mocks = vi.hoisted(() => ({
   isLoading: false,
+  invalidateQueries: vi.fn(),
   purchases: [] as {
     id: string;
     purchasedAt: Date;
@@ -33,6 +34,9 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
       data: mocks.purchases,
       isLoading: mocks.isLoading,
     }),
+    useQueryClient: () => ({
+      invalidateQueries: mocks.invalidateQueries,
+    }),
   };
 });
 
@@ -40,7 +44,8 @@ vi.mock('shared/lib/trpc', () => ({
   useTRPC: () => ({
     checkout: {
       myPurchases: {
-        queryOptions: () => ({}),
+        queryKey: () => ['checkout', 'myPurchases'],
+        queryOptions: () => ({ queryKey: ['checkout', 'myPurchases'] }),
       },
     },
   }),
@@ -105,5 +110,26 @@ describe('PurchasesTab', () => {
     await waitFor(() => {
       expect(useCartStore.getState().items).toEqual([unpaidItem]);
     });
+  });
+
+  it('refreshes purchases from the server after a paid return', async () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+
+    render(<Component />);
+
+    await waitFor(() => {
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['checkout', 'myPurchases'],
+      });
+    });
+  });
+
+  it('renders purchase cards inside the shared panel gallery inset', () => {
+    const Component = (Route as unknown as { component: ComponentType }).component;
+
+    render(<Component />);
+
+    expect(document.querySelector('article')?.closest('[data-panel-gallery-inset]')).not.toBeNull();
+    expect(document.querySelector('[role="grid"][aria-label="Purchases"]')).not.toBeNull();
   });
 });

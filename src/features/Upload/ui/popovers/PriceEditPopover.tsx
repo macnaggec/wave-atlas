@@ -67,9 +67,11 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
     : `Applying to all ${itemLabel}`;
 
   const footer = (selectedCount > 0 || totalCount > 0) ? (
-    <Text size="xs" ta="center" c="dimmed">
-      {footerMessage}
-    </Text>
+    <Box p="xs" bg="blue.0" style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
+      <Text size="sm" c="dimmed" ta="center">
+        {footerMessage}
+      </Text>
+    </Box>
   ) : null;
 
   useEffect(() => {
@@ -102,7 +104,6 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
       position="bottom"
       withArrow
       shadow="md"
-      radius="md"
     >
       <Popover.Target>
         <Button
@@ -111,7 +112,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
           leftSection={<IconCurrencyDollar size={13} />}
           rightSection={<IconChevronDown size={11} />}
           disabled={disabled}
-          radius="md"
+          radius="xl"
           className={materials.controlButton}
           onClick={() => setOpened((o) => !o)}
         >
@@ -120,7 +121,7 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
       </Popover.Target>
 
       <Popover.Dropdown>
-        <Stack gap="sm">
+        <Stack gap="md">
           <NumberInput
             label="Price"
             placeholder="Enter price"
@@ -133,17 +134,18 @@ export const PriceEditPopover: FC<PriceEditPopoverProps> = ({
             fixedDecimalScale
             prefix="$"
             autoFocus
-            radius="md"
+            size="md"
+            radius="xl"
             error={priceError}
           />
 
           {footer}
 
           <Group gap="xs" grow>
-            <Button onClick={handleApply} disabled={!canApply} radius="md">
+            <Button onClick={handleApply} disabled={!canApply} radius="xl">
               Apply
             </Button>
-            <Button variant="subtle" onClick={handleCancel} radius="md">
+            <Button variant="subtle" onClick={handleCancel} radius="xl">
               Cancel
             </Button>
           </Group>

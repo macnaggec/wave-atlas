@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { render } from 'test/setup/render';
 import { PanelGalleryLayout } from './PanelGalleryLayout';
+import { PanelScrollChromeProvider } from './PanelScrollChrome';
 
 describe('PanelGalleryLayout', () => {
   it('separates metadata, gallery content, and footer actions inside a panel body', () => {
@@ -30,5 +31,17 @@ describe('PanelGalleryLayout', () => {
 
     expect(footer?.getAttribute('data-panel-gallery-footer')).toBe('fixed');
     expect(footer?.closest('[data-panel-gallery-scroller]')).toBeNull();
+  });
+
+  it('renders route-owned panel chrome inside the gallery scroll owner', () => {
+    render(
+      <PanelScrollChromeProvider value={<div>Collection tabs</div>}>
+        <PanelGalleryLayout>
+          <div>Gallery cards</div>
+        </PanelGalleryLayout>
+      </PanelScrollChromeProvider>,
+    );
+
+    expect(screen.getByText('Collection tabs').closest('[data-panel-gallery-scroller]')).not.toBeNull();
   });
 });

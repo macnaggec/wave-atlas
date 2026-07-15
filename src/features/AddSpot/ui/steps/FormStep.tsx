@@ -28,7 +28,7 @@ export function FormStep({
   onSubmit,
 }: FormStepProps) {
   return (
-    <Stack gap="sm">
+    <Stack gap={6}>
       <TextInput
         label="Spot name"
         placeholder="e.g. Uluwatu"
@@ -37,6 +37,7 @@ export function FormStep({
         error={nameError}
         required
         autoFocus
+        size="xs"
       />
       <TextInput
         label="Location"
@@ -46,10 +47,11 @@ export function FormStep({
         error={locationError}
         required
         rightSection={isGeocoding ? <Loader size={14} /> : null}
+        size="xs"
       />
-      <Group justify="space-between" mt="xs">
+      <Group justify="space-between" mt={2}>
         <Group gap="xs">
-          <Button variant="default" size="xs" onClick={onBack}>← Back</Button>
+          <Button variant="default" size="xs" onClick={onBack}>Back</Button>
           <Button variant="default" size="xs" onClick={onCancel}>Cancel</Button>
         </Group>
         <Button
@@ -58,7 +60,7 @@ export function FormStep({
           loading={isSubmitting}
           disabled={!name.trim() || !location.trim()}
         >
-          Add spot →
+          Add
         </Button>
       </Group>
     </Stack>

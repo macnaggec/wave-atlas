@@ -34,6 +34,15 @@
   color: var(--wa-text-placeholder);
 }
 
+.actionsTrigger {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--wa-surface-media-overlay);
+  backdrop-filter: var(--wa-glass-blur-sm);
+  -webkit-backdrop-filter: var(--wa-glass-blur-sm);
+}
+
 .spotNameGroup {
   min-width: 0;
 }

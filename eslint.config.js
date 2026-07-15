@@ -167,6 +167,34 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/widgets/GlobeMap/**/*.ts', 'src/widgets/GlobeMap/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: 'entities/Spot',
+            importNames: ['useSelectedSpot'],
+            message: 'GlobeMap must receive selected spot state from GlobeScene props, not read route-derived selection directly.',
+          },
+          {
+            name: '@tanstack/react-router',
+            message: 'GlobeMap must stay route-agnostic. Derive route state in GlobeScene and pass explicit props down.',
+          },
+        ],
+        patterns: [
+          {
+            group: ['features/*', 'features/**'],
+            message: 'GlobeMap is a map adapter. Feature state/actions belong in GlobeScene or feature-owned containers.',
+          },
+          {
+            group: ['views/*', 'views/**', 'app/*', 'app/**'],
+            message: 'GlobeMap must not depend on higher app/view layers. Pass explicit props or callbacks from GlobeScene.',
+          },
+        ],
+      }],
+    },
+  },
+  {
     files: ['src/server/repositories/**/*.ts'],
     ignores: ['src/server/repositories/**/*.test.ts', 'src/server/repositories/**/*.integration.test.ts'],
     rules: {

@@ -1,0 +1,22 @@
+.inputPulse {
+  animation: priceInputPulse 0.9s ease forwards;
+}
+
+@keyframes priceInputPulse {
+  0%, 100% {
+    box-shadow: inset 3px 0 0 var(--wa-status-danger);
+  }
+
+  20%, 60% {
+    box-shadow:
+      inset 3px 0 0 var(--wa-status-danger),
+      0 0 0 1.5px var(--wa-status-danger),
+      0 0 8px var(--wa-status-danger-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inputPulse {
+    animation: none;
+  }
+}

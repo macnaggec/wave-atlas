@@ -1,4 +1,4 @@
-import type { IMediaRepository } from 'server/repositories/MediaRepository';
+import type { IMediaRepository, PublishedSpotMediaFilter } from 'server/repositories/MediaRepository';
 import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
@@ -6,10 +6,6 @@ import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
 import type { MediaStatus, MediaItem } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
-import {
-  surfSessionRepository,
-  type ISurfSessionRepository,
-} from 'server/repositories/SurfSessionRepository';
 import {
   purchaseEntitlementService,
   type IPurchaseEntitlementService,
@@ -43,10 +39,6 @@ export class MediaService {
   constructor(
     private media: IMediaRepository,
     private cloudinary: Pick<ICloudinaryService, 'deleteAsset'>,
-    private sessions: Pick<
-      ISurfSessionRepository,
-      'createDraftMedia' | 'removeDraftMedia' | 'removeDraftMediaBatch'
-    >,
     private entitlements: Pick<IPurchaseEntitlementService, 'getViewerMediaEntitlements'> = purchaseEntitlementService,
   ) { }
 
@@ -61,12 +53,12 @@ export class MediaService {
   async deleteMedia(userId: string, mediaId: string): Promise<void> {
     const media = await this.assertOwns(userId, mediaId);
     if (media.status === MEDIA_STATUS.DRAFT) {
-      await this.sessions.removeDraftMedia(media.sessionId, userId, mediaId);
+      await this.media.hardDelete(mediaId);
       this.cloudinary.deleteAsset(
         media.cloudinaryPublicId,
         media.resource.resourceType,
       ).catch((err) =>
-        logger.error('[MediaService] Failed to clean up Cloudinary asset after draft removal', { publicId: media.cloudinaryPublicId, error: err }),
+        logger.error('[MediaService] Failed to clean up Cloudinary asset after unpublished media removal', { publicId: media.cloudinaryPublicId, error: err }),
       );
     } else {
       await this.media.softDelete(mediaId);
@@ -82,15 +74,15 @@ export class MediaService {
     }
     const sessionIds = new Set(items.map((item) => item.sessionId));
     if (sessionIds.size !== 1) {
-      throw new BadRequestError('Draft media must belong to one session');
+      throw new BadRequestError('Unpublished media must belong to one session');
     }
-    await this.sessions.removeDraftMediaBatch(items[0]!.sessionId, userId, mediaIds);
+    await this.media.hardDeleteMany(mediaIds);
     for (const item of items) {
       void this.cloudinary.deleteAsset(
         item.cloudinaryPublicId,
         item.type === 'VIDEO' ? 'video' : 'image',
       ).catch((err) =>
-        logger.error('[MediaService] Failed to clean up Cloudinary asset after batch draft removal', { publicId: item.cloudinaryPublicId, error: err }),
+        logger.error('[MediaService] Failed to clean up Cloudinary asset after batch unpublished media removal', { publicId: item.cloudinaryPublicId, error: err }),
       );
     }
   }
@@ -134,13 +126,10 @@ export class MediaService {
   }
 
   async findPublishedBySpot(
-    spotId: string,
-    cursor: string | undefined,
-    limit: number,
-    sortOrder: 'asc' | 'desc' = 'desc',
+    filter: PublishedSpotMediaFilter,
     viewerId?: string | null,
   ): Promise<PublicSpotMediaPage> {
-    const page = await this.media.findPublishedBySpot(spotId, cursor, limit, sortOrder);
+    const page = await this.media.findPublishedBySpot(filter);
     return {
       ...page,
       items: await this.withViewerEntitlement(page.items, viewerId),
@@ -195,4 +184,4 @@ export class MediaService {
   }
 }
 
-export const mediaService = new MediaService(mediaRepository, cloudinaryService, surfSessionRepository);
+export const mediaService = new MediaService(mediaRepository, cloudinaryService);

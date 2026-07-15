@@ -1,13 +1,15 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from 'server/db';
 import { SurfSessionRepository } from './SurfSessionRepository';
-import { SurfSessionService } from 'server/services/SurfSessionService';
 import { randomUUID } from 'node:crypto';
 
 const repository = new SurfSessionRepository();
-const service = new SurfSessionService(repository);
 
 async function clearTestData() {
+  await prisma.uploadAttempt.deleteMany();
+  await prisma.uploadWorkspaceAsset.deleteMany();
+  await prisma.uploadWorkspaceMediaChange.deleteMany();
+  await prisma.uploadWorkspace.deleteMany();
   await prisma.mediaItem.deleteMany();
   await prisma.surfSession.deleteMany();
   await prisma.spot.deleteMany();
@@ -18,28 +20,6 @@ beforeEach(clearTestData);
 afterAll(async () => {
   await clearTestData();
   await prisma.$disconnect();
-});
-
-describe('SurfSessionService.create', () => {
-  it('returns one active draft when creation requests race', async () => {
-    const photographer = await prisma.user.create({
-      data: { email: 'draft-race@example.com' },
-    });
-    const input = {
-      startsAt: new Date('2026-01-01T06:00:00Z'),
-      endsAt: new Date('2026-01-01T08:00:00Z'),
-    };
-
-    const [first, second] = await Promise.all([
-      service.create(photographer.id, input),
-      service.create(photographer.id, input),
-    ]);
-
-    expect(second.id).toBe(first.id);
-    expect(await prisma.surfSession.count({
-      where: { photographerId: photographer.id, status: 'DRAFT' },
-    })).toBe(1);
-  });
 });
 
 describe('SurfSession time window constraint', () => {
@@ -77,188 +57,100 @@ describe('SurfSession media ownership constraint', () => {
         ${photographer.id},
         ${new Date('2026-01-01T06:30:00Z')},
         ${'https://res.cloudinary.com/test/sessionless.jpg'},
-        ${'wave-atlas/users/test/sessionless'},
+        ${'swelldays/users/test/sessionless'},
         ${'https://res.cloudinary.com/test/sessionless-thumb.jpg'}
       )
     `).rejects.toThrow();
   });
-
-  it('removes draft media only through its owning session', async () => {
-    const photographer = await prisma.user.create({
-      data: { email: 'remove-draft-media@example.com' },
-    });
-    const draft = await prisma.surfSession.create({
-      data: { photographerId: photographer.id },
-    });
-    const media = await prisma.mediaItem.create({
-      data: {
-        sessionId: draft.id,
-        photographerId: photographer.id,
-        capturedAt: new Date('2026-01-01T06:30:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/remove.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/remove-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/remove',
-      },
-    });
-
-    await repository.removeDraftMedia(draft.id, photographer.id, media.id);
-
-    expect(await prisma.mediaItem.findUnique({ where: { id: media.id } })).toBeNull();
-    expect(await prisma.surfSession.findUnique({ where: { id: draft.id } })).not.toBeNull();
-  });
-
-  it('rejects a batch spanning more than one draft without deleting any media', async () => {
-    const firstPhotographer = await prisma.user.create({
-      data: { email: 'first-batch-owner@example.com' },
-    });
-    const secondPhotographer = await prisma.user.create({
-      data: { email: 'second-batch-owner@example.com' },
-    });
-    const firstDraft = await prisma.surfSession.create({
-      data: { photographerId: firstPhotographer.id },
-    });
-    const secondDraft = await prisma.surfSession.create({
-      data: { photographerId: secondPhotographer.id },
-    });
-    const firstMedia = await prisma.mediaItem.create({
-      data: {
-        sessionId: firstDraft.id,
-        photographerId: firstPhotographer.id,
-        capturedAt: new Date('2026-01-01T06:30:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/first.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/first-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/first',
-      },
-    });
-    const secondMedia = await prisma.mediaItem.create({
-      data: {
-        sessionId: secondDraft.id,
-        photographerId: secondPhotographer.id,
-        capturedAt: new Date('2026-01-01T07:00:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/second.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/second-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/second',
-      },
-    });
-
-    await expect(repository.removeDraftMediaBatch(
-      firstDraft.id,
-      firstPhotographer.id,
-      [firstMedia.id, secondMedia.id],
-    )).rejects.toThrow();
-
-    expect(await prisma.mediaItem.count({
-      where: { id: { in: [firstMedia.id, secondMedia.id] } },
-    })).toBe(2);
-  });
 });
 
-describe('SurfSessionRepository.publish', () => {
-  it('transitions the existing draft and prices only its attached media', async () => {
+describe('SurfSessionRepository.retire', () => {
+  it('soft-deletes a published session and its media', async () => {
     const photographer = await prisma.user.create({
-      data: { email: 'photographer@example.com' },
+      data: { email: 'retire-session@example.com' },
     });
     const spot = await prisma.spot.create({
       data: { name: 'Pipeline', location: 'North Shore' },
     });
-    const draft = await prisma.surfSession.create({
+    const session = await prisma.surfSession.create({
       data: {
         photographerId: photographer.id,
         spotId: spot.id,
         startsAt: new Date('2026-01-01T06:00:00Z'),
         endsAt: new Date('2026-01-01T08:00:00Z'),
-        photoPrice: 700,
-        videoPrice: 1200,
+        status: 'PUBLISHED',
       },
     });
-    const photo = await prisma.mediaItem.create({
+    const media = await prisma.mediaItem.create({
       data: {
-        sessionId: draft.id,
+        sessionId: session.id,
         photographerId: photographer.id,
+        spotId: spot.id,
         type: 'PHOTO',
+        status: 'PUBLISHED',
+        price: 700,
         capturedAt: new Date('2026-01-01T06:30:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/photo.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/photo-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/photo',
+        lightboxUrl: 'https://res.cloudinary.com/test/retire.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/retire-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/users/test/retire',
       },
     });
-    const video = await prisma.mediaItem.create({
-      data: {
-        sessionId: draft.id,
-        photographerId: photographer.id,
-        type: 'VIDEO',
-        capturedAt: new Date('2026-01-01T07:00:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/video.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/video-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/video',
-      },
-    });
-    const result = await repository.publish(draft.id, photographer.id);
 
-    expect(result.mediaIds).toEqual(expect.arrayContaining([photo.id, video.id]));
-    expect(await prisma.surfSession.count({ where: { photographerId: photographer.id } })).toBe(1);
-    expect(await prisma.surfSession.findUnique({ where: { id: draft.id } })).toMatchObject({
-      id: draft.id,
-      status: 'PUBLISHED',
+    await repository.retire(session.id, photographer.id);
+
+    expect(await prisma.surfSession.findUnique({ where: { id: session.id } })).toMatchObject({
+      status: 'DELETED',
     });
-    expect(await prisma.mediaItem.findUnique({ where: { id: photo.id } })).toMatchObject({
-      status: 'PUBLISHED',
-      spotId: spot.id,
-      price: 700,
-    });
-    expect(await prisma.mediaItem.findUnique({ where: { id: video.id } })).toMatchObject({
-      status: 'PUBLISHED',
-      spotId: spot.id,
-      price: 1200,
+    expect(await prisma.mediaItem.findUnique({ where: { id: media.id } })).toMatchObject({
+      status: 'DELETED',
     });
   });
+});
 
-  it('rejects the complete draft when any attached media is not publishable', async () => {
-    const photographer = await prisma.user.create({
-      data: { email: 'invalid-member@example.com' },
-    });
-    const spot = await prisma.spot.create({
-      data: { name: 'Backdoor', location: 'North Shore' },
-    });
-    const draft = await prisma.surfSession.create({
-      data: {
-        photographerId: photographer.id,
-        spotId: spot.id,
-        startsAt: new Date('2026-01-01T06:00:00Z'),
-        endsAt: new Date('2026-01-01T08:00:00Z'),
-      },
-    });
-    const validMedia = await prisma.mediaItem.create({
-      data: {
-        sessionId: draft.id,
-        photographerId: photographer.id,
-        capturedAt: new Date('2026-01-01T06:30:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/valid.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/valid-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/valid',
-      },
-    });
-    await prisma.mediaItem.create({
-      data: {
-        sessionId: draft.id,
-        photographerId: photographer.id,
-        status: 'DELETED',
-        deletedAt: new Date('2026-01-01T07:15:00Z'),
-        capturedAt: new Date('2026-01-01T07:00:00Z'),
-        lightboxUrl: 'https://res.cloudinary.com/test/deleted.jpg',
-        thumbnailUrl: 'https://res.cloudinary.com/test/deleted-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/deleted',
-      },
-    });
+describe('SurfSessionRepository.listPublished favorites filter', () => {
+  it('returns paginated sessions at the viewer favorite spots within the date range', async () => {
+    const viewer = await prisma.user.create({ data: { email: 'viewer@example.com' } });
+    const photographer = await prisma.user.create({ data: { email: 'feed-photographer@example.com' } });
+    const favoriteSpot = await prisma.spot.create({ data: { name: 'Favorite', location: 'North' } });
+    const otherSpot = await prisma.spot.create({ data: { name: 'Other', location: 'South' } });
+    await prisma.userFavoriteSpot.create({ data: { userId: viewer.id, spotId: favoriteSpot.id } });
 
-    await expect(repository.publish(draft.id, photographer.id)).rejects.toThrow();
+    const createSession = (spotId: string, startsAt: Date, createdAt: Date) =>
+      prisma.surfSession.create({
+        data: {
+          photographerId: photographer.id,
+          spotId,
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + 60 * 60 * 1000),
+          createdAt,
+          status: 'PUBLISHED',
+        },
+      });
 
-    expect(await prisma.surfSession.findUnique({ where: { id: draft.id } })).toMatchObject({
-      status: 'DRAFT',
-    });
-    expect(await prisma.mediaItem.findUnique({ where: { id: validMedia.id } })).toMatchObject({
-      status: 'DRAFT',
-      price: null,
-    });
+    const newestFavorite = await createSession(
+      favoriteSpot.id,
+      new Date('2026-07-10T10:00:00Z'),
+      new Date('2026-07-10T12:00:00Z'),
+    );
+    const olderFavorite = await createSession(
+      favoriteSpot.id,
+      new Date('2026-07-10T08:00:00Z'),
+      new Date('2026-07-10T11:00:00Z'),
+    );
+    await createSession(otherSpot.id, new Date('2026-07-10T09:00:00Z'), new Date('2026-07-10T13:00:00Z'));
+    await createSession(favoriteSpot.id, new Date('2026-07-08T09:00:00Z'), new Date('2026-07-10T14:00:00Z'));
+
+    const filter = {
+      limit: 1,
+      dateFrom: new Date('2026-07-10T00:00:00Z'),
+      dateTo: new Date('2026-07-11T00:00:00Z'),
+      favoriteUserId: viewer.id,
+    };
+    const firstPage = await repository.listPublished(filter);
+    const secondPage = await repository.listPublished({ ...filter, cursor: firstPage.nextCursor ?? undefined });
+
+    expect(firstPage.items.map((session) => session.id)).toEqual([newestFavorite.id]);
+    expect(secondPage.items.map((session) => session.id)).toEqual([olderFavorite.id]);
+    expect(secondPage.nextCursor).toBeNull();
   });
 });

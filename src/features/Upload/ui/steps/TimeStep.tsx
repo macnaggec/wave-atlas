@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Center, RangeSlider, Stack, Text } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { minutesToTime } from './helpers';
+import styles from './TimeStep.module.css';
 
 interface TimeStepProps {
   date: Date | null;
@@ -9,9 +10,21 @@ interface TimeStepProps {
   onChange: (date: Date | null, range: [number, number]) => void;
   onCommit: (date: Date | null, range: [number, number]) => void;
   hasTriedPublish?: boolean;
+  hasError?: boolean;
+  isFlashing?: boolean;
+  isReady?: boolean;
 }
 
-export function TimeStep({ date, range, onChange, onCommit, hasTriedPublish }: TimeStepProps) {
+export function TimeStep({
+  date,
+  range,
+  onChange,
+  onCommit,
+  hasTriedPublish,
+  hasError,
+  isFlashing = false,
+  isReady = false,
+}: TimeStepProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDateChange = useCallback((val: Date | string | null) => {
@@ -25,13 +38,36 @@ export function TimeStep({ date, range, onChange, onCommit, hasTriedPublish }: T
     onChange(date, newRange);
   }, [date, onChange]);
 
-  const dateError = hasTriedPublish && !date;
+  const dateError = hasError ?? (hasTriedPublish && !date);
+  const validityRail = dateError
+    ? 'inset 3px 0 0 var(--wa-status-danger)'
+    : isReady
+      ? 'inset 3px 0 0 var(--wa-accent-spot)'
+      : 'none';
 
   return (
-    <Stack gap={0} p="md">
-      <Text size="sm" fw={500} ta="center" mb="lg" style={{ letterSpacing: '0.07em', textTransform: 'uppercase', color: dateError ? 'var(--mantine-color-red-5)' : 'rgba(255,255,255,0.4)' }}>When did you shoot?</Text>
+    <Stack gap={0} data-upload-block>
+      <Text
+        data-upload-block-title
+        size="sm"
+        fw={500}
+        ta="center"
+        className={dateError && isFlashing ? styles.titlePulse : undefined}
+        data-validation-pulse={dateError && isFlashing ? 'true' : undefined}
+        style={{
+          alignSelf: 'center',
+          paddingInline: 12,
+          letterSpacing: '0.07em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.4)',
+          boxShadow: validityRail,
+          transition: 'box-shadow 120ms ease',
+        }}
+      >
+        When did you shoot?
+      </Text>
 
-      <Stack gap={'40px'}>
+      <Stack gap="var(--upload-nested-gap)">
         <Center>
           <DatePicker
             value={date}
@@ -39,22 +75,22 @@ export function TimeStep({ date, range, onChange, onCommit, hasTriedPublish }: T
             maxDate={new Date()}
             size="sm"
             styles={{
-              calendarHeader: { color: '#fff' },
-              calendarHeaderLevel: { color: '#fff', background: 'transparent' },
-              calendarHeaderControl: { color: 'rgba(255,255,255,0.65)' },
-              weekday: { color: 'rgba(255,255,255,0.5)' },
-              day: { color: '#fff' },
+              calendarHeader: { color: 'var(--wa-text-inverse)' },
+              calendarHeaderLevel: { color: 'var(--wa-text-inverse)', background: 'transparent' },
+              calendarHeaderControl: { color: 'var(--wa-text-upload-zone)' },
+              weekday: { color: 'var(--wa-text-dimmed)' },
+              day: { color: 'var(--wa-text-inverse)' },
             }}
           />
         </Center>
 
-        <Stack gap={6}>
+        <Stack gap="var(--upload-micro-gap)">
           <Text
             ta="center"
             style={{
               lineHeight: '22px',
-              color: isDragging ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.65)',
-              fontSize: isDragging ? 15 : 12,
+              color: isDragging ? 'var(--wa-text-status)' : 'var(--wa-text-upload-zone)',
+              fontSize: isDragging ? 'var(--wa-font-size-base)' : 'var(--wa-font-size-sm)',
               fontWeight: isDragging ? 600 : 400,
               transition: 'all 120ms ease',
             }}
@@ -77,15 +113,15 @@ export function TimeStep({ date, range, onChange, onCommit, hasTriedPublish }: T
             styles={{
               root: {
                 '--slider-radius': '2px',
-                '--slider-track-bg': 'rgba(255,255,255,0.08)',
-                '--slider-color': 'rgba(255,255,255,0.28)',
+                '--slider-track-bg': 'var(--wa-control-fill)',
+                '--slider-color': 'var(--wa-glass-border-media-overlay-hover)',
               } as React.CSSProperties,
               thumb: {
                 border: 'none',
                 width: 22,
                 height: 10,
                 borderRadius: 99,
-                backgroundColor: 'rgba(255,255,255,0.88)',
+                backgroundColor: 'var(--wa-text-primary)',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
               },
             }}

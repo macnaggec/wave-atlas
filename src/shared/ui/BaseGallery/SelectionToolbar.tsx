@@ -4,6 +4,7 @@ import React, { ReactNode, memo } from 'react';
 import { Button, Group, Menu } from '@mantine/core';
 import { IconDots } from '@tabler/icons-react';
 import { UseGallerySelectionReturn } from 'shared/hooks/gallery';
+import materials from 'shared/ui/design-system/materials.module.css';
 import classes from './SelectionToolbar.module.css';
 
 export interface SelectionToolbarProps<T> {
@@ -31,7 +32,7 @@ const SelectionToolbar = memo(<T,>({
                 size="xs"
                 leftSection={<IconDots size={14} />}
                 disabled={!selection.hasSelection}
-                className={classes.glassButton}
+                className={`${classes.glassButton} ${materials.panelControl}`}
                 radius="xl"
               >
                 Actions
@@ -61,7 +62,7 @@ const SelectionToolbar = memo(<T,>({
         <Button
           variant="transparent"
           size="xs"
-          className={selection.isSelectionMode ? classes.ghostButton : classes.glassButton}
+          className={selection.isSelectionMode ? classes.ghostButton : `${classes.glassButton} ${materials.panelControl}`}
           radius="xl"
           onClick={selection.isSelectionMode ? selection.disableSelectionMode : selection.enableSelectionMode}
         >

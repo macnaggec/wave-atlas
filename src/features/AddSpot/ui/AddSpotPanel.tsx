@@ -1,4 +1,5 @@
 import { Paper } from '@mantine/core';
+import { materialClasses } from 'shared/ui/design-system';
 import { useAddSpotFlow } from '../model/useAddSpotFlow';
 import styles from './AddSpotPanel.module.css';
 import { HintStep } from './steps/HintStep';
@@ -12,9 +13,9 @@ export function AddSpotPanel() {
     <Paper
       shadow="xl"
       radius="md"
-      p="md"
+      p="xs"
       withBorder
-      className={styles.panel}
+      className={`${styles.panel} ${materialClasses.status}`}
     >
       {flow.step === 'hint' && (
         <HintStep onCancel={flow.cancel} />
@@ -49,4 +50,3 @@ export function AddSpotPanel() {
     </Paper>
   );
 }
-

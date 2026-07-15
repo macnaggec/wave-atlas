@@ -26,7 +26,7 @@ function OrderSuccessPage() {
         </Text>
 
         <Group gap="sm">
-          <Button component={Link} to="/me/purchases">
+          <Button component={Link} to="/me/collections/purchases">
             Go to Purchases
           </Button>
           <Button component={Link} to="/" variant="subtle">

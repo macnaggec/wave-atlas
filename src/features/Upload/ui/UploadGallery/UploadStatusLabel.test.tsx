@@ -21,6 +21,7 @@ describe('UploadStatusLabel', () => {
         source: 'DRIVE' as const,
         status: 'ACQUIRING' as const,
         previewUrl: 'drive:import-1',
+        resourceType: 'image' as const,
       },
     ] satisfies GalleryCard[];
 

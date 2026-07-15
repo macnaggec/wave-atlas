@@ -3,14 +3,14 @@
   align-items: center;
   padding: 3px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wa-control-fill-muted);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .segment {
   padding: 4px 14px;
   border-radius: 16px;
-  font-size: 12px;
+  font-size: var(--wa-font-size-sm);
   font-weight: 500;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.6);
@@ -26,7 +26,7 @@
 }
 
 .segmentActive {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.92);
+  background: var(--wa-control-fill-active);
+  color: var(--wa-text-media-overlay);
   cursor: default;
 }

@@ -1,3 +1,3 @@
 export { AddSpotProvider, useAddSpot } from './AddSpotProvider';
 export { AddSpotPanel } from './ui/AddSpotPanel';
-export { usePinPlacementStore } from './model/pinPlacementStore';
+export { useAddSpotStore } from './model/addSpotStore';

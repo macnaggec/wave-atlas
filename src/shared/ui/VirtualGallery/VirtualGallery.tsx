@@ -1,14 +1,30 @@
 import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useScrollHidden } from 'shared/hooks';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader } from '@mantine/core';
 import type { GalleryRow } from 'shared/lib/buildGalleryRows';
 import type { CardContext } from 'shared/ui/BaseGallery/BaseGallery';
 import SelectionCheckbox from 'shared/ui/BaseGallery/SelectionCheckbox';
+import { PanelScrollChrome, usePanelScrollChromeState } from 'shared/ui/PanelScrollChrome';
 import styles from './VirtualGallery.module.css';
 
-const DIVIDER_HEIGHT = 48;
+const DIVIDER_HEIGHT = 32;
 const CARD_ROW_ESTIMATE = 220;
+const ACTIVE_ROW_ANCHOR_RATIO = 0.2;
+
+interface MeasuredVirtualRow {
+  index: number;
+  start: number;
+  size: number;
+}
+
+export function getAnchoredVisibleRowIndex(
+  virtualItems: MeasuredVirtualRow[],
+  scrollTop: number,
+  viewportHeight: number,
+) {
+  const anchorOffset = scrollTop + (viewportHeight * ACTIVE_ROW_ANCHOR_RATIO);
+  return virtualItems.find((vi) => vi.start + vi.size > anchorOffset)?.index ?? 0;
+}
 
 interface SelectionState {
   isSelectionMode: boolean;
@@ -22,18 +38,24 @@ export interface VirtualGalleryHandle {
 
 export interface VirtualGalleryProps<T extends { id: string }> {
   rows: GalleryRow<T>[];
+  /** Cards per media row — must match the column count used to build `rows`. */
+  columns?: number;
+  /** Dense mode: gapless, edge-to-edge tiles. */
+  dense?: boolean;
   renderCard: (item: T, context: CardContext) => ReactNode;
   selection?: SelectionState;
   toolbar?: ReactNode;
   onEndReached?: () => void;
   isFetchingMore?: boolean;
-  /** Called when the first visible row index changes — use to drive an external sidebar. */
+  /** Called when the anchored visible row index changes — use to drive an external sidebar. */
   onFirstVisibleIndexChange?: (index: number) => void;
 }
 
 function VirtualGalleryInner<T extends { id: string }>(
   {
     rows,
+    columns = 3,
+    dense = false,
     renderCard,
     selection,
     toolbar,
@@ -44,8 +66,7 @@ function VirtualGalleryInner<T extends { id: string }>(
   ref: React.ForwardedRef<VirtualGalleryHandle>,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  useScrollHidden(toolbarRef, selection?.isSelectionMode ?? false);
+  const { hidden: panelChromeHidden } = usePanelScrollChromeState();
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual exposes imperative functions that React Compiler intentionally leaves un-memoized.
   const virtualizer = useVirtualizer({
@@ -85,18 +106,23 @@ function VirtualGalleryInner<T extends { id: string }>(
 
   // Scroll tracking — feeds onFirstVisibleIndexChange for external sidebars
   const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
   useEffect(() => {
     if (!onFirstVisibleIndexChange) return;
     const container = containerRef.current;
     if (!container) return;
-    const onScroll = () => setScrollTop(container.scrollTop);
+    setViewportHeight(container.clientHeight);
+    const onScroll = () => {
+      setScrollTop(container.scrollTop);
+      setViewportHeight(container.clientHeight);
+    };
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
   }, [onFirstVisibleIndexChange]);
 
   const firstVisibleIndex = useMemo(
-    () => virtualItems.find((vi) => vi.start + vi.size > scrollTop)?.index ?? 0,
-    [virtualItems, scrollTop],
+    () => getAnchoredVisibleRowIndex(virtualItems, scrollTop, viewportHeight),
+    [virtualItems, scrollTop, viewportHeight],
   );
 
   useEffect(() => {
@@ -112,9 +138,18 @@ function VirtualGalleryInner<T extends { id: string }>(
   );
 
   return (
-    <div ref={containerRef} className={styles.container}>
+    <div
+      ref={containerRef}
+      className={styles.container}
+      data-dense={dense || undefined}
+      style={{ '--gallery-cols': columns } as React.CSSProperties}
+    >
+      <PanelScrollChrome />
       {toolbar && (
-        <div ref={toolbarRef} className={styles.toolbar}>
+        <div
+          className={styles.toolbar}
+          data-hidden={(panelChromeHidden && !selection?.isSelectionMode) || undefined}
+        >
           {toolbar}
         </div>
       )}

@@ -121,7 +121,7 @@ const AddFileCard: FC<AddFileCardProps> = memo(({
     >
       <Stack align="center" justify="center" gap={4} className={classes.content}>
         <ActionIcon
-          size={36}
+          size="lg"
           radius="xl"
           variant="light"
           color={disabled ? "gray" : "blue"}

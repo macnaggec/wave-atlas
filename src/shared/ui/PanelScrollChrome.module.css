@@ -1,0 +1,28 @@
+.chrome {
+  --wa-panel-control-background: rgba(255, 255, 255, 0.24);
+  --wa-panel-control-backdrop: blur(24px) saturate(140%);
+
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  overflow: visible;
+  transform: translateY(0);
+  z-index: 10;
+  transition: transform 220ms ease;
+}
+
+.chrome[data-hidden] {
+  pointer-events: none;
+  transform: translateY(-100%);
+}
+
+/* Every gallery's sticky row reads as one material: Mantine pill controls
+   projected into the chrome pick up the shared control glass. */
+.chrome :global(.mantine-Input-input),
+.chrome :global(.mantine-Tabs-list) {
+  border: 1px solid var(--wa-glass-border-media-overlay);
+  background: var(--wa-panel-control-background);
+  backdrop-filter: var(--wa-panel-control-backdrop);
+  -webkit-backdrop-filter: var(--wa-panel-control-backdrop);
+}

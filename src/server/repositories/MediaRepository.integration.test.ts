@@ -7,6 +7,7 @@ const repo = new MediaRepository();
 async function clearTestData() {
   await prisma.mediaItem.deleteMany();
   await prisma.surfSession.deleteMany();
+  await prisma.userFavoriteSpot.deleteMany();
   await prisma.spot.deleteMany();
   await prisma.user.deleteMany();
 }
@@ -15,6 +16,71 @@ beforeEach(clearTestData);
 afterAll(async () => {
   await clearTestData();
   await prisma.$disconnect();
+});
+
+// ---------------------------------------------------------------------------
+// hasDraftsByUser
+// ---------------------------------------------------------------------------
+
+describe('MediaRepository.hasDraftsByUser', () => {
+  it('is true for a genuinely new, never-published draft', async () => {
+    const photographer = await prisma.user.create({
+      data: { email: 'new-draft@example.com' },
+    });
+    const session = await prisma.surfSession.create({
+      data: { photographerId: photographer.id },
+    });
+    await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        status: 'DRAFT',
+        capturedAt: new Date('2026-01-01T06:30:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/new-draft.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/new-draft-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/new-draft',
+      },
+    });
+
+    await expect(repo.hasDraftsByUser(photographer.id)).resolves.toBe(true);
+  });
+
+  it('is false for a session reopened for editing, even with a newly added file', async () => {
+    const photographer = await prisma.user.create({
+      data: { email: 'reopened-edit@example.com' },
+    });
+    const session = await prisma.surfSession.create({
+      data: { photographerId: photographer.id },
+    });
+    // The original, previously-published photo keeps its price, which marks the session as
+    // previously published even if legacy unpublished rows still exist.
+    await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        status: 'DRAFT',
+        price: 700,
+        capturedAt: new Date('2026-01-01T06:30:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/reopened-original.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/reopened-original-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/reopened-original',
+      },
+    });
+    // A file added via "add more" during this same edit — never published, price still null.
+    await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        status: 'DRAFT',
+        capturedAt: new Date('2026-01-01T07:00:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/reopened-new.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/reopened-new-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/reopened-new',
+      },
+    });
+
+    await expect(repo.hasDraftsByUser(photographer.id)).resolves.toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -39,16 +105,16 @@ describe('MediaRepository.findByIdsForFulfillment', () => {
     };
 
     const published = await prisma.mediaItem.create({
-      data: { ...base, status: 'PUBLISHED', price: 700, cloudinaryPublicId: 'wave-atlas/test/fulfillment-pub' },
+      data: { ...base, status: 'PUBLISHED', price: 700, cloudinaryPublicId: 'swelldays/test/fulfillment-pub' },
     });
     const draft = await prisma.mediaItem.create({
-      data: { ...base, status: 'DRAFT', price: 700, cloudinaryPublicId: 'wave-atlas/test/fulfillment-draft' },
+      data: { ...base, status: 'DRAFT', price: 700, cloudinaryPublicId: 'swelldays/test/fulfillment-draft' },
     });
     const noPrice = await prisma.mediaItem.create({
-      data: { ...base, status: 'PUBLISHED', price: null, cloudinaryPublicId: 'wave-atlas/test/fulfillment-no-price' },
+      data: { ...base, status: 'PUBLISHED', price: null, cloudinaryPublicId: 'swelldays/test/fulfillment-no-price' },
     });
     const deleted = await prisma.mediaItem.create({
-      data: { ...base, status: 'PUBLISHED', price: 700, deletedAt: new Date(), cloudinaryPublicId: 'wave-atlas/test/fulfillment-deleted' },
+      data: { ...base, status: 'PUBLISHED', price: 700, deletedAt: new Date(), cloudinaryPublicId: 'swelldays/test/fulfillment-deleted' },
     });
 
     const results = await repo.findByIdsForFulfillment([published.id, draft.id, noPrice.id, deleted.id]);
@@ -74,7 +140,7 @@ describe('MediaRepository.findByIdsForFulfillment', () => {
         capturedAt: new Date('2026-01-01T06:30:00Z'),
         lightboxUrl: 'https://res.cloudinary.com/test/shape.jpg',
         thumbnailUrl: 'https://res.cloudinary.com/test/shape-thumb.jpg',
-        cloudinaryPublicId: 'wave-atlas/users/test/shape',
+        cloudinaryPublicId: 'swelldays/users/test/shape',
       },
     });
 
@@ -84,7 +150,7 @@ describe('MediaRepository.findByIdsForFulfillment', () => {
       id: media.id,
       price: 1500,
       photographerId: photographer.id,
-      cloudinaryPublicId: 'wave-atlas/users/test/shape',
+      cloudinaryPublicId: 'swelldays/users/test/shape',
     }]);
   });
 });
@@ -94,6 +160,42 @@ describe('MediaRepository.findByIdsForFulfillment', () => {
 // ---------------------------------------------------------------------------
 
 describe('MediaRepository.findPublishedBySpot', () => {
+  it('returns only media captured in range at spots favorited by the viewer', async () => {
+    const viewer = await prisma.user.create({ data: { email: 'gallery-viewer@example.com' } });
+    const photographer = await prisma.user.create({ data: { email: 'gallery-photographer@example.com' } });
+    const favoriteSpot = await prisma.spot.create({ data: { name: 'Favorite', location: 'North' } });
+    const otherSpot = await prisma.spot.create({ data: { name: 'Other', location: 'South' } });
+    await prisma.userFavoriteSpot.create({ data: { userId: viewer.id, spotId: favoriteSpot.id } });
+    const session = await prisma.surfSession.create({ data: { photographerId: photographer.id } });
+
+    const createMedia = (spotId: string, capturedAt: Date, publicId: string) => prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        spotId,
+        status: 'PUBLISHED',
+        capturedAt,
+        lightboxUrl: `https://example.com/${publicId}.jpg`,
+        thumbnailUrl: `https://example.com/${publicId}-thumb.jpg`,
+        cloudinaryPublicId: publicId,
+      },
+    });
+
+    const included = await createMedia(favoriteSpot.id, new Date('2026-07-10T10:00:00Z'), 'included');
+    await createMedia(otherSpot.id, new Date('2026-07-10T11:00:00Z'), 'other-spot');
+    await createMedia(favoriteSpot.id, new Date('2026-07-09T10:00:00Z'), 'out-of-range');
+
+    const { items } = await repo.findPublishedBySpot({
+      limit: 10,
+      sortOrder: 'desc',
+      dateFrom: new Date('2026-07-10T00:00:00Z'),
+      dateTo: new Date('2026-07-11T00:00:00Z'),
+      favoriteUserId: viewer.id,
+    });
+
+    expect(items.map((item) => item.id)).toEqual([included.id]);
+  });
+
   it('excludes draft and deleted rows, returns only PUBLISHED non-deleted for the given spot', async () => {
     const photographer = await prisma.user.create({
       data: { email: 'spot-filter@example.com' },
@@ -113,16 +215,16 @@ describe('MediaRepository.findPublishedBySpot', () => {
     };
 
     const published = await prisma.mediaItem.create({
-      data: { ...base, status: 'PUBLISHED', cloudinaryPublicId: 'wave-atlas/test/spot-pub' },
+      data: { ...base, status: 'PUBLISHED', cloudinaryPublicId: 'swelldays/test/spot-pub' },
     });
     await prisma.mediaItem.create({
-      data: { ...base, status: 'DRAFT', cloudinaryPublicId: 'wave-atlas/test/spot-draft' },
+      data: { ...base, status: 'DRAFT', cloudinaryPublicId: 'swelldays/test/spot-draft' },
     });
     await prisma.mediaItem.create({
-      data: { ...base, status: 'PUBLISHED', deletedAt: new Date(), cloudinaryPublicId: 'wave-atlas/test/spot-deleted' },
+      data: { ...base, status: 'PUBLISHED', deletedAt: new Date(), cloudinaryPublicId: 'swelldays/test/spot-deleted' },
     });
 
-    const { items } = await repo.findPublishedBySpot(spot.id, undefined, 10);
+    const { items } = await repo.findPublishedBySpot({ spotId: spot.id, limit: 10 });
 
     expect(items).toHaveLength(1);
     expect(items[0]!.id).toBe(published.id);
@@ -147,13 +249,13 @@ describe('MediaRepository.findPublishedBySpot', () => {
     };
 
     const early = await prisma.mediaItem.create({
-      data: { ...base, capturedAt: new Date('2026-01-01T06:00:00Z'), cloudinaryPublicId: 'wave-atlas/test/sort-early' },
+      data: { ...base, capturedAt: new Date('2026-01-01T06:00:00Z'), cloudinaryPublicId: 'swelldays/test/sort-early' },
     });
     const late = await prisma.mediaItem.create({
-      data: { ...base, capturedAt: new Date('2026-01-01T08:00:00Z'), cloudinaryPublicId: 'wave-atlas/test/sort-late' },
+      data: { ...base, capturedAt: new Date('2026-01-01T08:00:00Z'), cloudinaryPublicId: 'swelldays/test/sort-late' },
     });
 
-    const { items } = await repo.findPublishedBySpot(spot.id, undefined, 10);
+    const { items } = await repo.findPublishedBySpot({ spotId: spot.id, limit: 10 });
 
     expect(items[0]!.id).toBe(late.id);
     expect(items[1]!.id).toBe(early.id);
@@ -179,21 +281,65 @@ describe('MediaRepository.findPublishedBySpot', () => {
           capturedAt: new Date(`2026-01-0${4 - i}T06:00:00Z`),
           lightboxUrl: `https://res.cloudinary.com/test/page-${i}.jpg`,
           thumbnailUrl: `https://res.cloudinary.com/test/page-${i}-thumb.jpg`,
-          cloudinaryPublicId: `wave-atlas/test/paginate-${i}`,
+          cloudinaryPublicId: `swelldays/test/paginate-${i}`,
         },
       });
     }
 
-    const firstPage = await repo.findPublishedBySpot(spot.id, undefined, 2);
+    const firstPage = await repo.findPublishedBySpot({ spotId: spot.id, limit: 2 });
     expect(firstPage.items).toHaveLength(2);
     expect(firstPage.nextCursor).not.toBeNull();
 
-    const secondPage = await repo.findPublishedBySpot(spot.id, firstPage.nextCursor!, 2);
+    const secondPage = await repo.findPublishedBySpot({ spotId: spot.id, cursor: firstPage.nextCursor!, limit: 2 });
     expect(secondPage.items).toHaveLength(2);
     expect(secondPage.nextCursor).toBeNull();
 
     const firstIds = firstPage.items.map(item => item.id);
     const secondIds = secondPage.items.map(item => item.id);
     expect(firstIds.some(id => secondIds.includes(id))).toBe(false);
+  });
+
+  it('returns published media across all spots when no spotId is given, with each item carrying its own spot', async () => {
+    const photographer = await prisma.user.create({
+      data: { email: 'all-spots@example.com' },
+    });
+    const spotA = await prisma.spot.create({ data: { name: 'Backdoor', location: 'North Shore' } });
+    const spotB = await prisma.spot.create({ data: { name: 'Pipeline', location: 'North Shore' } });
+    const session = await prisma.surfSession.create({
+      data: { photographerId: photographer.id },
+    });
+
+    const itemA = await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        spotId: spotA.id,
+        status: 'PUBLISHED',
+        capturedAt: new Date('2026-01-01T06:00:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/all-a.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/all-a-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/all-spots-a',
+      },
+    });
+    const itemB = await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        spotId: spotB.id,
+        status: 'PUBLISHED',
+        capturedAt: new Date('2026-01-01T08:00:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/all-b.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/all-b-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/all-spots-b',
+      },
+    });
+
+    const { items } = await repo.findPublishedBySpot({ limit: 10 });
+
+    expect(items.map(item => item.id).sort()).toEqual([itemA.id, itemB.id].sort());
+    const foundA = items.find(item => item.id === itemA.id)!;
+    const foundB = items.find(item => item.id === itemB.id)!;
+    expect(foundA.spot).toEqual({ id: spotA.id, name: 'Backdoor' });
+    expect(foundB.spot).toEqual({ id: spotB.id, name: 'Pipeline' });
   });
 });

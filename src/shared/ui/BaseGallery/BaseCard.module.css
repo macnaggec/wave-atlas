@@ -11,6 +11,11 @@
   contain: layout style paint;
 }
 
+/* Gapless dense grid: square corners so adjacent tiles read as one surface. */
+.card[data-media-card-flush='true'] {
+  border-radius: 0;
+}
+
 .card:hover {
   /* Removed transform to prevent network requests */
 }
@@ -38,6 +43,20 @@
 
 .card:hover .media {
   /* Removed transform to prevent network requests */
+}
+
+/* Corner glyph (top-left) — single state glyph anchored to the corner over a
+   darkening scrim so a light glyph stays legible on light media. */
+.cornerGlyph {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  padding: 4px 16px 16px 4px;
+  color: var(--wa-text-media-overlay);
+  background: var(--wa-scrim-media-corner-top);
+  pointer-events: none;
 }
 
 /* Overlays slot (top-left corner) */
@@ -78,20 +97,18 @@
   border-color: var(--wa-glass-border-media-overlay-hover);
 }
 
-/* Video play indicator (bottom-left) */
+/* Video play marker — mirrors the corner state glyph, anchored to the
+   bottom-left corner over the same scrim; indicates a playable video without
+   emphasising it. */
 .videoIndicator {
   position: absolute;
-  bottom: var(--mantine-spacing-xs);
-  left: var(--mantine-spacing-xs);
+  bottom: 0;
+  left: 0;
   z-index: 2;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--wa-surface-video-indicator);
-  color: var(--wa-text-inverse);
+  padding: 16px 16px 4px 4px;
+  color: var(--wa-text-media-overlay);
+  background: var(--wa-scrim-media-corner-bottom);
   pointer-events: none;
 }
 

@@ -1,5 +1,5 @@
 {
-  "name": "wave-atlas",
+  "name": "swelldays",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,6 +23,7 @@
     "test:db:down": "docker compose -f docker-compose.test.yml down"
   },
   "dependencies": {
+    "@fontsource/geist-sans": "^5.2.5",
     "@hono/node-server": "^1.13.7",
     "@hono/trpc-server": "^0.4.2",
     "@mantine/carousel": "^8.3.11",

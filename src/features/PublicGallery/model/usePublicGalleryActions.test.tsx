@@ -34,6 +34,7 @@ describe('usePublicGalleryActions', () => {
     const { result } = renderHook(() =>
       usePublicGalleryActions({
         cartItemIds: new Set(),
+        favoriteItemIds: new Set(['media-1']),
         hasShare: false,
       }),
     );
@@ -44,8 +45,8 @@ describe('usePublicGalleryActions', () => {
     });
 
     expect(result.current.getCardActions(purchasedItem, false)).toEqual({
-      actions: [],
-      activeActions: [],
+      actions: ['favorites'],
+      activeActions: ['favorites'],
       isOwn: false,
       isPurchased: true,
     });

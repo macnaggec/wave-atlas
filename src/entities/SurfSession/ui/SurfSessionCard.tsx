@@ -1,18 +1,22 @@
-import { Badge, Group, Stack, Text } from '@mantine/core';
-import { IconCalendar, IconMapPin, IconPhoto } from '@tabler/icons-react';
+import { ActionIcon, Badge, Group, Menu, Stack, Text } from '@mantine/core';
+import { IconCalendar, IconDots, IconMapPin, IconPencil, IconPhoto, IconTrash } from '@tabler/icons-react';
 import { formatDateRange } from 'shared/lib/dateUtils';
 import type { SurfSessionItem } from '../types';
 import styles from './SurfSessionCard.module.css';
 
 interface SurfSessionCardProps {
   session: SurfSessionItem;
+  onClick?: (session: SurfSessionItem) => void;
+  onEdit?: (session: SurfSessionItem) => void;
+  onRemove?: (session: SurfSessionItem) => void;
 }
 
-export function SurfSessionCard({ session }: SurfSessionCardProps) {
+export function SurfSessionCard({ session, onClick, onEdit, onRemove }: SurfSessionCardProps) {
   const isDraft = session.status === 'DRAFT';
+  const hasActions = !!(onEdit || onRemove);
 
   return (
-    <Stack gap={0} className={styles.card}>
+    <Stack gap={0} className={styles.card} onClick={onClick ? () => onClick(session) : undefined}>
       <div className={styles.media}>
         {session.thumbnailUrl ? (
           <img
@@ -24,6 +28,35 @@ export function SurfSessionCard({ session }: SurfSessionCardProps) {
           <div className={styles.placeholder}>
             <IconPhoto size={28} className={styles.placeholderIcon} />
           </div>
+        )}
+        {hasActions && (
+          <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+              <ActionIcon
+                variant="filled"
+                color="dark"
+                size="sm"
+                radius="xl"
+                className={styles.actionsTrigger}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Session actions"
+              >
+                <IconDots size={14} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+              {onEdit && (
+                <Menu.Item leftSection={<IconPencil size={14} />} onClick={() => onEdit(session)}>
+                  Edit
+                </Menu.Item>
+              )}
+              {onRemove && (
+                <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={() => onRemove(session)}>
+                  Remove completely
+                </Menu.Item>
+              )}
+            </Menu.Dropdown>
+          </Menu>
         )}
       </div>
 

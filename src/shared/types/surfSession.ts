@@ -15,6 +15,7 @@ export type SurfSessionItem = {
   status: SurfSessionStatus;
   createdAt: Date;
   spot: { id: string; name: string; location: string };
+  photographer: { id: string; name: string | null };
   thumbnailUrl: string | null;
   mediaCount: number;
 };

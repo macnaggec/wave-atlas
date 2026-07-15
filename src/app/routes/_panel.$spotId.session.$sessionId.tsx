@@ -3,9 +3,12 @@ import { trpcProxy } from 'shared/lib/trpcClient';
 import { SessionDetail } from 'widgets/SidePanel';
 
 export const Route = createFileRoute('/_panel/$spotId/session/$sessionId')({
+  validateSearch: (search): { from?: string } => ({
+    from: typeof search.from === 'string' ? search.from : undefined,
+  }),
+  staticData: { panelMode: 'workspace' },
   loader: async ({ context: { queryClient }, params }) =>
     queryClient.ensureQueryData(trpcProxy.sessions.byId.queryOptions(params.sessionId)),
-  staticData: { forceExpanded: true },
   component: SessionDetailPage,
 });
 

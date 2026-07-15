@@ -3,7 +3,6 @@ import { ActionIcon, Indicator } from '@mantine/core';
 import { IconShoppingCart } from '@tabler/icons-react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCartStore } from 'entities/Commerce';
-import { useUser } from 'shared/hooks/useUser';
 
 /**
  * CartControl — cart icon button in the left strip.
@@ -25,7 +24,6 @@ export const CartControl = memo(function CartControl() {
     }),
   });
   const count = useCartStore((s) => s.items.length);
-  const { isAuthenticated } = useUser();
 
   const handleClick = useCallback(() => {
     void navigate({
@@ -34,21 +32,20 @@ export const CartControl = memo(function CartControl() {
     });
   }, [navigate, isCartRoute, currentSpotId]);
 
-  if (!isAuthenticated || count === 0) return null;
+  if (count === 0) return null;
 
   return (
     <Indicator
       label={count}
       size={16}
-      color='pink'
+      color="pink"
     >
       <ActionIcon
-        variant={'outline'}
+        variant="transparent"
         size="lg"
-        radius="xl"
-        color='green'
         aria-label={`Cart, ${count} item${count !== 1 ? 's' : ''}`}
         onClick={handleClick}
+        style={{ color: 'var(--wa-status-success)', border: '1px solid rgba(74, 222, 128, 0.5)', borderRadius: 10 }}
       >
         <IconShoppingCart size={18} />
       </ActionIcon>

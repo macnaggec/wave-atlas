@@ -22,3 +22,4 @@ export { validateFile, validateFileBatch, formatBytes } from './lib/uploadValida
 export { useDeleteMedia } from './model/useDeleteMedia';
 export { useDeleteMediaBatch } from './model/useDeleteMediaBatch';
 export { useMyDrafts } from './model/useMyDrafts';
+export { useMediaFavorites } from './model/useMediaFavorites';

@@ -1,81 +1,81 @@
-import { useState, useEffect, useRef } from 'react';
-import { useUploadManager, useUploadQueue, useUploadWarning, GalleryCard, getItemId } from '../../model';
+import { useState, useCallback } from 'react';
+import {
+  useUploadWarning,
+  GalleryCard,
+  getItemId,
+  type UploadManagerHandlers,
+} from '../../model';
 import { useGooglePicker } from '../../model/useGooglePicker';
 import { useGallerySelection } from 'shared/hooks/gallery';
 import { StepModeModal } from '../UploadGallery/StepModeModal';
 import { UploadStatusLabel } from '../UploadGallery/UploadStatusLabel';
 import { UploadZone } from '../UploadGallery/UploadZone';
-import styles from '../UploadGallery/UploadZone.module.css';
 
-export function UploadStep({ draftId, filesErrorTick }: { draftId: string; filesErrorTick?: number }) {
-  const { queue, hasActiveUploads, selectableItems } = useUploadQueue(draftId);
+interface UploadStepProps extends Pick<
+  UploadManagerHandlers,
+  'addFiles' | 'addDriveSelections' | 'remove' | 'retry' | 'discardAll'
+> {
+  queue: GalleryCard[];
+  hasActiveUploads: boolean;
+  selectableItems: GalleryCard[];
+}
+
+export function UploadStep({
+  queue,
+  hasActiveUploads,
+  selectableItems,
+  addFiles,
+  addDriveSelections,
+  remove,
+  retry,
+  discardAll,
+}: UploadStepProps) {
   useUploadWarning(hasActiveUploads);
 
-  const { addFiles, addDriveSelections, remove, retry, discardAll } = useUploadManager(draftId);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const effectiveModalOpen = isModalOpen && queue.length > 0;
+
+  const handleFilesSelected = useCallback((files: File[]) => {
+    addFiles(files);
+    setIsModalOpen(true);
+  }, [addFiles]);
 
   const { trigger: openDrivePicker, isPickerLoading } = useGooglePicker(
-    async (selections) => addDriveSelections(selections),
+    useCallback(async (selections) => {
+      await addDriveSelections(selections);
+      setIsModalOpen(true);
+    }, [addDriveSelections]),
   );
 
   const selection = useGallerySelection<GalleryCard>({ items: selectableItems, getId: getItemId });
 
-  // -------------------------------------------------------------------------
-  // Modal open state + auto-open/close
-  // -------------------------------------------------------------------------
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const prevQueueLengthRef = useRef(queue.length);
-  useEffect(() => {
-    const prev = prevQueueLengthRef.current;
-    prevQueueLengthRef.current = queue.length;
-    if (queue.length > 0 && prev === 0) setIsModalOpen(true);
-    else if (queue.length === 0 && prev > 0) setIsModalOpen(false);
-  }, [queue.length]);
-
-  // -------------------------------------------------------------------------
-  // Flash on publish attempt with blocked queue (empty or still uploading)
-  // -------------------------------------------------------------------------
-
-  const [isFlashing, setIsFlashing] = useState(false);
-  const prevTickRef = useRef(0);
-  useEffect(() => {
-    if (filesErrorTick && filesErrorTick !== prevTickRef.current) {
-      prevTickRef.current = filesErrorTick;
-      setIsFlashing(true);
-    }
-  }, [filesErrorTick]);
-
   return (
     <>
-      <div
-        className={isFlashing && queue.length > 0 ? styles.flashBorder : undefined}
-        onAnimationEnd={isFlashing && queue.length > 0 ? () => setIsFlashing(false) : undefined}
-      >
+      {queue.length > 0 && (
         <UploadStatusLabel
           items={queue}
           hasActiveUploads={hasActiveUploads}
           onOpen={() => setIsModalOpen(true)}
         />
-      </div>
+      )}
       {queue.length === 0 && (
         <UploadZone
-          onFilesSelected={addFiles}
+          onFilesSelected={handleFilesSelected}
           onDriveImport={openDrivePicker}
           driveLoading={isPickerLoading}
-          flashError={isFlashing}
-          onFlashEnd={() => setIsFlashing(false)}
         />
       )}
       <StepModeModal
-        opened={isModalOpen}
+        opened={effectiveModalOpen}
         onClose={() => setIsModalOpen(false)}
         items={queue}
         onRemove={remove}
-        onAddFiles={addFiles}
+        onAddFiles={handleFilesSelected}
         onRetry={retry}
         selection={selection}
         onDiscardAll={discardAll}
+        onDriveImport={openDrivePicker}
+        driveLoading={isPickerLoading}
       />
     </>
   );

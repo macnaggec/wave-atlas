@@ -1,11 +1,14 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentType } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'test/setup/render';
-import { Route } from './_panel.me.index';
+import { Route } from './_panel.me.collections.index';
 
 const mocks = vi.hoisted(() => ({
   isLoading: false,
+  navigate: vi.fn(),
+  startSessionEdit: vi.fn(),
   sessions: [] as Array<{
     id: string;
     status: 'DRAFT' | 'PUBLISHED';
@@ -19,38 +22,38 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: Record<string, unknown>) => options,
+  useNavigate: () => mocks.navigate,
 }));
 
-vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
-  return {
-    ...actual,
-    useQuery: () => ({
-      data: mocks.sessions,
-      isLoading: mocks.isLoading,
-    }),
-  };
-});
-
-vi.mock('shared/lib/trpc', () => ({
-  useTRPC: () => ({
-    sessions: {
-      mine: {
-        queryOptions: () => ({}),
-      },
-    },
+vi.mock('./_panel.me.collections', () => ({
+  useCollectionsContext: () => ({
+    sessions: mocks.sessions,
+    visibleUploads: mocks.sessions,
+    isLoadingUploads: mocks.isLoading,
   }),
 }));
 
+vi.mock('entities/SurfSession', () => ({
+  SurfSessionCard: ({ session }: { session: { spot: { name: string } } }) => (
+    <div>{session.spot.name}</div>
+  ),
+  RemoveSessionModal: () => null,
+  useStartSessionEdit: () => ({ mutateAsync: mocks.startSessionEdit, isPending: false }),
+}));
+
 describe('UploadsTab', () => {
-  it('renders empty uploads inside the shared panel gallery inset', () => {
+  it('renders empty uploads inside the shared panel gallery inset with an Upload action', async () => {
     mocks.isLoading = false;
     mocks.sessions = [];
     const Component = (Route as unknown as { component: ComponentType }).component;
 
     render(<Component />);
 
-    expect(screen.getByText('No sessions yet. Upload your first session!').closest('[data-panel-gallery-inset]')).not.toBeNull();
+    expect(screen.getByText('No sessions yet').closest('[data-panel-gallery-inset]')).not.toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: '/upload' });
   });
 
   it('renders upload session cards inside the shared panel gallery inset', () => {
@@ -69,6 +72,6 @@ describe('UploadsTab', () => {
     render(<Component />);
 
     expect(screen.getByText('Pipeline').closest('[data-panel-gallery-inset]')).not.toBeNull();
-    expect(screen.getByRole('grid', { name: 'My uploads' })).toBeInTheDocument();
+    expect(screen.getByRole('grid', { name: 'Uploads' })).toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ describe('derivePanelTargetPolicy', () => {
     expect(derivePanelTargetPolicy({
       userPreferredExpanded: false,
       routeMode: 'workspace',
+      isAddSpotActive: false,
     })).toEqual({
       expanded: true,
       canUserToggle: false,
@@ -18,6 +19,7 @@ describe('derivePanelTargetPolicy', () => {
     expect(derivePanelTargetPolicy({
       userPreferredExpanded: true,
       routeMode: 'browsing',
+      isAddSpotActive: false,
     })).toEqual({
       expanded: true,
       canUserToggle: true,
@@ -26,15 +28,56 @@ describe('derivePanelTargetPolicy', () => {
     });
   });
 
+  it('keeps gallery expanded by default while leaving compact mode explicit', () => {
+    expect(derivePanelTargetPolicy({
+      userPreferredExpanded: false,
+      galleryPreferredExpanded: true,
+      routeMode: 'galleryWorkspace',
+      isAddSpotActive: false,
+    })).toEqual({
+      expanded: true,
+      canUserToggle: true,
+      usesBackNavigation: false,
+      reason: 'galleryWorkspace',
+    });
+  });
+
   it('compacts a map-input route and disables the user toggle', () => {
     expect(derivePanelTargetPolicy({
       userPreferredExpanded: true,
       routeMode: 'mapInput',
+      isAddSpotActive: false,
     })).toEqual({
       expanded: false,
       canUserToggle: false,
       usesBackNavigation: true,
       reason: 'mapInputWorkflow',
+    });
+  });
+
+  it('compacts the panel with no back nav throughout Add Spot', () => {
+    expect(derivePanelTargetPolicy({
+      userPreferredExpanded: true,
+      routeMode: 'browsing',
+      isAddSpotActive: true,
+    })).toEqual({
+      expanded: false,
+      canUserToggle: false,
+      usesBackNavigation: false,
+      reason: 'addSpotFlow',
+    });
+  });
+
+  it('prioritizes Add Spot over a route-required workspace', () => {
+    expect(derivePanelTargetPolicy({
+      userPreferredExpanded: false,
+      routeMode: 'workspace',
+      isAddSpotActive: true,
+    })).toEqual({
+      expanded: false,
+      canUserToggle: false,
+      usesBackNavigation: false,
+      reason: 'addSpotFlow',
     });
   });
 });

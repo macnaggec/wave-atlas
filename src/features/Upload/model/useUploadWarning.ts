@@ -17,10 +17,13 @@ export function useUploadWarning(hasActiveUploads: boolean): void {
   useEffect(() => {
     if (!hasActiveUploads) return;
 
+    // Only in-flight File transfers are at risk: a File handle cannot survive a
+    // reload, so those uploads are lost. Completed attempts stay in the draft
+    // workspace and are restored on the next visit.
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
-      return 'Uploads in progress will be cancelled. Are you sure you want to leave?';
+      return 'Files still uploading will be lost. Everything already uploaded is saved in your draft.';
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

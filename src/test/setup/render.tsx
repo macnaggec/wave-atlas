@@ -15,9 +15,17 @@ const testTheme = mergeThemeOverrides({}, {
 })
 
 export function render(ui: React.ReactNode) {
-  return testingLibraryRender(
+  const result = testingLibraryRender(
     <MantineProvider theme={testTheme}>
       {ui}
     </MantineProvider>,
   )
+
+  const rerender = (nextUi: React.ReactNode) => result.rerender(
+    <MantineProvider theme={testTheme}>
+      {nextUi}
+    </MantineProvider>,
+  )
+
+  return { ...result, rerender }
 }

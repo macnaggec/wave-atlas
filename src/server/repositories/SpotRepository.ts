@@ -47,6 +47,8 @@ export interface ISpotRepository {
   createSpot(data: SpotCreateInput): Promise<Spot>;
   pushSpotAlias(id: string, alias: string): Promise<void>;
   findSpotCard(id: string): Promise<SpotCard | null>;
+  isSpotFavorited(spotId: string, userId: string): Promise<boolean>;
+  toggleSpotFavorite(spotId: string, userId: string): Promise<boolean>;
 }
 
 export class SpotRepository implements ISpotRepository {
@@ -167,6 +169,31 @@ export class SpotRepository implements ISpotRepository {
         totalMedia: spot._count.mediaItems,
         media: spot.mediaItems.map((m) => ({ id: m.id, url: m.lightboxUrl, type: m.type })),
       };
+    });
+  }
+
+  isSpotFavorited(spotId: string, userId: string): Promise<boolean> {
+    return runQuery(async () => {
+      const row = await prisma.userFavoriteSpot.findUnique({
+        where: { userId_spotId: { userId, spotId } },
+      });
+      return !!row;
+    });
+  }
+
+  toggleSpotFavorite(spotId: string, userId: string): Promise<boolean> {
+    return runQuery(async () => {
+      const existing = await prisma.userFavoriteSpot.findUnique({
+        where: { userId_spotId: { userId, spotId } },
+      });
+
+      if (existing) {
+        await prisma.userFavoriteSpot.delete({ where: { userId_spotId: { userId, spotId } } });
+        return false;
+      }
+
+      await prisma.userFavoriteSpot.create({ data: { userId, spotId } });
+      return true;
     });
   }
 }

@@ -2,35 +2,31 @@ import { FC, memo, useMemo } from 'react';
 import { Group, Loader, Text, ThemeIcon } from '@mantine/core';
 import { IconCheck, IconPhoto, IconVideo } from '@tabler/icons-react';
 import { GalleryCard, getUploadQueueStatus } from '../../model';
-import { motionClasses } from 'shared/ui/design-system';
 import styles from './UploadStatusLabel.module.css';
 
 export interface UploadStatusLabelProps {
   items: GalleryCard[];
   hasActiveUploads: boolean;
   onOpen: () => void;
-  flashError?: boolean;
-  onFlashEnd?: () => void;
 }
 
-export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasActiveUploads, onOpen, flashError, onFlashEnd }) => {
+export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasActiveUploads, onOpen }) => {
   const { readyItems, uploadingCount } = useMemo(() => getUploadQueueStatus(items), [items]);
 
-  const photoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType !== 'video').length;
-  const videoCount = readyItems.filter(c => c.kind === 'draft' && c.result.resource.resourceType === 'video').length;
+  const photoCount = readyItems.filter(c => c.kind !== 'attempt' && c.result.resource.resourceType !== 'video').length;
+  const videoCount = readyItems.filter(c => c.kind !== 'attempt' && c.result.resource.resourceType === 'video').length;
 
   return (
     <Group
-      px="md"
-      py="sm"
+      data-upload-module
+      data-upload-status
       justify="space-between"
-      className={flashError ? motionClasses.flashBorder : undefined}
-      onAnimationEnd={flashError ? onFlashEnd : undefined}
+      className={styles.module}
     >
       {hasActiveUploads ? (
         <Group justify="space-between" style={{ flex: 1 }}>
-          <Group gap={6} align="center">
-            <Loader size={10} />
+          <Group gap={4} align="center">
+            <Loader size="xs" />
             <Text size="xs" c="dimmed">{uploadingCount} uploading</Text>
             {readyItems.length > 0 && (
               <Text size="xs" c="dimmed" style={{ opacity: 0.55 }}>· {readyItems.length} ready</Text>
@@ -40,12 +36,12 @@ export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasA
         </Group>
       ) : readyItems.length > 0 ? (
         <Group justify="space-between" style={{ flex: 1 }}>
-          <Group gap={8} align="center">
-            <ThemeIcon size={22} variant="transparent" style={{ color: 'var(--mantine-color-green-5)' }}>
+          <Group gap={4} align="center">
+            <ThemeIcon size={22} variant="transparent" style={{ color: 'var(--wa-accent-spot)' }}>
               <IconCheck size={20} />
             </ThemeIcon>
             {photoCount > 0 && (
-              <Group gap={3} align="center">
+              <Group gap={4} align="center">
                 <ThemeIcon size={22} variant="transparent" className={styles.mediaIcon}>
                   <IconPhoto size={20} />
                 </ThemeIcon>
@@ -53,7 +49,7 @@ export const UploadStatusLabel: FC<UploadStatusLabelProps> = memo(({ items, hasA
               </Group>
             )}
             {videoCount > 0 && (
-              <Group gap={3} align="center">
+              <Group gap={4} align="center">
                 <ThemeIcon size={22} variant="transparent" className={styles.mediaIcon}>
                   <IconVideo size={20} />
                 </ThemeIcon>

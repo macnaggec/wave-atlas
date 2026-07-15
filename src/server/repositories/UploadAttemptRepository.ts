@@ -6,7 +6,7 @@ import type { UploadAttemptProjection } from 'shared/types/upload';
 
 export type BeginLocalInput = {
   clientRequestId: string;
-  sessionId: string;
+  workspaceId: string;
   photographerId: string;
   cloudinaryPublicId: string;
   expectedMediaType: MediaType;
@@ -29,14 +29,14 @@ export interface IUploadAttemptRepository {
   beginLocalIdempotent(input: BeginLocalInput): Promise<UploadAttemptProjection>;
   beginDriveIdempotent(input: BeginLocalInput & { remoteFileId: string }): Promise<UploadAttemptProjection>;
   markAcquiring(attemptId: string, photographerId: string): Promise<void>;
-  finalizeIntoDraft(attemptId: string, photographerId: string, media: FinalizeMediaInput): Promise<{ id: string; uploadAttemptId: string }>;
+  finalizeIntoWorkspace(attemptId: string, photographerId: string, media: FinalizeMediaInput): Promise<{ id: string; uploadAttemptId: string }>;
   cancelAttempt(attemptId: string, photographerId: string): Promise<void>;
+  cancelAttemptsForWorkspace(workspaceId: string, photographerId: string): Promise<void>;
   findByIdForPhotographer(attemptId: string, photographerId: string): Promise<UploadAttemptProjection | null>;
   /** Returns the internal Drive fields needed by processDrive — never exposed to the client. */
-  findDriveDetails(attemptId: string, photographerId: string): Promise<{ remoteFileId: string; cloudinaryPublicId: string } | null>;
-  listForDraft(sessionId: string, photographerId: string): Promise<UploadAttemptProjection[]>;
-  hasBlockingAttempts(sessionId: string): Promise<boolean>;
-  removeCompletedDraftMedia(sessionId: string, photographerId: string): Promise<Array<{ cloudinaryPublicId: string; resourceType: MediaType }>>;
+  findDriveDetails(attemptId: string, photographerId: string): Promise<{ remoteFileId: string; cloudinaryPublicId: string; expectedMediaType: MediaType } | null>;
+  listForWorkspace(workspaceId: string, photographerId: string): Promise<UploadAttemptProjection[]>;
+  hasBlockingAttempts(workspaceId: string): Promise<boolean>;
   findExpiredForReconciliation(): Promise<Array<{
     id: string;
     cloudinaryPublicId: string;
@@ -71,7 +71,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
       return toProjection(await prisma.uploadAttempt.create({
         data: {
           clientRequestId: input.clientRequestId,
-          sessionId: input.sessionId,
+          workspaceId: input.workspaceId,
           photographerId: input.photographerId,
           source: 'LOCAL',
           cloudinaryPublicId: input.cloudinaryPublicId,
@@ -92,7 +92,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
       return toProjection(await prisma.uploadAttempt.create({
         data: {
           clientRequestId: input.clientRequestId,
-          sessionId: input.sessionId,
+          workspaceId: input.workspaceId,
           photographerId: input.photographerId,
           source: 'DRIVE',
           cloudinaryPublicId: input.cloudinaryPublicId,
@@ -118,7 +118,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
     });
   }
 
-  finalizeIntoDraft(attemptId: string, photographerId: string, media: FinalizeMediaInput): Promise<{ id: string; uploadAttemptId: string }> {
+  finalizeIntoWorkspace(attemptId: string, photographerId: string, media: FinalizeMediaInput): Promise<{ id: string; uploadAttemptId: string }> {
     return runQuery(async () => {
       const attempt = await prisma.uploadAttempt.findUnique({ where: { id: attemptId } });
       if (!attempt || attempt.photographerId !== photographerId) throw new NotFoundError('UploadAttempt');
@@ -133,9 +133,9 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
         });
         if (claimed.count === 0) throw new BadRequestError('Attempt was cancelled or already finalized');
 
-        const mediaRow = await tx.mediaItem.create({
+        const asset = await tx.uploadWorkspaceAsset.create({
           data: {
-            sessionId: attempt.sessionId,
+            workspaceId: attempt.workspaceId,
             photographerId: attempt.photographerId,
             cloudinaryPublicId: attempt.cloudinaryPublicId,
             type: media.resourceType,
@@ -149,7 +149,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
         });
 
         await tx.uploadAttempt.update({ where: { id: attemptId }, data: { status: 'COMPLETED' } });
-        return { id: mediaRow.id, uploadAttemptId: attemptId };
+        return { id: asset.id, uploadAttemptId: attemptId };
       });
     });
   }
@@ -168,6 +168,15 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
     });
   }
 
+  cancelAttemptsForWorkspace(workspaceId: string, photographerId: string): Promise<void> {
+    return runQuery(async () => {
+      await prisma.uploadAttempt.updateMany({
+        where: { workspaceId, photographerId, status: { in: CANCELLABLE_STATUSES } },
+        data: { status: 'CANCEL_REQUESTED' },
+      });
+    });
+  }
+
   findByIdForPhotographer(attemptId: string, photographerId: string): Promise<UploadAttemptProjection | null> {
     return runQuery(async () => {
       const row = await prisma.uploadAttempt.findUnique({ where: { id: attemptId } });
@@ -176,22 +185,22 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
     });
   }
 
-  findDriveDetails(attemptId: string, photographerId: string): Promise<{ remoteFileId: string; cloudinaryPublicId: string } | null> {
+  findDriveDetails(attemptId: string, photographerId: string): Promise<{ remoteFileId: string; cloudinaryPublicId: string; expectedMediaType: MediaType } | null> {
     return runQuery(async () => {
       const row = await prisma.uploadAttempt.findUnique({
         where: { id: attemptId },
-        select: { photographerId: true, remoteFileId: true, cloudinaryPublicId: true },
+        select: { photographerId: true, remoteFileId: true, cloudinaryPublicId: true, expectedMediaType: true },
       });
       if (!row || row.photographerId !== photographerId || !row.remoteFileId) return null;
-      return { remoteFileId: row.remoteFileId, cloudinaryPublicId: row.cloudinaryPublicId };
+      return { remoteFileId: row.remoteFileId, cloudinaryPublicId: row.cloudinaryPublicId, expectedMediaType: row.expectedMediaType };
     });
   }
 
-  listForDraft(sessionId: string, photographerId: string): Promise<UploadAttemptProjection[]> {
+  listForWorkspace(workspaceId: string, photographerId: string): Promise<UploadAttemptProjection[]> {
     return runQuery(async () => {
       const rows = await prisma.uploadAttempt.findMany({
         where: {
-          sessionId,
+          workspaceId,
           photographerId,
           status: { notIn: ['COMPLETED', 'CANCELLED', 'CANCEL_REQUESTED', 'CLEANUP_PENDING'] },
         },
@@ -201,58 +210,15 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
     });
   }
 
-  hasBlockingAttempts(sessionId: string): Promise<boolean> {
+  hasBlockingAttempts(workspaceId: string): Promise<boolean> {
     return runQuery(async () => {
       const count = await prisma.uploadAttempt.count({
         where: {
-          sessionId,
+          workspaceId,
           status: { in: ['READY', 'ACQUIRING', 'FINALIZING', 'FAILED'] },
         },
       });
       return count > 0;
-    });
-  }
-
-  removeCompletedDraftMedia(
-    sessionId: string,
-    photographerId: string,
-  ): Promise<Array<{ cloudinaryPublicId: string; resourceType: MediaType }>> {
-    return runQuery(async () => {
-      return prisma.$transaction(async (tx) => {
-        // Cancel all nonterminal attempts first.
-        await tx.uploadAttempt.updateMany({
-          where: {
-            sessionId,
-            photographerId,
-            status: { in: ['READY', 'ACQUIRING', 'FINALIZING', 'FAILED', 'CANCEL_REQUESTED'] },
-          },
-          data: { status: 'CANCEL_REQUESTED' },
-        });
-
-        // Collect COMPLETED attempt asset identities before deleting media.
-        const completedAttempts = await tx.uploadAttempt.findMany({
-          where: { sessionId, photographerId, status: 'COMPLETED' },
-          select: { id: true, cloudinaryPublicId: true, expectedMediaType: true },
-        });
-
-        if (completedAttempts.length > 0) {
-          await tx.mediaItem.deleteMany({
-            where: {
-              uploadAttemptId: { in: completedAttempts.map(a => a.id) },
-              deletedAt: null,
-            },
-          });
-          await tx.uploadAttempt.updateMany({
-            where: { id: { in: completedAttempts.map(a => a.id) } },
-            data: { status: 'CLEANUP_PENDING' },
-          });
-        }
-
-        return completedAttempts.map(a => ({
-          cloudinaryPublicId: a.cloudinaryPublicId,
-          resourceType: a.expectedMediaType,
-        }));
-      });
     });
   }
 

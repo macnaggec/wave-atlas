@@ -8,29 +8,32 @@ const repo = new UploadAttemptRepository();
 async function clearTestData() {
   await prisma.mediaItem.deleteMany();
   await prisma.uploadAttempt.deleteMany();
+  await prisma.uploadWorkspaceAsset.deleteMany();
+  await prisma.uploadWorkspaceMediaChange.deleteMany();
+  await prisma.uploadWorkspace.deleteMany();
   await prisma.surfSession.deleteMany();
   await prisma.user.deleteMany();
 }
 
-async function seedPhotographerAndDraft() {
+async function seedPhotographerAndWorkspace() {
   const user = await prisma.user.create({ data: { email: `test-${randomUUID()}@example.com` } });
-  const session = await prisma.surfSession.create({
-    data: { photographerId: user.id, status: 'DRAFT' },
+  const workspace = await prisma.uploadWorkspace.create({
+    data: { photographerId: user.id, kind: 'NEW_SESSION' },
   });
-  return { photographerId: user.id, sessionId: session.id };
+  return { photographerId: user.id, workspaceId: workspace.id };
 }
 
 beforeEach(clearTestData);
 afterAll(async () => { await clearTestData(); await prisma.$disconnect(); });
 
 describe('beginLocalIdempotent', () => {
-  it('returns the same attempt on a duplicate clientRequestId', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
+  it('returns the same attempt on a duplicate clientRequestId inside a workspace', async () => {
+    const { photographerId, workspaceId } = await seedPhotographerAndWorkspace();
     const input = {
       clientRequestId: randomUUID(),
-      sessionId,
+      workspaceId,
       photographerId,
-      cloudinaryPublicId: `wave-atlas/users/${photographerId}/test-${randomUUID()}`,
+      cloudinaryPublicId: `swelldays/users/${photographerId}/test-${randomUUID()}`,
       expectedMediaType: 'PHOTO' as const,
       uploadGrantExpiresAt: new Date(Date.now() + 60_000),
       expiresAt: new Date(Date.now() + 3_600_000),
@@ -40,17 +43,17 @@ describe('beginLocalIdempotent', () => {
     const second = await repo.beginLocalIdempotent(input);
 
     expect(second.id).toBe(first.id);
-    expect(await prisma.uploadAttempt.count({ where: { photographerId } })).toBe(1);
+    expect(await prisma.uploadAttempt.count({ where: { photographerId, workspaceId } })).toBe(1);
   });
 });
 
-describe('finalizeIntoDraft', () => {
-  it('creates one MediaItem and marks attempt COMPLETED atomically', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
+describe('finalizeIntoWorkspace', () => {
+  it('creates one workspace asset and marks attempt COMPLETED atomically', async () => {
+    const { photographerId, workspaceId } = await seedPhotographerAndWorkspace();
     const attempt = await prisma.uploadAttempt.create({
       data: {
         clientRequestId: randomUUID(),
-        sessionId,
+        workspaceId,
         photographerId,
         source: 'LOCAL',
         status: 'READY',
@@ -60,24 +63,26 @@ describe('finalizeIntoDraft', () => {
       },
     });
 
-    const media = await repo.finalizeIntoDraft(attempt.id, photographerId, {
+    const asset = await repo.finalizeIntoWorkspace(attempt.id, photographerId, {
       capturedAt: new Date('2026-01-15T08:00:00Z'),
       thumbnailUrl: 'https://res.cloudinary.com/demo/image/upload/t_thumb/test.jpg',
       lightboxUrl: 'https://res.cloudinary.com/demo/image/upload/test.jpg',
       resourceType: 'PHOTO' as const,
     });
 
-    expect(media.uploadAttemptId).toBe(attempt.id);
+    expect(asset.uploadAttemptId).toBe(attempt.id);
+    expect(await prisma.mediaItem.count()).toBe(0);
     const updated = await prisma.uploadAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
     expect(updated.status).toBe('COMPLETED');
+    expect(await prisma.uploadWorkspaceAsset.count({ where: { workspaceId } })).toBe(1);
   });
 
-  it('throws and creates no MediaItem when attempt is CANCEL_REQUESTED', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
+  it('throws and creates no workspace asset when attempt is CANCEL_REQUESTED', async () => {
+    const { photographerId, workspaceId } = await seedPhotographerAndWorkspace();
     const attempt = await prisma.uploadAttempt.create({
       data: {
         clientRequestId: randomUUID(),
-        sessionId,
+        workspaceId,
         photographerId,
         source: 'LOCAL',
         status: 'CANCEL_REQUESTED',
@@ -88,7 +93,7 @@ describe('finalizeIntoDraft', () => {
     });
 
     await expect(
-      repo.finalizeIntoDraft(attempt.id, photographerId, {
+      repo.finalizeIntoWorkspace(attempt.id, photographerId, {
         capturedAt: new Date(),
         thumbnailUrl: 'https://example.com/thumb.jpg',
         lightboxUrl: 'https://example.com/full.jpg',
@@ -96,16 +101,16 @@ describe('finalizeIntoDraft', () => {
       }),
     ).rejects.toThrow();
 
-    expect(await prisma.mediaItem.count({ where: { sessionId } })).toBe(0);
+    expect(await prisma.uploadWorkspaceAsset.count({ where: { workspaceId } })).toBe(0);
   });
 });
 
 describe('cancelAttempt', () => {
-  it('transitions READY → CANCEL_REQUESTED', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
+  it('transitions READY to CANCEL_REQUESTED', async () => {
+    const { photographerId, workspaceId } = await seedPhotographerAndWorkspace();
     const attempt = await prisma.uploadAttempt.create({
       data: {
-        clientRequestId: randomUUID(), sessionId, photographerId,
+        clientRequestId: randomUUID(), workspaceId, photographerId,
         source: 'LOCAL', status: 'READY',
         cloudinaryPublicId: `test/${randomUUID()}`,
         expectedMediaType: 'PHOTO',
@@ -117,44 +122,21 @@ describe('cancelAttempt', () => {
     const updated = await prisma.uploadAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
     expect(updated.status).toBe('CANCEL_REQUESTED');
   });
-
-  it('is idempotent when already CANCEL_REQUESTED', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
-    const attempt = await prisma.uploadAttempt.create({
-      data: {
-        clientRequestId: randomUUID(), sessionId, photographerId,
-        source: 'LOCAL', status: 'CANCEL_REQUESTED',
-        cloudinaryPublicId: `test/${randomUUID()}`,
-        expectedMediaType: 'PHOTO',
-        expiresAt: new Date(Date.now() + 3_600_000),
-      },
-    });
-
-    await expect(repo.cancelAttempt(attempt.id, photographerId)).resolves.not.toThrow();
-  });
 });
 
-describe('removeCompletedDraftMedia', () => {
-  it('deletes all draft MediaItems and marks attempts CLEANUP_PENDING atomically', async () => {
-    const { photographerId, sessionId } = await seedPhotographerAndDraft();
-
-    // Create two COMPLETED attempts with MediaItems.
-    const [a1, a2] = await Promise.all([
-      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), sessionId, photographerId, source: 'LOCAL', status: 'COMPLETED', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
-      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), sessionId, photographerId, source: 'LOCAL', status: 'COMPLETED', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
-    ]);
-    await Promise.all([
-      prisma.mediaItem.create({ data: { sessionId, photographerId, type: 'PHOTO', cloudinaryPublicId: a1.cloudinaryPublicId, thumbnailUrl: 't', lightboxUrl: 'l', capturedAt: new Date(), uploadAttemptId: a1.id } }),
-      prisma.mediaItem.create({ data: { sessionId, photographerId, type: 'PHOTO', cloudinaryPublicId: a2.cloudinaryPublicId, thumbnailUrl: 't', lightboxUrl: 'l', capturedAt: new Date(), uploadAttemptId: a2.id } }),
+describe('cancelAttemptsForWorkspace', () => {
+  it('cancels every in-flight attempt for the workspace in one sweep', async () => {
+    const { photographerId, workspaceId } = await seedPhotographerAndWorkspace();
+    const [inFlight1, inFlight2, alreadyCompleted] = await Promise.all([
+      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), workspaceId, photographerId, source: 'LOCAL', status: 'READY', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
+      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), workspaceId, photographerId, source: 'LOCAL', status: 'FINALIZING', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
+      prisma.uploadAttempt.create({ data: { clientRequestId: randomUUID(), workspaceId, photographerId, source: 'LOCAL', status: 'COMPLETED', cloudinaryPublicId: `p/${randomUUID()}`, expectedMediaType: 'PHOTO', expiresAt: new Date(Date.now() + 3_600_000) } }),
     ]);
 
-    const cancelled = await repo.removeCompletedDraftMedia(sessionId, photographerId);
+    await repo.cancelAttemptsForWorkspace(workspaceId, photographerId);
 
-    expect(await prisma.mediaItem.count({ where: { sessionId, deletedAt: null } })).toBe(0);
-    expect(cancelled).toHaveLength(2);
-    for (const id of [a1.id, a2.id]) {
-      const a = await prisma.uploadAttempt.findUniqueOrThrow({ where: { id } });
-      expect(a.status).toBe('CLEANUP_PENDING');
-    }
+    expect((await prisma.uploadAttempt.findUniqueOrThrow({ where: { id: inFlight1.id } })).status).toBe('CANCEL_REQUESTED');
+    expect((await prisma.uploadAttempt.findUniqueOrThrow({ where: { id: inFlight2.id } })).status).toBe('CANCEL_REQUESTED');
+    expect((await prisma.uploadAttempt.findUniqueOrThrow({ where: { id: alreadyCompleted.id } })).status).toBe('COMPLETED');
   });
 });

@@ -33,9 +33,13 @@ vi.mock('shared/hooks/useUser', () => ({
   useUser: () => ({ user: { id: 'buyer-1' } }),
 }));
 
+vi.mock('entities/Media', () => ({
+  useMediaFavorites: () => ({ favoriteIds: new Set(), toggleFavorite: vi.fn() }),
+}));
+
 vi.mock('features/PublicGallery', () => ({
-  PublicCard: ({ onAction }: { onAction?: () => void }) => (
-    <button type="button" onClick={onAction}>Add to cart</button>
+  PublicCard: ({ onAction }: { onAction?: (action: 'cart') => void }) => (
+    <button type="button" onClick={() => onAction?.('cart')}>Add to cart</button>
   ),
   MediaLightbox: () => null,
 }));

@@ -6,11 +6,11 @@ function isActiveAttempt(card: GalleryCard): boolean {
 }
 
 export function getSelectableUploadCards(cards: GalleryCard[]): GalleryCard[] {
-  return cards.filter(card => card.kind === 'draft');
+  return cards.filter(card => card.kind !== 'attempt');
 }
 
 export function getPublishableMediaIds(cards: GalleryCard[]): string[] {
-  return cards.filter(c => c.kind === 'draft').map(c => c.id);
+  return cards.filter(c => c.kind !== 'attempt').map(c => c.id);
 }
 
 export function getUploadQueueStatus(cards: GalleryCard[]) {

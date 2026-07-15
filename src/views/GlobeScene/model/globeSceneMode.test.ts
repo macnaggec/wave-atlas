@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { deriveGlobeSceneMode } from './globeSceneMode';
 
 describe('deriveGlobeSceneMode', () => {
-  it('names pin placement before route or upload selection modes', () => {
+  it('names Add Spot before route or upload selection modes', () => {
     expect(deriveGlobeSceneMode({
-      isPinPlacementActive: true,
+      isAddSpotActive: true,
       isUploadSpotSelectionActive: true,
       selectedSpotId: 'spot-1',
       isUserExploring: false,
-    })).toEqual({ kind: 'pinPlacement' });
+    })).toEqual({ kind: 'addSpotFlow' });
   });
 
   it('names upload spot selection before focused spot routes', () => {
     expect(deriveGlobeSceneMode({
-      isPinPlacementActive: false,
+      isAddSpotActive: false,
       isUploadSpotSelectionActive: true,
       selectedSpotId: 'spot-1',
       isUserExploring: false,
@@ -22,7 +22,7 @@ describe('deriveGlobeSceneMode', () => {
 
   it('names focused spot routes with the selected spot id', () => {
     expect(deriveGlobeSceneMode({
-      isPinPlacementActive: false,
+      isAddSpotActive: false,
       isUploadSpotSelectionActive: false,
       selectedSpotId: 'spot-1',
       isUserExploring: false,
@@ -31,7 +31,7 @@ describe('deriveGlobeSceneMode', () => {
 
   it('names active map exploration before the overview mode', () => {
     expect(deriveGlobeSceneMode({
-      isPinPlacementActive: false,
+      isAddSpotActive: false,
       isUploadSpotSelectionActive: false,
       selectedSpotId: null,
       isUserExploring: true,
@@ -40,7 +40,7 @@ describe('deriveGlobeSceneMode', () => {
 
   it('names the default mode as overview', () => {
     expect(deriveGlobeSceneMode({
-      isPinPlacementActive: false,
+      isAddSpotActive: false,
       isUploadSpotSelectionActive: false,
       selectedSpotId: null,
       isUserExploring: false,

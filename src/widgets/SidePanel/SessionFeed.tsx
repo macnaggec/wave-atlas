@@ -2,8 +2,10 @@ import { useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Center, Loader, Skeleton, Stack, Text } from '@mantine/core';
 import { IconPhoto, IconMapPin } from '@tabler/icons-react';
-import { useSessionFeed, type SessionFeedFilter, type SurfSessionItem } from 'entities/SurfSession';
+import { useSessionFeed, type SurfSessionItem } from 'entities/SurfSession';
+import type { BrowseFilters } from 'shared/model/browseFilters';
 import { formatDateRange } from 'shared/lib/dateUtils';
+import { PanelScrollChrome } from 'shared/ui/PanelScrollChrome';
 import { SIDE_PANEL_TRANSITION } from './panelMotion';
 import styles from './SessionFeed.module.css';
 
@@ -48,7 +50,7 @@ function SessionCard({ session, onClick }: { session: SurfSessionItem; onClick: 
 
 interface SessionFeedProps {
   expanded?: boolean;
-  activeFilter?: SessionFeedFilter;
+  filters?: BrowseFilters;
   onSessionClick?: (session: SurfSessionItem) => void;
   /** Route-driven spot filter — takes precedence over mapStore.selection. */
   spotId?: string;
@@ -58,7 +60,7 @@ interface SessionFeedProps {
 
 export function SessionFeed({
   expanded,
-  activeFilter,
+  filters,
   onSessionClick,
   spotId: spotIdProp,
   onLayoutReadyChange,
@@ -66,7 +68,7 @@ export function SessionFeed({
   const columns = expanded ? 3 : 1;
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
-    useSessionFeed({ spotId: spotIdProp, filter: activeFilter });
+    useSessionFeed({ spotId: spotIdProp, filters });
 
   const sessions = data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -78,6 +80,7 @@ export function SessionFeed({
 
   return (
     <div className={styles.feed}>
+      <PanelScrollChrome />
       {isLoading ? (
         <div
           className={styles.grid}

@@ -5,9 +5,13 @@ import type { CartItem } from './types';
 type CartMediaItem = Pick<
   MediaItem,
   'id' | 'capturedAt' | 'thumbnailUrl' | 'lightboxUrl' | 'price'
->;
+> & {
+  /** Present on items fetched without a single fixed spot context (e.g. an all-spots gallery). */
+  spot?: { name: string } | null;
+};
 
-export function toCartItem(item: CartMediaItem, spotName: string): CartItem {
+export function toCartItem(item: CartMediaItem, fallbackSpotName: string): CartItem {
+  const spotName = item.spot?.name ?? fallbackSpotName;
   const capturedAt = item.capturedAt instanceof Date
     ? item.capturedAt.toISOString()
     : String(item.capturedAt);

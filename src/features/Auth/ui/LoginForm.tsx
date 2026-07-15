@@ -39,7 +39,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit}>
       <Stack>
-        <TextInput name="email" type="email" label="Email" placeholder="hello@waveatlas.com" required autoComplete="email" />
+        <TextInput name="email" type="email" label="Email" placeholder="hello@swelldays.com" required autoComplete="email" />
         <PasswordInput name="password" label="Password" placeholder="Your password" required minLength={6} autoComplete="current-password" />
         {error && <Input.Error>{error}</Input.Error>}
         <Group justify="flex-end" mt="md">

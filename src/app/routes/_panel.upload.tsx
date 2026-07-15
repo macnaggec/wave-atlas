@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
-import { motionClasses } from 'shared/ui/design-system';
+import { useCallback, useEffect, useState } from 'react';
 import { PanelEmptyState, PanelRouteLayout } from 'shared/ui/PanelRouteLayout';
 import { useTRPC } from 'shared/lib/trpc';
 import { useUser } from 'shared/hooks/useUser';
@@ -10,59 +9,118 @@ import { notify } from 'shared/lib/notifications';
 import { FeedSearch } from 'widgets/FeedDrawer';
 import { UploadSidebar } from 'features/Upload';
 import type { Spot } from 'entities/Spot';
-import { useCreateSurfSessionDraft } from 'entities/SurfSession';
+import { useSpotPreview } from 'entities/Spot';
 import { useAuthModal } from 'entities/Identity';
+import { useSetPanelRouteBackAction } from './_panel';
 
 export const Route = createFileRoute('/_panel/upload')({
-  validateSearch: (search): { draftId?: string } => ({
-    draftId: typeof search.draftId === 'string' ? search.draftId : undefined,
+  validateSearch: (search): { workspaceId?: string; spotId?: string } => ({
+    workspaceId: typeof search.workspaceId === 'string' ? search.workspaceId : undefined,
+    spotId: typeof search.spotId === 'string' ? search.spotId : undefined,
   }),
   staticData: { panelHeader: 'Upload', panelMode: 'mapInput' },
   component: UploadPanel,
 });
 
 function UploadPanel() {
-  const { draftId } = Route.useSearch();
+  const { workspaceId, spotId: seedSpotId } = Route.useSearch();
   const navigate = useNavigate();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: isUserLoading } = useUser();
   const { open: openAuthModal } = useAuthModal();
-  const { mutateAsync: createDraft, isPending: isCreatingDraft } = useCreateSurfSessionDraft();
-  const { data: draft, isError, isLoading: isDraftLoading } = useQuery({
-    ...trpc.sessions.draft.queryOptions(draftId ?? ''),
-    enabled: isAuthenticated && !!draftId,
+  const setPanelRouteBackAction = useSetPanelRouteBackAction();
+  const { data: activeWorkspace } = useQuery({
+    ...trpc.uploads.getActiveWorkspace.queryOptions(),
+    enabled: isAuthenticated && !workspaceId,
   });
-  const { mutateAsync: updateDraft } = useMutation(trpc.sessions.updateDraft.mutationOptions());
+  const { data: workspaceState, isError, isLoading: isWorkspaceLoading } = useQuery({
+    ...trpc.uploads.getWorkspaceState.queryOptions({ workspaceId: workspaceId ?? '' }),
+    enabled: isAuthenticated && !!workspaceId,
+  });
+  const { mutateAsync: updateWorkspace } = useMutation(trpc.uploads.updateWorkspace.mutationOptions());
 
-  const [isSpotFlashing, setIsSpotFlashing] = useState(false);
+  const [selectedSpotOverride, setSelectedSpotOverride] = useState<string | null | undefined>();
+  const stagedSpotId = selectedSpotOverride !== undefined
+    ? selectedSpotOverride
+    : (seedSpotId ?? workspaceState?.workspace.spotId ?? null);
+  const { data: stagedSpot } = useSpotPreview(stagedSpotId ?? '', {
+    enabled: !!stagedSpotId,
+  });
+
+  useEffect(() => {
+    if (!workspaceId && activeWorkspace) {
+      void navigate({ to: '/upload', search: { workspaceId: activeWorkspace.id }, replace: true });
+    }
+  }, [activeWorkspace, navigate, workspaceId]);
 
   const handleSpotChange = useCallback(async (newSpot: Spot | null) => {
-    if (!draftId) return;
-    await updateDraft({ draftId, spotId: newSpot?.id ?? null });
-    await queryClient.invalidateQueries({ queryKey: trpc.sessions.draft.queryKey(draftId) });
-  }, [draftId, queryClient, trpc, updateDraft]);
+    const nextSpotId = newSpot?.id ?? null;
+    setSelectedSpotOverride(nextSpotId);
+    if (!workspaceId) {
+      void navigate({
+        to: '/upload',
+        search: nextSpotId ? { spotId: nextSpotId } : {},
+        replace: true,
+      });
+      return;
+    }
 
-  const handleCancel = () => {
-    if (draft?.spotId) {
-      void navigate({ to: '/$spotId', params: { spotId: draft.spotId } });
+    void navigate({
+      to: '/upload',
+      search: nextSpotId ? { workspaceId, spotId: nextSpotId } : { workspaceId },
+      replace: true,
+    });
+
+    try {
+      await updateWorkspace({ workspaceId, spotId: nextSpotId });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.uploads.getWorkspaceState.queryKey({ workspaceId }),
+      });
+    } catch (error) {
+      notify.error(getErrorMessage(error), 'Could Not Change Spot');
+    }
+  }, [navigate, queryClient, trpc, updateWorkspace, workspaceId]);
+
+  const handleClose = useCallback(() => {
+    if (stagedSpotId) {
+      void navigate({ to: '/$spotId', params: { spotId: stagedSpotId } });
     } else {
       void navigate({ to: '/' });
     }
-  };
+  }, [navigate, stagedSpotId]);
 
-  const handleStartOrResume = async () => {
-    try {
-      const nextDraft = await createDraft({});
-      await navigate({
-        to: '/upload',
-        search: { draftId: nextDraft.id },
-        replace: true,
-      });
-    } catch (error) {
-      notify.error(getErrorMessage(error), 'Unable to Start Upload');
+  const handleComplete = useCallback((_sessionId: string) => {
+    if (stagedSpotId) {
+      void navigate({ to: '/$spotId', params: { spotId: stagedSpotId } });
+    } else {
+      void navigate({ to: '/' });
     }
-  };
+  }, [navigate, stagedSpotId]);
+
+  const handleWorkspaceCreated = useCallback((newWorkspaceId: string) => {
+    void navigate({
+      to: '/upload',
+      search: stagedSpotId ? { workspaceId: newWorkspaceId, spotId: stagedSpotId } : { workspaceId: newWorkspaceId },
+      replace: true,
+    });
+  }, [navigate, stagedSpotId]);
+
+  const handleWorkspaceDiscarded = useCallback(() => {
+    void navigate({
+      to: '/upload',
+      search: stagedSpotId ? { spotId: stagedSpotId } : {},
+      replace: true,
+    });
+  }, [navigate, stagedSpotId]);
+
+  // Chevron-only back control: leaving the panel keeps the draft workspace and
+  // any in-flight transfers. Discard lives in the sidebar footer instead.
+  const handleBackActionChange = useCallback((action: { onBack: () => void; disabled: boolean } | null) => {
+    setPanelRouteBackAction(action
+      ? { onBack: action.onBack, disabled: action.disabled }
+      : null);
+  }, [setPanelRouteBackAction]);
 
   if (isUserLoading) return null;
   if (!isAuthenticated) {
@@ -75,50 +133,73 @@ function UploadPanel() {
       />
     );
   }
-  if (!draftId) {
-    return (
-      <UploadEntryState
-        title="No upload draft is open"
-        description="Start a new upload or resume your current unfinished session."
-        actionLabel="Start or resume upload"
-        onAction={() => { void handleStartOrResume(); }}
-        isPending={isCreatingDraft}
-      />
-    );
-  }
-  if (isDraftLoading) return null;
-  if (isError || !draft) {
-    return (
-      <UploadEntryState
-        title="This upload draft is unavailable"
-        description="It may have been published, removed, or belong to another account."
-        actionLabel="Start or resume upload"
-        onAction={() => { void handleStartOrResume(); }}
-        isPending={isCreatingDraft}
-      />
-    );
+
+  if (workspaceId) {
+    if (isWorkspaceLoading) {
+      return (
+        <PanelRouteLayout>
+          <UploadLoadingState label="Opening upload workspace…" />
+        </PanelRouteLayout>
+      );
+    }
+    if (isError || !workspaceState) {
+      return (
+        <UploadEntryState
+          title="This upload workspace is unavailable"
+          description="It may have been saved, cancelled, or belong to another account."
+          actionLabel="Start a new upload"
+          onAction={() => { void navigate({ to: '/upload', search: {}, replace: true }); }}
+        />
+      );
+    }
+  } else if (activeWorkspace) {
+    return null;
   }
 
+  const activeSpot = stagedSpotId ? stagedSpot ?? null : null;
+
+  const header = (
+    <FeedSearch
+      activeSpot={activeSpot}
+      onSpotSelect={(s) => handleSpotChange(s)}
+      onClear={() => handleSpotChange(null)}
+      autoFocus={!activeSpot}
+      placeholder={!activeSpot ? 'Where did you shoot?' : undefined}
+    />
+  );
+
   return (
-    <PanelRouteLayout
-      header={(
-        <FeedSearch
-          activeSpot={draft.spot}
-          onSpotSelect={(s) => handleSpotChange(s)}
-          onClear={() => handleSpotChange(null)}
-          autoFocus={!draft.spot}
-          placeholder={!draft.spot ? 'Where did you shoot?' : undefined}
-        />
-      )}
-      headerClassName={isSpotFlashing ? motionClasses.flashBorderRounded : undefined}
-      onHeaderAnimationEnd={() => setIsSpotFlashing(false)}
-    >
+    <PanelRouteLayout>
       <UploadSidebar
-        draft={draft}
-        onCancel={handleCancel}
-        onPublishFailed={() => setIsSpotFlashing(true)}
+        header={header}
+        workspaceState={workspaceState}
+        spotId={stagedSpotId}
+        onClose={handleClose}
+        onBackActionChange={handleBackActionChange}
+        onComplete={handleComplete}
+        onWorkspaceCreated={handleWorkspaceCreated}
+        onWorkspaceDiscarded={handleWorkspaceDiscarded}
       />
     </PanelRouteLayout>
+  );
+}
+
+function UploadLoadingState({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        flex: 1,
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: 260,
+        padding: 24,
+        color: 'var(--wa-text-muted)',
+      }}
+    >
+      {label}
+    </div>
   );
 }
 
@@ -127,22 +208,18 @@ function UploadEntryState({
   description,
   actionLabel,
   onAction,
-  isPending = false,
 }: {
   title: string;
   description: string;
   actionLabel: string;
   onAction: () => void;
-  isPending?: boolean;
 }) {
   return (
     <PanelEmptyState
       title={title}
       description={description}
       actionLabel={actionLabel}
-      pendingLabel="Opening upload…"
       onAction={onAction}
-      isPending={isPending}
     />
   );
 }

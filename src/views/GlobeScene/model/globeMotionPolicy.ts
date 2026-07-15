@@ -18,7 +18,7 @@ export function deriveGlobeMotionPolicy({
   switch (sceneMode.kind) {
     case 'overview':
       return 'ambientSpin';
-    case 'pinPlacement':
+    case 'addSpotFlow':
     case 'uploadSpotSelection':
     case 'spotFocused':
     case 'userExploring':

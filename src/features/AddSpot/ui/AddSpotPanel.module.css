@@ -1,9 +1,35 @@
 .panel {
   position: fixed;
-  top: 16px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 420px;
-  max-width: calc(100vw - 32px);
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
   z-index: 500;
+  color: var(--wa-text-primary);
+  border-radius: var(--wa-radius-status);
+}
+
+.hintIcon {
+  flex: 0 0 auto;
+  color: var(--wa-accent-spot);
+}
+
+.hintTitle {
+  color: var(--wa-text-strong);
+  line-height: 1.25;
+}
+
+.hintCopy {
+  color: var(--wa-text-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 480px) {
+  .panel {
+    top: 8px;
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
 }
