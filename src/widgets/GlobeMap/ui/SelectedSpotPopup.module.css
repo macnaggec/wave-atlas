@@ -1,0 +1,20 @@
+.wrapper {
+  position: relative;
+}
+
+/* A hairline tether from the popup down to the selected marker chip, so the card
+   reads as anchored to that exact point rather than floating above it. The Popup's
+   offset={20} leaves a 20px gap above the coordinate and the chip's top sits ~13px
+   above it, so a ~10px stem bridges the two. Colour matches the chip's hairline
+   border (MARKER_CHIP_BORDER in layerStyles.ts) so it reads as one material. */
+.beak {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}

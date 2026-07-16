@@ -17,10 +17,15 @@ import { useMapImages } from './hooks/useMapImages';
 import { TempPinMarker } from './ui/TempPinMarker';
 import { SelectedSpotPopup } from './ui/SelectedSpotPopup';
 import {
+  clusterHaloLayer,
   clusterLayer,
   clusterCountLayer,
-  getUnclusteredPointLayer,
-  getIconLayer,
+  unclusteredPointHaloLayer,
+  unclusteredPointShadowLayer,
+  unclusteredPointLayer,
+  iconLayer,
+  selectedSpotGlowLayer,
+  selectedSpotShadowLayer,
   selectedSpotPointLayer,
   selectedSpotIconLayer,
   globeFog,
@@ -141,15 +146,6 @@ export function GlobeMapComponent({
     enabled: motionPolicy === 'ambientSpin',
     maxSpinZoom: 3,
   });
-
-  const unclusteredPointLayer = useMemo(
-    () => getUnclusteredPointLayer(selectedSpotId),
-    [selectedSpotId]
-  );
-  const iconLayer = useMemo(
-    () => getIconLayer(selectedSpotId),
-    [selectedSpotId]
-  );
 
   const selectedSpot = useMemo(
     () => (selectedSpotId ? spots.find((s) => s.id === selectedSpotId) ?? null : null),
@@ -383,14 +379,19 @@ export function GlobeMapComponent({
           clusterMaxZoom={11}
           clusterRadius={50}
         >
-          <Layer {...clusterLayer} />
-          <Layer {...clusterCountLayer} />
-          <Layer {...unclusteredPointLayer} />
-          <Layer {...iconLayer} />
+          <Layer key={clusterHaloLayer.id} {...clusterHaloLayer} />
+          <Layer key={clusterLayer.id} {...clusterLayer} />
+          <Layer key={clusterCountLayer.id} {...clusterCountLayer} />
+          <Layer key={unclusteredPointHaloLayer.id} {...unclusteredPointHaloLayer} />
+          <Layer key={unclusteredPointShadowLayer.id} {...unclusteredPointShadowLayer} />
+          <Layer key={unclusteredPointLayer.id} {...unclusteredPointLayer} />
+          <Layer key={iconLayer.id} {...iconLayer} />
         </Source>
         <Source id="selected-spot" type="geojson" data={selectedSpotGeoJson}>
-          <Layer {...selectedSpotPointLayer} />
-          <Layer {...selectedSpotIconLayer} />
+          <Layer key={selectedSpotGlowLayer.id} {...selectedSpotGlowLayer} />
+          <Layer key={selectedSpotShadowLayer.id} {...selectedSpotShadowLayer} />
+          <Layer key={selectedSpotPointLayer.id} {...selectedSpotPointLayer} />
+          <Layer key={selectedSpotIconLayer.id} {...selectedSpotIconLayer} />
         </Source>
         {/* Tooltip Popup (Only when not selected) */}
         {acceptsSpotInteraction && hoveredSpot && hoveredSpot.id !== selectedSpotId && (
