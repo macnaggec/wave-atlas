@@ -1,8 +1,12 @@
 import { useCallback, RefObject } from 'react';
-import { MapRef } from 'react-map-gl';
+import type mapboxgl from 'mapbox-gl';
 import { getErrorMessage } from 'shared/lib/getErrorMessage';
 
-export const useMapImages = (mapRef: RefObject<MapRef | null>) => {
+interface MarkerImageMapRef {
+  getMap(): Pick<mapboxgl.Map, 'addImage' | 'hasImage' | 'loadImage'>;
+}
+
+export const useMapImages = (mapRef: RefObject<MarkerImageMapRef | null>) => {
   const loadImages = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
@@ -14,8 +18,7 @@ export const useMapImages = (mapRef: RefObject<MapRef | null>) => {
         return;
       }
       if (image && !map.hasImage('custom-marker')) {
-        // Enable SDF to allow dynamic coloring via icon-color
-        map.addImage('custom-marker', image, { sdf: true });
+        map.addImage('custom-marker', image);
       }
     });
   }, [mapRef]);

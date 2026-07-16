@@ -203,7 +203,7 @@ A user can have both roles simultaneously.
 
 **Spot markers:**
 - All spots (verified and unverified) use the same substrate circle radius (14 px) so the wave icon is consistently framed
-- Unverified spots are distinguished by a grey icon colour; verified spots use blue
+- All spots use the native blue wave on a translucent glass substrate; the selected spot adds a soft blue glow
 
 **Aliases (alternative / local names):**
 - Each spot stores a primary name and a list of aliases (e.g. `Jeffreys Bay` → aliases: `["J-Bay", "Supertubes"]`)
