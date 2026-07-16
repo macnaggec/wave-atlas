@@ -1,8 +1,8 @@
 /**
- * One-time setup script: creates Named Transformations in Cloudinary via API.
+ * Synchronizes Named Transformations in Cloudinary via API.
  * These are required for Strict Transformations to allow our transform URLs.
  *
- * Run once:
+ * Run whenever a named transformation changes:
  *   node scripts/setup-cloudinary-transforms.mjs
  */
 
@@ -24,7 +24,7 @@ const TRANSFORMS = [
   {
     name: 'swelldays_lightbox_watermark',
     // Eager transform for public previews: with tiled watermark overlay
-    transformation: 'c_limit,w_800,q_auto,f_auto/l_watermark_xzn2p9,o_30,fl_tiled,fl_layer_apply',
+    transformation: 'c_limit,w_800,q_auto/l_watermark_jtm3mi/c_scale,fl_relative,w_0.25/o_30/fl_layer_apply,fl_tiled',
   },
   {
     name: 'swelldays_lightbox',
@@ -35,11 +35,12 @@ const TRANSFORMS = [
 
 for (const { name, transformation } of TRANSFORMS) {
   try {
-    await cloudinary.api.create_transformation(name, { transformation });
+    await cloudinary.api.create_transformation(name, { raw_transformation: transformation });
     console.log(`✓ Created: ${name}`);
   } catch (err) {
     if (err?.error?.message?.includes('already exists')) {
-      console.log(`– Already exists: ${name}`);
+      await cloudinary.api.update_transformation(name, { unsafe_update: transformation });
+      console.log(`✓ Updated: ${name}`);
     } else {
       console.error(`✗ Failed: ${name}`, err?.error?.message ?? err);
     }
