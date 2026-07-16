@@ -202,7 +202,7 @@ A user can have both roles simultaneously.
 - Navigation proceeds to the new spot's upload tab directly
 
 **Spot markers:**
-- All spots (verified and unverified) use the same substrate circle radius (14 px) so the wave icon is consistently framed
+- All spots (verified and unverified) use the same substrate circle radius (13 px) so the wave icon is consistently framed
 - All spots use the native blue wave on a translucent glass substrate; the selected spot adds a soft blue glow
 
 **Aliases (alternative / local names):**
