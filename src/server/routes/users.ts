@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from 'server/trpc';
 import { mediaService } from 'server/services/MediaService';
-import { userRepository } from 'server/repositories/UserRepository';
+import { userService } from 'server/services/UserService';
 
 export const usersRouter = router({
   myUploads: protectedProcedure.query(async ({ ctx }) => {
@@ -24,5 +24,5 @@ export const usersRouter = router({
     return { hasDrafts };
   }),
 
-  deleteAccount: protectedProcedure.mutation(({ ctx }) => userRepository.anonymizeAndDelete(ctx.user.id)),
+  deleteAccount: protectedProcedure.mutation(({ ctx }) => userService.deleteAccount(ctx.user.id)),
 });

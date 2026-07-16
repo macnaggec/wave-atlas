@@ -398,6 +398,7 @@ enum OrderStatus {
 enum TransactionType {
   SALE
   PAYOUT
+  FORFEIT
 }
 
 enum TransactionStatus {
