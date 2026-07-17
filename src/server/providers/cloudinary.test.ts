@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from 'vitest';
-import cloudinary, { generateDeliveryUrl } from 'server/providers/cloudinary';
+import cloudinary, { generateDeliveryUrl, getWatermarkedPreviewTransform } from 'server/providers/cloudinary';
 import { MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
 
 beforeAll(() => {
@@ -34,7 +34,7 @@ describe('generateDeliveryUrl', () => {
   });
 
   it('does not force a jpg extension for video lightbox URLs (deliver as native video)', () => {
-    const url = generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK, 'video');
+    const url = generateDeliveryUrl(publicId, getWatermarkedPreviewTransform('video'), 'video');
     expect(url).toContain('/video/authenticated/');
     expect(url).not.toMatch(/abc123\.jpg/);
   });

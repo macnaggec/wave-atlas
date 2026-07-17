@@ -193,14 +193,19 @@ export async function retryAttempt(
   if (!transfer) return;
 
   if (transfer.source === 'local') {
+    const { file } = transfer;
     // Discard the old server attempt (if it was created before the XHR failed)
     // so it doesn't ghost as a second "Preparing…" card after the retry.
     if (transfer.attemptId) {
       await deps.commands.discard({ attemptId: transfer.attemptId });
     }
-    await startLocalUpload(transfer.file, deps);
+    // Drop the old failed card BEFORE re-uploading. startLocalUpload adds its own
+    // fresh card and re-throws if it fails again — if we removed the old card only
+    // afterwards, a re-failed retry would leave both cards and stack a duplicate
+    // on every press.
     releaseBrowserTransferResources(transfer, { abort: false });
     useUploadStore.getState().removeTransfer(transfer.clientRequestId);
+    await startLocalUpload(file, deps);
   } else {
     // Drive retry: obtain fresh access token, then re-process.
     const accessToken = await requestDriveAccessToken();

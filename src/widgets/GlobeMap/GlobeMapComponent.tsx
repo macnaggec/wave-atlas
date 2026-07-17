@@ -404,17 +404,31 @@ export function GlobeMapComponent({
             anchor="bottom"
             className={classes.popupTooltip}
           >
-            <Paper p="xs" shadow="xs" radius="sm" withBorder className={materialClasses.chrome}>
-              <Text size="sm" fw={500}>{hoveredSpot.name}</Text>
+            <Paper
+              className={materialClasses.chrome}
+              p="xs"
+              shadow="xs"
+              radius="lg"
+              withBorder
+            >
+              <Text size="sm" fw={500}>
+                {hoveredSpot.name}
+              </Text>
             </Paper>
           </Popup>
         )}
 
         {acceptsSpotInteraction && selectedSpot && (
-          <SelectedSpotPopup spot={selectedSpot} renderExtra={renderSelectedSpotContent} />
+          <SelectedSpotPopup
+            spot={selectedSpot}
+            renderExtra={renderSelectedSpotContent}
+          />
         )}
 
-        <TempPinMarker tempPin={tempPin} isActive={isCoordinatePickerActive} />
+        <TempPinMarker
+          tempPin={tempPin}
+          isActive={isCoordinatePickerActive}
+        />
 
         {showNavigationControl && <NavigationControl position="bottom-right" />}
       </Map>

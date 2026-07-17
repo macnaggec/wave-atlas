@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl, MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
+import cloudinary, { generateDeliveryUrl as libGenerateDeliveryUrl, getWatermarkedPreviewTransform, MEDIA_UPLOAD_CONFIG, MEDIA_CLOUDINARY_TRANSFORMS } from 'server/providers/cloudinary';
 import { InternalServerError, BadRequestError } from 'shared/errors';
 import type { MediaResourceType } from 'shared/types/media';
 import type { DirectUploadPort, RemoteImportPort, AssetCleanupPort, UploadTarget, StoredAsset, StoredAssetIdentity, RemoteImportInput } from 'server/ports/UploadAssetStorage';
@@ -96,7 +96,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
     // '|' produces two separate outputs; ',' would chain them into one pipeline.
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+      getWatermarkedPreviewTransform('image'),
     ].join('|');
 
     // All params that affect the upload MUST be signed to prevent tampering.
@@ -136,9 +136,10 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
     const timestamp = Math.round(Date.now() / 1000);
     const publicId = target.cloudinaryPublicId;
+    const resourceType = target.expectedMediaType === 'VIDEO' ? 'video' : 'image';
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+      getWatermarkedPreviewTransform(resourceType),
     ].join('|');
     const type = 'authenticated' as const;
 
@@ -171,7 +172,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       cloudinaryPublicId: data.publicId,
       resourceType: resourceType === 'image' ? 'PHOTO' : 'VIDEO',
       thumbnailUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL, cloudinaryResourceType, cloudinaryResourceType === 'video' ? 'jpg' : undefined),
-      lightboxUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK, cloudinaryResourceType),
+      lightboxUrl: this.generateDeliveryUrl(data.publicId, getWatermarkedPreviewTransform(cloudinaryResourceType), cloudinaryResourceType),
     };
   }
 
@@ -221,7 +222,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
     const eager = [
       MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL,
-      MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK,
+      getWatermarkedPreviewTransform(resourceType),
     ].join('|');
 
     const result = await cloudinary.uploader.upload(sourceUrl, {
@@ -236,7 +237,7 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
 
     // Generate the signed preview URLs persisted with the media record and returned by gallery reads.
     const thumbnailUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL, resourceType, resourceType === 'video' ? 'jpg' : undefined);
-    const lightboxUrl = this.generateDeliveryUrl(publicId, MEDIA_CLOUDINARY_TRANSFORMS.LIGHTBOX_WATERMARK, resourceType);
+    const lightboxUrl = this.generateDeliveryUrl(publicId, getWatermarkedPreviewTransform(resourceType), resourceType);
 
     return {
       publicId,
