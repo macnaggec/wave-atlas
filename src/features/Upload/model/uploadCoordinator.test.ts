@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UploadCommands } from './useUploadCommands';
-import { startDriveUpload, startLocalUpload } from './uploadCoordinator';
+import { retryAttempt, startDriveUpload, startLocalUpload } from './uploadCoordinator';
 import { useUploadStore } from './uploadStore';
 
 const mocks = vi.hoisted(() => ({
   uploadToCloudinary: vi.fn(),
   revokeObjectURL: vi.fn(),
+  uuidCounter: { value: 0 },
 }));
 
-vi.mock('uuid', () => ({ v4: () => 'client-request-1' }));
+vi.mock('uuid', () => ({ v4: () => `client-request-${++mocks.uuidCounter.value}` }));
 
 vi.mock('./cloudinaryTransport', () => ({
   uploadToCloudinary: mocks.uploadToCloudinary,
@@ -48,6 +49,7 @@ function makeCommands(overrides: Partial<Record<keyof UploadCommands, unknown>> 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.uuidCounter.value = 0;
   useUploadStore.setState({ transfers: new Map() });
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
@@ -109,6 +111,56 @@ describe('upload coordinator workspace handoff', () => {
 
     refresh.resolve();
     await upload;
+
+    expect(useUploadStore.getState().getAll()).toHaveLength(0);
+  });
+});
+
+describe('upload coordinator retry', () => {
+  const requestDriveAccessToken = () => Promise.resolve('drive-token');
+
+  async function seedFailedLocalTransfer(commands: UploadCommands) {
+    mocks.uploadToCloudinary.mockReturnValueOnce({
+      promise: Promise.reject(new Error('network down')),
+      abort: vi.fn(),
+    });
+    await startLocalUpload(
+      new File(['video'], 'clip.mov', { type: 'video/quicktime' }),
+      { commands, workspaceId: 'workspace-1' },
+    ).catch(() => {});
+
+    const failed = useUploadStore.getState().getAll()[0];
+    if (failed?.source !== 'local') throw new Error('expected a failed local transfer');
+    expect(failed.error).toBe('network down');
+    return failed;
+  }
+
+  it('replaces the failed card instead of stacking a duplicate when a retry fails again', async () => {
+    const commands = makeCommands();
+    const failed = await seedFailedLocalTransfer(commands);
+    expect(useUploadStore.getState().getAll()).toHaveLength(1);
+
+    // Retry, but the re-upload fails a second time.
+    mocks.uploadToCloudinary.mockReturnValueOnce({
+      promise: Promise.reject(new Error('still down')),
+      abort: vi.fn(),
+    });
+    await retryAttempt(failed.clientRequestId, { commands, workspaceId: 'workspace-1' }, requestDriveAccessToken)
+      .catch(() => {});
+
+    // Old failed card is gone; exactly one (newly failed) card remains.
+    const remaining = useUploadStore.getState().getAll();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.clientRequestId).not.toBe(failed.clientRequestId);
+    expect(commands.discard).toHaveBeenCalledWith({ attemptId: 'attempt-1' });
+  });
+
+  it('leaves a single completed card after a retry that succeeds', async () => {
+    const commands = makeCommands();
+    const failed = await seedFailedLocalTransfer(commands);
+
+    // Default mock resolves successfully.
+    await retryAttempt(failed.clientRequestId, { commands, workspaceId: 'workspace-1' }, requestDriveAccessToken);
 
     expect(useUploadStore.getState().getAll()).toHaveLength(0);
   });
