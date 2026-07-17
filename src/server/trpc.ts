@@ -48,23 +48,50 @@ const STATUS_TO_CODE: Record<number, TRPCError['code']> = {
   429: 'TOO_MANY_REQUESTS',
 };
 
+/** Single source of truth for turning an HttpError's statusCode into a tRPC error code. */
+function httpStatusToTRPCCode(statusCode: number): TRPCError['code'] {
+  return STATUS_TO_CODE[statusCode] ??
+    (statusCode < 500 ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR');
+}
+
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     const cause = error.cause;
     if (isHttpError(cause)) {
-      const code: TRPCError['code'] =
-        STATUS_TO_CODE[cause.statusCode] ??
-        (cause.statusCode < 500 ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR');
-      return { ...shape, message: cause.message, data: { ...shape.data, code } };
+      return { ...shape, message: cause.message, data: { ...shape.data, code: httpStatusToTRPCCode(cause.statusCode) } };
     }
     return shape;
   },
 });
 
+/**
+ * Translate service-layer HttpErrors into TRPCErrors with the right code.
+ *
+ * Resolvers throw domain HttpErrors (NotFoundError, BadRequestError, …). tRPC wraps
+ * any non-TRPCError throw as INTERNAL_SERVER_ERROR, and the HTTP status is derived
+ * from that code *before* errorFormatter shapes the body — so without this an expected
+ * 404/400/409 ships as HTTP 500. Runs outermost so it covers every inner middleware
+ * and the resolver. TRPCErrors thrown directly (auth) have no HttpError cause and pass through.
+ */
+const mapHttpErrors = t.middleware(async ({ next }) => {
+  const result = await next();
+  if (!result.ok && isHttpError(result.error.cause)) {
+    const cause = result.error.cause;
+    throw new TRPCError({
+      code: httpStatusToTRPCCode(cause.statusCode),
+      message: cause.message,
+      cause,
+    });
+  }
+  return result;
+});
+
+const baseProcedure = t.procedure.use(mapHttpErrors);
+
 export const router = t.router;
-export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+export const publicProcedure = baseProcedure;
+export const protectedProcedure = baseProcedure.use(({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
