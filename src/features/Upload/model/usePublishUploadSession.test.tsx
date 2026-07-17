@@ -123,6 +123,32 @@ describe('usePublishUploadSession', () => {
     expect(onComplete).toHaveBeenCalledWith('session-1');
   });
 
+  it('does not refetch getWorkspaceState after saving (the workspace is retired)', async () => {
+    const { result } = renderHook(() =>
+      usePublishUploadSession({
+        workspaceId: 'workspace-1',
+        spot: { id: 'spot-1' },
+        queue: readyQueue(['media-1']),
+        sessionDate,
+        sessionRange: [360, 600],
+        photoPrice: 300,
+        videoPrice: 500,
+        onComplete: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.publish();
+    });
+
+    const invalidatedKeys = mocks.invalidateQueries.mock.calls.map(([filter]) => filter.queryKey[0]);
+    // saveWorkspace has just moved the workspace to SAVED; getWorkspaceState only
+    // serves ACTIVE workspaces, so refetching it here 404s (surfaced as a 500).
+    expect(invalidatedKeys).not.toContain('uploads.getWorkspaceState');
+    // The owner-facing lists still refresh so the saved session shows up.
+    expect(invalidatedKeys).toContain('uploads.getActiveWorkspace');
+  });
+
   it('reports missing inputs in their visual order without saving', async () => {
     const { result } = renderHook(() =>
       usePublishUploadSession({

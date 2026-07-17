@@ -40,10 +40,15 @@ export function usePublishUploadSession({
   const clearQueue = useClearUploadQueue();
   const { mutateAsync: saveWorkspace, isPending } = useMutation(
     trpc.uploads.saveWorkspace.mutationOptions({
-      onSuccess: async (result, variables) => {
+      onSuccess: async (result) => {
+        // NB: do NOT invalidate getWorkspaceState here. saveWorkspace has just moved
+        // this workspace to SAVED, and getWorkspaceState only serves ACTIVE workspaces.
+        // While the /upload route is still mounted (navigation happens later, in
+        // onComplete), invalidating would immediately refetch a now-unreadable
+        // workspace → NotFound → HTTP 500. The query unmounts on navigation and its
+        // stale cache is GC'd; there is no fresh state to fetch for a retired workspace.
         await Promise.all([
           queryClient.invalidateQueries(trpc.uploads.getActiveWorkspace.queryFilter()),
-          queryClient.invalidateQueries(trpc.uploads.getWorkspaceState.queryFilter(variables)),
           queryClient.invalidateQueries(trpc.sessions.list.pathFilter()),
           queryClient.invalidateQueries(trpc.sessions.mine.queryFilter()),
           queryClient.invalidateQueries(trpc.sessions.byId.queryFilter(result.id)),
