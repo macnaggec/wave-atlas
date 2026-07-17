@@ -15,7 +15,7 @@ beforeAll(() => {
 });
 
 describe('CloudinaryService.createUploadGrant', () => {
-  it('applies a repeated SwellDays watermark grid to video previews', () => {
+  it('applies the video watermark named transformation to video previews', () => {
     const service = new CloudinaryService();
 
     const grant = service.createUploadGrant(
@@ -27,13 +27,10 @@ describe('CloudinaryService.createUploadGrant', () => {
       new Date('2026-07-15T22:00:00Z'),
     );
     const previewTransform = grant.eager.split('|')[1] ?? '';
-    const countMatches = (pattern: RegExp) => previewTransform.match(pattern)?.length ?? 0;
 
-    expect(countMatches(/l_watermark_jtm3mi/g)).toBe(9);
-    expect(countMatches(/w_0\.25/g)).toBe(9);
-    expect(countMatches(/o_45/g)).toBe(9);
-    expect(previewTransform).not.toContain('fl_tiled');
-    expect(previewTransform).not.toContain('wave_atlas');
+    // Video watermarking is handled the same way as images — a dashboard named
+    // transformation — since the pre-tiled PNG overlay it uses needs no per-frame grid.
+    expect(previewTransform).toBe('t_swelldays_video_lightbox_watermark');
   });
 });
 
