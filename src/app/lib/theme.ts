@@ -79,8 +79,13 @@ export const theme = createTheme({
       styles: {
         content: {
           ...glassOverlay,
-          background:   'var(--wa-surface-dialog)',
-          borderRadius: 'var(--wa-radius-dialog)',
+          // Opaque surface (no backdrop blur): an animation over a translucent modal (upload
+          // spinner, skeleton) forces a full-stack re-blend every frame — audible coil whine.
+          // Opaque lets the GPU occlude the background, so the blur is also pointless here.
+          background:           'var(--wa-surface-dialog-opaque)',
+          backdropFilter:       'none',
+          WebkitBackdropFilter: 'none',
+          borderRadius:         'var(--wa-radius-dialog)',
         },
         header: {
           background: 'transparent',

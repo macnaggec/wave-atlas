@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ActionIcon, Loader, Modal } from '@mantine/core';
+import { ActionIcon, Modal } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import classes from './CarouselLightbox.module.css';
@@ -353,9 +353,12 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
     >
       <div className={classes.stage} data-lightbox-stage data-lightbox-loading={chromeReady ? undefined : true}>
         {activeItem && !chromeReady && (
-          <div className={classes.loading} data-lightbox-media-loader>
-            <Loader size="md" color="var(--wa-text-muted)" />
-          </div>
+          <div
+            className={classes.loadingSkeleton}
+            data-lightbox-media-loader
+            role="status"
+            aria-label="Loading media"
+          />
         )}
         {activeItem && (
           <div

@@ -102,16 +102,39 @@ video.media {
 }
 
 .stage[data-lightbox-loading] {
-  min-height: 12rem;
+  /* Media dimensions are unknown until it loads, so present a neutral square placeholder
+     (reads correctly whether the incoming media is landscape or portrait). */
+  width: min(60vh, 90vw);
+  height: min(60vh, 90vw);
+  min-height: 0;
 }
 
-.loading {
+.loadingSkeleton {
   position: absolute;
   inset: 0;
   z-index: 1;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
   pointer-events: none;
+  border-radius: var(--wa-radius-dialog);
+  /* Opaque base so the shimmer animates cheaply: the GPU can occlude the (transparent) lightbox
+     stack behind it. A translucent placeholder would re-blend the whole stack every frame and
+     coil-whine — the same issue we fixed on modals. */
+  background: var(--wa-surface-dialog-opaque);
+}
+
+.loadingSkeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--wa-surface-chrome), transparent);
+  transform: translateX(-100%);
+  animation: lightboxShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes lightboxShimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .staticChrome :global([data-lightbox-icon-action]),

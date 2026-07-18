@@ -17,6 +17,11 @@
   --wa-surface-chrome: rgba(255, 255, 255, 0.08);
   --wa-surface-overlay: rgba(28, 30, 40, 0.82);
   --wa-surface-dialog: rgba(18, 20, 30, 0.88);
+  /* Opaque variant for modal surfaces: a translucent surface forces the GPU to re-blend the
+     whole stack behind it every frame any animation runs over it (spinner, skeleton) — a
+     large per-frame overdraw that manifests as audible coil whine. Opaque lets the GPU
+     occlude the background, so animations over a modal stay cheap. */
+  --wa-surface-dialog-opaque: #12141e;
   --wa-surface-status: rgba(15, 23, 42, 0.82);
   --wa-surface-media-card: rgba(255, 255, 255, 0.06);
   --wa-surface-media-overlay: rgba(18, 22, 28, 0.42);
