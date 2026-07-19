@@ -26,6 +26,8 @@ interface RawCloudinaryResponse {
   public_id: string;
   resource_type: string;
   eager?: Array<{ secure_url: string }>;
+  width?: number;
+  height?: number;
 }
 
 interface CloudinaryUpload {
@@ -102,6 +104,8 @@ function parseSuccessResponse(
     thumbnailUrl: raw.eager?.[0]?.secure_url,
     lightboxUrl: raw.eager?.[1]?.secure_url,
     resourceType: raw.resource_type,
+    width: raw.width,
+    height: raw.height,
   });
 
   if (!parsed.success) {

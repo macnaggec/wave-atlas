@@ -99,6 +99,8 @@ function existingMediaToItem(state: UploadWorkspaceState, media: UploadWorkspace
     lightboxUrl: media.lightboxUrl,
     thumbnailUrl: media.thumbnailUrl,
     cloudinaryPublicId: media.cloudinaryPublicId,
+    width: media.width,
+    height: media.height,
     status: MEDIA_STATUS.PUBLISHED,
     createdAt: media.capturedAt,
     resource: {
@@ -121,6 +123,8 @@ function assetToItem(state: UploadWorkspaceState, asset: UploadWorkspaceAssetPro
     lightboxUrl: asset.lightboxUrl,
     thumbnailUrl: asset.thumbnailUrl,
     cloudinaryPublicId: asset.cloudinaryPublicId,
+    width: asset.width,
+    height: asset.height,
     status: MEDIA_STATUS.DRAFT,
     createdAt: asset.createdAt,
     resource: {

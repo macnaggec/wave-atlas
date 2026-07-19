@@ -92,6 +92,8 @@ export function SessionDetail({ session }: SessionDetailProps) {
                 thumbnailUrl: item.thumbnailUrl,
                 price: item.price,
                 capturedAt: item.capturedAt,
+                width: item.width,
+                height: item.height,
                 resource: {
                   resourceType: item.type === 'VIDEO' ? 'video' : 'image',
                   url: item.type === 'VIDEO' ? item.lightboxUrl : item.thumbnailUrl,

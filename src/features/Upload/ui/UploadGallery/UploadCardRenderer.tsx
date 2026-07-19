@@ -4,6 +4,7 @@ import classes from './UploadCardRenderer.module.css';
 import { IconRefresh, IconX } from '@tabler/icons-react';
 import { MediaItem, MEDIA_STATUS } from 'entities/Media';
 import { formatPrice } from 'shared/lib/currency';
+import { formatDimensions } from 'shared/lib/formatDimensions';
 import { GalleryCard, AttemptCardStatus } from '../../model';
 import DraftCard from '../cards/DraftCard';
 
@@ -112,6 +113,11 @@ function renderDraftOverlay(mediaItem: MediaItem) {
     badges.push(
       <Badge key="price" size="sm" color="green" variant="filled">{formatPrice(mediaItem.price)}</Badge>
     );
+  }
+
+  const dimensions = formatDimensions(mediaItem.width, mediaItem.height);
+  if (dimensions) {
+    badges.push(<Badge key="size" size="sm" color="gray" variant="light">{dimensions}</Badge>);
   }
 
   if (formattedDate) {
