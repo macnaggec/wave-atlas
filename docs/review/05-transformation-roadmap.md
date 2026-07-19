@@ -130,6 +130,13 @@ Findings from a live browser pass (signed-out + signed-in) and test audit that e
 
 - **Third balance writer found and consolidated:** the audit counted two `User.balance` writers, but `UserRepository.anonymizeAndDelete` was a third — it zeroed the balance and hand-created the FORFEIT transaction during account deletion. S1b moved all three behind tx-scoped `LedgerRepository.recordSale`/`forfeitBalance` (callers pass their `Prisma.TransactionClient`, so multi-table commits stay atomic). Enforcement: `ledger-owns-money-writes` rule in `check-style-boundaries.mjs` fails on balance-mutation shapes or `transaction.create` in any non-test `src/server/**` file outside `LedgerRepository.ts` (verified to fire on a deliberate violation).
 
+## Working notes (S2 session, 2026-07-19)
+
+- **Lineage landed as `MediaCore` → `DraftMedia` / `PublishedMedia` / `PublicMedia` (+`PublicMediaPage`).** The full internal photographer shape is named `DraftMedia` (upload/own-media contract — the only projection carrying `cloudinaryPublicId`/`resource`); `PublicMedia` = `PublishedMedia` + `photographer` + `viewerEntitlement`. The three public endpoints (spot feed, session media, favorites) now return the identical `PublicMedia` shape — the feed previously leaked the full internal record and the endpoints disagreed on `photographer` presence. `AttributedPublishedMedia` (= `Omit<PublicMedia,'viewerEntitlement'>`) is the repo-layer pre-entitlement alias.
+- **S3's field exclusion landed as a byproduct:** the public feed wire response verified in the dev app carries no `cloudinaryPublicId`/`sessionId`/`status`. S3's remaining artifacts (route test asserting the exclusion + recording) are still open — S3 stays ⬜.
+- **Both Q1 debt casts paid:** the `as PublicSpotMediaItem` bridge in PublicGallery and the `FavoriteCandidate` Omit-and-patch bridge in useMediaFavorites are deleted; `toggleFavorite` takes `PublicMedia` directly.
+- **Verified live (signed-out):** gallery feed renders, video cards show play glyphs from the new `type` field, lightbox plays a signed video (readyState 4), zero console errors. Signed-in surfaces (favorites tab, session detail) covered by tsc + unit tests only.
+
 ## Status tracker
 
 Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (needs its trigger or an explicit id to start).
@@ -143,7 +150,7 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | Q4 | Requirements true-up (payments section) | S | partial | ⬜ |
 | S1a | Ledger invariant + fulfillment tests | S | yes | ✅ |
 | S1b | Single money write path | M | yes | ✅ |
-| S2 | Media contract lineage | M | yes | ⬜ |
+| S2 | Media contract lineage | M | yes | ✅ |
 | S3 | Storage ids out of public projections (sliver) | S | partial | ⬜ |
 | ⛔ | **Stop-line: re-decide structure vs product** | — | added | ⬜ |
 | S4 | Routes → services lint rules (sliver) | M | partial | ⬜ |

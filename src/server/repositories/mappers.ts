@@ -1,12 +1,13 @@
 import { MediaItem as PrismaMediaItem, MediaType } from '@prisma/client';
 import { MEDIA_RESOURCE_TYPE } from 'shared/constants/media';
-import type { MediaItem } from 'shared/types/media';
+import type { DraftMedia } from 'shared/types/media';
 
-export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
+export function mapToDraftMedia(row: PrismaMediaItem): DraftMedia {
   return {
     id: row.id,
     sessionId: row.sessionId,
     photographerId: row.photographerId,
+    type: row.type,
     spotId: row.spotId ?? null,
     capturedAt: row.capturedAt,
     price: row.price ?? null,

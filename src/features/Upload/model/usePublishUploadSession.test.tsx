@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePublishUploadSession } from './usePublishUploadSession';
 import type { GalleryCard } from './types';
-import type { MediaItem } from 'entities/Media';
+import type { DraftMedia } from 'entities/Media';
 
 const mocks = vi.hoisted(() => ({
   clearQueue: vi.fn(),
@@ -62,11 +62,12 @@ vi.mock('./useClearUploadQueue', () => ({
   useClearUploadQueue: () => mocks.clearQueue,
 }));
 
-function makeMediaItem(id: string): MediaItem {
+function makeMediaItem(id: string): DraftMedia {
   return {
     id,
     sessionId: 'session-1',
     photographerId: 'photographer-1',
+    type: 'PHOTO',
     spotId: null,
     capturedAt: new Date('2026-01-01T00:00:00Z'),
     price: null,

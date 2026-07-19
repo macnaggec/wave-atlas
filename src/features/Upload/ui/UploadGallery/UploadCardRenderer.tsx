@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Badge, Button, Group, ActionIcon, Loader, rem, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import classes from './UploadCardRenderer.module.css';
 import { IconRefresh, IconX } from '@tabler/icons-react';
-import { MediaItem, MEDIA_STATUS } from 'entities/Media';
+import { DraftMedia, MEDIA_STATUS } from 'entities/Media';
 import { formatPrice } from 'shared/lib/currency';
 import { formatDimensions } from 'shared/lib/formatDimensions';
 import { GalleryCard, AttemptCardStatus } from '../../model';
@@ -97,7 +97,7 @@ export const UploadCardRenderer = memo<UploadCardRendererProps>(({
 
 UploadCardRenderer.displayName = 'UploadCardRenderer';
 
-function renderDraftOverlay(mediaItem: MediaItem) {
+function renderDraftOverlay(mediaItem: DraftMedia) {
   const isDateFromExif = mediaItem.dateSource === 'exif';
   const formattedDate = mediaItem.capturedAt
     ? new Date(mediaItem.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

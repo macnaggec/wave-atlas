@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { describe, expect, it } from 'vitest';
 import { MEDIA_STATUS } from 'entities/Media';
-import type { MediaItem } from 'entities/Media';
+import type { DraftMedia } from 'entities/Media';
 import { UploadCardRenderer } from './UploadCardRenderer';
 import type { GalleryCard } from '../../model';
 
@@ -10,11 +10,12 @@ function wrap(ui: React.ReactElement) {
   return render(<MantineProvider>{ui}</MantineProvider>);
 }
 
-function makeDraft(overrides: Partial<MediaItem>): GalleryCard {
-  const base: MediaItem = {
+function makeDraft(overrides: Partial<DraftMedia>): GalleryCard {
+  const base: DraftMedia = {
     id: 'media-1',
     sessionId: 'session-1',
     photographerId: 'user-1',
+    type: 'PHOTO',
     spotId: null,
     capturedAt: new Date('2024-01-01'),
     price: null,

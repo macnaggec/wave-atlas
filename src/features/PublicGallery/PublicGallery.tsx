@@ -1,6 +1,6 @@
 import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 import { SimpleGrid, Skeleton } from '@mantine/core';
-import { useMediaFavorites, type MediaItem, type PublicSpotMediaItem } from 'entities/Media';
+import { useMediaFavorites, type PublicMedia } from 'entities/Media';
 import { useSpotMediaFeed, useSpotPreview } from 'entities/Spot';
 import { buildGalleryRows } from 'shared/lib/buildGalleryRows';
 import { VirtualGallery, type VirtualGalleryHandle } from 'shared/ui/VirtualGallery/VirtualGallery';
@@ -18,7 +18,7 @@ import { GalleryEmptyState } from './ui/GalleryEmptyState';
 export interface PublicGalleryProps {
   /** Omit to browse published media across all spots instead of a single spot. */
   spotId?: string;
-  onShare?: (items: MediaItem[]) => void;
+  onShare?: (items: PublicMedia[]) => void;
   emptyMessage?: string;
   filters?: BrowseFilters;
   onClearFilters?: () => void;
@@ -58,7 +58,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const lightboxItems = useMemo(
-    () => flatItems.map((i) => ({ ...i, type: i.resource.resourceType })),
+    () => flatItems.map((i) => ({ ...i, type: i.type === 'VIDEO' ? 'video' as const : 'image' as const })),
     [flatItems],
   );
 
@@ -173,7 +173,7 @@ const PublicGallery: FC<PublicGalleryProps> = memo(({
             const isPurchased = item.viewerEntitlement.purchaseState === 'purchased';
             return (
               <PublicCard
-                mediaItem={item as PublicSpotMediaItem}
+                mediaItem={item}
                 actions={actions}
                 activeActions={activeActions}
                 onAction={handleCardAction}

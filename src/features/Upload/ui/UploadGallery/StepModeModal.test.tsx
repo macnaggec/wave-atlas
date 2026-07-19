@@ -5,7 +5,7 @@ import { MantineProvider } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GalleryCard } from '../../model';
-import type { MediaItem } from 'entities/Media';
+import type { DraftMedia } from 'entities/Media';
 import type { UseGallerySelectionReturn } from 'shared/hooks/gallery';
 import { StepModeModal } from './StepModeModal';
 
@@ -49,10 +49,11 @@ describe('StepModeModal', () => {
     const onClose = vi.fn();
     const onDiscardAll = vi.fn();
     const onRemove = vi.fn();
-    const draftResult: MediaItem = {
+    const draftResult: DraftMedia = {
       id: 'media-1',
       sessionId: 'session-1',
       photographerId: 'photographer-1',
+      type: 'PHOTO',
       spotId: null,
       capturedAt: new Date('2026-01-01T00:00:00Z'),
       price: null,

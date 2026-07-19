@@ -1,30 +1,24 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { usePublicGalleryActions } from './usePublicGalleryActions';
-import type { PublicMediaItem } from 'entities/Media';
+import type { PublicMedia } from 'entities/Media';
 
 vi.mock('shared/hooks/useUser', () => ({
   useUser: () => ({ user: { id: 'buyer-1' }, isLoading: false }),
 }));
 
-function mediaItem(overrides: Partial<PublicMediaItem> & { id: string }): PublicMediaItem {
+function mediaItem(overrides: Partial<PublicMedia> & { id: string }): PublicMedia {
   return {
-    sessionId: 'session-1',
     photographerId: 'photographer-1',
+    photographer: { id: 'photographer-1', name: 'Photographer One' },
+    type: 'PHOTO',
     spotId: 'spot-1',
+    spot: { id: 'spot-1', name: 'Spot One' },
     capturedAt: new Date('2026-04-01T10:00:00.000Z'),
     price: 300,
     lightboxUrl: 'https://example.com/lightbox.jpg',
     thumbnailUrl: 'https://example.com/thumb.jpg',
-    cloudinaryPublicId: 'cloudinary-public-id',
-    status: 'PUBLISHED',
-    createdAt: new Date('2026-04-01T12:00:00.000Z'),
     viewerEntitlement: { purchaseState: 'none' },
-    resource: {
-      resourceType: 'image',
-      url: 'https://example.com/lightbox.jpg',
-      assetId: overrides.id,
-    },
     ...overrides,
   };
 }

@@ -8,7 +8,7 @@ import { BaseGallery } from 'shared/ui/BaseGallery';
 import { PanelGalleryLayout } from 'shared/ui/PanelGalleryLayout';
 import { useCartToggle } from 'entities/Commerce';
 import { useMediaFavorites } from 'entities/Media';
-import { MediaLightbox, PublicCard, type DisplayMedia } from 'features/PublicGallery';
+import { MediaLightbox, PublicCard } from 'features/PublicGallery';
 
 export const Route = createFileRoute('/_panel/me/collections/favorites')({ component: FavoritesTab });
 
@@ -35,18 +35,9 @@ function FavoritesTab() {
           renderCard={(item, { index }) => {
             const isOwn = ownedItemIds.has(item.id);
             const isPurchased = purchasedItemIds.has(item.id);
-            const displayMedia: DisplayMedia = {
-              id: item.id,
-              thumbnailUrl: item.thumbnailUrl,
-              price: item.price,
-              capturedAt: item.capturedAt,
-              width: item.width,
-              height: item.height,
-              resource: { resourceType: item.type === 'VIDEO' ? 'video' : 'image', url: item.lightboxUrl, assetId: item.id },
-            };
             return (
               <PublicCard
-                mediaItem={displayMedia}
+                mediaItem={item}
                 actions={!isOwn && !isPurchased && item.price > 0 ? ['cart', 'favorites'] : ['favorites']}
                 activeActions={[...(cartItemIds.has(item.id) ? ['cart' as const] : []), 'favorites']}
                 onAction={(action) => action === 'cart' ? toggleCartItem(item) : toggleFavorite(item)}

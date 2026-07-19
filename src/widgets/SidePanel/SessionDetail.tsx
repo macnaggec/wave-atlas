@@ -4,7 +4,7 @@ import { IconCamera, IconMapPin } from '@tabler/icons-react';
 import { useSessionMedia } from 'entities/SurfSession';
 import type { SurfSessionItem } from 'entities/SurfSession';
 import { useCartToggle } from 'entities/Commerce';
-import { MediaLightbox, PublicCard, type LightboxMedia, type DisplayMedia } from 'features/PublicGallery';
+import { MediaLightbox, PublicCard, type LightboxMedia } from 'features/PublicGallery';
 import { useUser } from 'shared/hooks/useUser';
 import { useMediaFavorites } from 'entities/Media';
 import { BaseGallery } from 'shared/ui/BaseGallery';
@@ -87,23 +87,9 @@ export function SessionDetail({ session }: SessionDetailProps) {
               const isPurchased = purchasedItemIds.has(item.id);
               const isInCart = cartItemIds.has(item.id);
               const isFavorite = favoriteIds.has(item.id);
-              const displayMedia: DisplayMedia = {
-                id: item.id,
-                thumbnailUrl: item.thumbnailUrl,
-                price: item.price,
-                capturedAt: item.capturedAt,
-                width: item.width,
-                height: item.height,
-                resource: {
-                  resourceType: item.type === 'VIDEO' ? 'video' : 'image',
-                  url: item.type === 'VIDEO' ? item.lightboxUrl : item.thumbnailUrl,
-                  assetId: item.id,
-                },
-              };
-
               return (
                 <PublicCard
-                  mediaItem={displayMedia}
+                  mediaItem={item}
                   actions={item.price > 0 && !isOwn && !isPurchased ? ['cart', 'favorites'] : ['favorites']}
                   activeActions={[...(isInCart ? ['cart' as const] : []), ...(isFavorite ? ['favorites' as const] : [])]}
                   onAction={(action) => action === 'cart' ? handleCartToggle(item) : toggleFavorite(item)}

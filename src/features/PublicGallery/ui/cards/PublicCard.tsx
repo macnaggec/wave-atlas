@@ -19,12 +19,7 @@ export interface DisplayMedia {
   capturedAt: Date;
   width?: number | null;
   height?: number | null;
-  resource: {
-    resourceType: 'image' | 'video';
-    url: string;
-    playbackUrl?: string;
-    assetId: string;
-  };
+  type: 'PHOTO' | 'VIDEO';
 }
 
 /**
@@ -136,8 +131,6 @@ const PublicCard: FC<PublicCardProps> = memo(({
   showPurchasedBadge = false,
   dense = false,
 }) => {
-  const { resource } = mediaItem;
-
   const handleClick = useCallback(() => {
     onCardClick?.(mediaItem.id);
   }, [onCardClick, mediaItem.id]);
@@ -211,8 +204,8 @@ const PublicCard: FC<PublicCardProps> = memo(({
   return (
     <BaseCard
       imageUrl={mediaItem.thumbnailUrl}
-      resourceType={resource.resourceType}
-      alt={`Media ${resource.assetId}`}
+      resourceType={mediaItem.type === 'VIDEO' ? 'video' : 'image'}
+      alt={`Media ${mediaItem.id}`}
       onClick={onCardClick ? handleClick : undefined}
       flush={dense}
       onLoad={handleLoad}

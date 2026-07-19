@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { PublicMediaItem } from 'entities/Media';
+import type { PublicMedia } from 'entities/Media';
 import { useUser } from 'shared/hooks/useUser';
 import type { PublicCardAction } from './types';
 
@@ -18,7 +18,7 @@ interface CardActionResult {
 export interface BulkAction {
   key: 'cart' | 'share';
   label: string;
-  payload: PublicMediaItem[];
+  payload: PublicMedia[];
 }
 
 interface CartBulkState {
@@ -66,7 +66,7 @@ export function usePublicGalleryActions({
   );
 
   const getCardActions = useCallback(
-    (item: PublicMediaItem, isSelectionMode: boolean): CardActionResult => {
+    (item: PublicMedia, isSelectionMode: boolean): CardActionResult => {
       // While session loads, treat items as non-interactive to avoid briefly
       // showing cart buttons on own items before user identity is known.
       const isOwn = isOwnId(item.photographerId);
@@ -91,7 +91,7 @@ export function usePublicGalleryActions({
   );
 
   const getCartBulkState = useCallback(
-    (selectedItems: PublicMediaItem[]): CartBulkState => {
+    (selectedItems: PublicMedia[]): CartBulkState => {
       const buyableItems = selectedItems.filter((i) =>
         !isOwnId(i.photographerId) && i.viewerEntitlement.purchaseState !== 'purchased'
       );

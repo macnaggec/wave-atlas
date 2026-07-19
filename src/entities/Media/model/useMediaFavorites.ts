@@ -4,14 +4,7 @@ import { notifications } from '@mantine/notifications';
 import { useAuthModal } from 'entities/Identity';
 import { useUser } from 'shared/hooks/useUser';
 import { useTRPC } from 'shared/lib/trpc';
-import type { PublicPublishedMedia } from 'entities/Media/types';
-
-type FavoriteCandidate = Omit<PublicPublishedMedia, 'price' | 'type' | 'spotId'> & {
-  price: PublicPublishedMedia['price'] | null;
-  spotId: string | null;
-  type?: 'PHOTO' | 'VIDEO';
-  resource?: { resourceType: 'image' | 'video' };
-};
+import type { PublicMedia } from 'entities/Media/types';
 
 export function useMediaFavorites() {
   const trpc = useTRPC();
@@ -20,7 +13,7 @@ export function useMediaFavorites() {
   const { open: openAuthModal } = useAuthModal();
   const idsKey = trpc.media.favoriteIds.queryKey();
   const favoritesKey = trpc.media.favorites.queryKey();
-  const [optimisticItems] = useState(() => new Map<string, PublicPublishedMedia>());
+  const [optimisticItems] = useState(() => new Map<string, PublicMedia>());
 
   const { data: ids = [], isLoading } = useQuery({
     ...trpc.media.favoriteIds.queryOptions(),
@@ -34,14 +27,14 @@ export function useMediaFavorites() {
         queryClient.cancelQueries({ queryKey: favoritesKey }),
       ]);
       const previousIds = queryClient.getQueryData<string[]>(idsKey);
-      const previousFavorites = queryClient.getQueryData<PublicPublishedMedia[]>(favoritesKey);
+      const previousFavorites = queryClient.getQueryData<PublicMedia[]>(favoritesKey);
 
       queryClient.setQueryData<string[]>(idsKey, (current = []) =>
         favorited
           ? [mediaItemId, ...current.filter((id) => id !== mediaItemId)]
           : current.filter((id) => id !== mediaItemId));
       const item = optimisticItems.get(mediaItemId);
-      queryClient.setQueryData<PublicPublishedMedia[]>(favoritesKey, (current = []) =>
+      queryClient.setQueryData<PublicMedia[]>(favoritesKey, (current = []) =>
         favorited && item
           ? [item, ...current.filter((favorite) => favorite.id !== mediaItemId)]
           : current.filter((favorite) => favorite.id !== mediaItemId));
@@ -63,23 +56,13 @@ export function useMediaFavorites() {
   }));
 
   const favoriteIds = new Set(ids);
-  const toggleFavorite = (item: FavoriteCandidate) => {
+  const toggleFavorite = (item: PublicMedia) => {
     if (!isAuthenticated) {
       openAuthModal();
       return;
     }
     const favorited = !favoriteIds.has(item.id);
-    if (item.price !== null) {
-      const favoriteItem: PublicPublishedMedia = {
-        ...item,
-        price: item.price,
-        spotId: item.spotId ?? item.spot?.id ?? '',
-        type: item.type ?? (item.resource?.resourceType === 'video' ? 'VIDEO' : 'PHOTO'),
-      };
-      optimisticItems.set(item.id, favoriteItem);
-    } else {
-      optimisticItems.delete(item.id);
-    }
+    optimisticItems.set(item.id, item);
     mutation.mutate({ mediaItemId: item.id, favorited });
   };
 

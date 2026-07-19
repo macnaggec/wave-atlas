@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('server/repositories/mappers', () => ({
-  mapToMediaItem: (row: { id: string; thumbnailUrl?: string; lightboxUrl?: string }) => ({
+  mapToDraftMedia: (row: { id: string; thumbnailUrl?: string; lightboxUrl?: string }) => ({
     id: row.id,
     thumbnailUrl: row.thumbnailUrl,
     lightboxUrl: row.lightboxUrl,

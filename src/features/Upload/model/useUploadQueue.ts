@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MEDIA_STATUS, type MediaItem } from 'entities/Media';
+import { MEDIA_STATUS, type DraftMedia } from 'entities/Media';
 import { useUploadStore } from './uploadStore';
 import type { AttemptCard, GalleryCard } from './types';
 import type { UploadAttemptProjection } from 'shared/types/upload';
@@ -87,11 +87,12 @@ function resourceType(type: 'PHOTO' | 'VIDEO'): 'image' | 'video' {
   return type === 'VIDEO' ? 'video' : 'image';
 }
 
-function existingMediaToItem(state: UploadWorkspaceState, media: UploadWorkspaceExistingMedia): MediaItem {
+function existingMediaToItem(state: UploadWorkspaceState, media: UploadWorkspaceExistingMedia): DraftMedia {
   return {
     id: media.id,
     sessionId: state.workspace.targetSessionId ?? state.workspace.id,
     photographerId: '',
+    type: media.type,
     spotId: state.workspace.spotId,
     capturedAt: media.capturedAt,
     dateSource: 'fallback',
@@ -111,11 +112,12 @@ function existingMediaToItem(state: UploadWorkspaceState, media: UploadWorkspace
   };
 }
 
-function assetToItem(state: UploadWorkspaceState, asset: UploadWorkspaceAssetProjection): MediaItem {
+function assetToItem(state: UploadWorkspaceState, asset: UploadWorkspaceAssetProjection): DraftMedia {
   return {
     id: asset.id,
     sessionId: state.workspace.targetSessionId ?? state.workspace.id,
     photographerId: '',
+    type: asset.type,
     spotId: state.workspace.spotId,
     capturedAt: asset.capturedAt,
     dateSource: 'fallback',

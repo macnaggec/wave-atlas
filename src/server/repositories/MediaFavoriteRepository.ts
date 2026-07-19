@@ -1,12 +1,12 @@
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
-import type { PublishedMedia } from 'shared/types/media';
+import type { AttributedPublishedMedia } from './MediaRepository';
 
 export interface IMediaFavoriteRepository {
   add(userId: string, mediaItemId: string): Promise<void>;
   remove(userId: string, mediaItemId: string): Promise<void>;
   findIdsByUser(userId: string): Promise<string[]>;
-  findByUser(userId: string): Promise<PublishedMedia[]>;
+  findByUser(userId: string): Promise<AttributedPublishedMedia[]>;
 }
 
 export class MediaFavoriteRepository implements IMediaFavoriteRepository {
@@ -37,12 +37,19 @@ export class MediaFavoriteRepository implements IMediaFavoriteRepository {
     });
   }
 
-  findByUser(userId: string): Promise<PublishedMedia[]> {
+  findByUser(userId: string): Promise<AttributedPublishedMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.userFavoriteMedia.findMany({
         where: { userId, mediaItem: { status: 'PUBLISHED', deletedAt: null } },
         orderBy: { createdAt: 'desc' },
-        include: { mediaItem: { include: { spot: { select: { id: true, name: true } } } } },
+        include: {
+          mediaItem: {
+            include: {
+              photographer: { select: { id: true, name: true } },
+              spot: { select: { id: true, name: true } },
+            },
+          },
+        },
       });
       return rows.map(({ mediaItem }) => ({
         id: mediaItem.id,
@@ -53,7 +60,10 @@ export class MediaFavoriteRepository implements IMediaFavoriteRepository {
         capturedAt: mediaItem.capturedAt,
         spotId: mediaItem.spotId!,
         photographerId: mediaItem.photographerId,
+        photographer: mediaItem.photographer,
         spot: mediaItem.spot,
+        width: mediaItem.width,
+        height: mediaItem.height,
       }));
     });
   }

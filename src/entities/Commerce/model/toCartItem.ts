@@ -1,9 +1,9 @@
-import type { MediaItem } from 'entities/Media';
+import type { MediaCore } from 'entities/Media';
 import { formatShortDate } from 'shared/lib/dateUtils';
 import type { CartItem } from './types';
 
 type CartMediaItem = Pick<
-  MediaItem,
+  MediaCore,
   'id' | 'capturedAt' | 'thumbnailUrl' | 'lightboxUrl' | 'price'
 > & {
   /** Present on items fetched without a single fixed spot context (e.g. an all-spots gallery). */

@@ -2,11 +2,14 @@ import { MediaItem as PrismaMediaItem } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
 import { MEDIA_STATUS } from 'shared/constants/media';
-import type { MediaItem, PublishedMedia, MediaStatus as DomainMediaStatus, SpotMediaItem } from 'shared/types/media';
-import { mapToMediaItem } from './mappers';
+import type { DraftMedia, MediaStatus as DomainMediaStatus, PublicMedia } from 'shared/types/media';
+import { mapToDraftMedia } from './mappers';
+
+/** Public projection before the service attaches the viewer's entitlement. */
+export type AttributedPublishedMedia = Omit<PublicMedia, 'viewerEntitlement'>;
 
 export type SpotMediaPage = {
-  items: SpotMediaItem[];
+  items: AttributedPublishedMedia[];
   nextCursor: string | null;
 };
 
@@ -20,9 +23,12 @@ export interface PublishedSpotMediaFilter {
   favoriteUserId?: string;
 }
 
-function mapToPublishedMedia(
-  row: PrismaMediaItem & { spot: { id: string; name: string } | null },
-): PublishedMedia {
+function mapToAttributedPublishedMedia(
+  row: PrismaMediaItem & {
+    photographer: { id: string; name: string | null } | null;
+    spot: { id: string; name: string } | null;
+  },
+): AttributedPublishedMedia {
   return {
     id: row.id,
     type: row.type,
@@ -32,22 +38,10 @@ function mapToPublishedMedia(
     capturedAt: row.capturedAt,
     spotId: row.spotId!,
     photographerId: row.photographerId,
+    photographer: row.photographer,
     spot: row.spot,
     width: row.width,
     height: row.height,
-  };
-}
-
-function mapToSpotMediaItem(
-  row: PrismaMediaItem & {
-    photographer: { id: string; name: string | null } | null;
-    spot: { id: string; name: string } | null;
-  },
-): SpotMediaItem {
-  return {
-    ...mapToMediaItem(row),
-    photographer: row.photographer,
-    spot: row.spot,
   };
 }
 
@@ -61,28 +55,28 @@ export type MediaFulfillmentItem = {
 };
 
 export interface IMediaRepository {
-  findById(id: string): Promise<MediaItem | null>;
+  findById(id: string): Promise<DraftMedia | null>;
   findByCloudinaryPublicId(publicId: string): Promise<{ id: string; photographerId: string } | null>;
-  updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem>;
+  updateMedia(id: string, data: UpdateMediaData): Promise<DraftMedia>;
   updateManyMedia(ids: string[], data: UpdateMediaData): Promise<void>;
-  softDelete(id: string): Promise<MediaItem>;
+  softDelete(id: string): Promise<DraftMedia>;
   hardDelete(id: string): Promise<void>;
   hardDeleteMany(ids: string[]): Promise<void>;
   findByIds(ids: string[]): Promise<{ id: string; sessionId: string; status: DomainMediaStatus; price: number | null; photographerId: string; cloudinaryPublicId: string; type: string }[]>;
   findByIdsForFulfillment(ids: string[]): Promise<MediaFulfillmentItem[]>;
-  findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]>;
-  findPublishedBySession(sessionId: string): Promise<PublishedMedia[]>;
+  findPublishedByPhotographer(photographerId: string): Promise<AttributedPublishedMedia[]>;
+  findPublishedBySession(sessionId: string): Promise<AttributedPublishedMedia[]>;
   hasDraftsByUser(photographerId: string): Promise<boolean>;
-  findDraftsByUser(photographerId: string): Promise<MediaItem[]>;
-  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]>;
+  findDraftsByUser(photographerId: string): Promise<DraftMedia[]>;
+  findDraftsBySpot(spotId: string, photographerId: string): Promise<DraftMedia[]>;
   findPublishedBySpot(filter: PublishedSpotMediaFilter): Promise<SpotMediaPage>;
 }
 
 export class MediaRepository implements IMediaRepository {
-  findById(id: string): Promise<MediaItem | null> {
+  findById(id: string): Promise<DraftMedia | null> {
     return runQuery(async () => {
       const row = await prisma.mediaItem.findUnique({ where: { id } });
-      return row ? mapToMediaItem(row) : null;
+      return row ? mapToDraftMedia(row) : null;
     });
   }
 
@@ -96,10 +90,10 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  updateMedia(id: string, data: UpdateMediaData): Promise<MediaItem> {
+  updateMedia(id: string, data: UpdateMediaData): Promise<DraftMedia> {
     return runQuery(async () => {
       const row = await prisma.mediaItem.update({ where: { id }, data });
-      return mapToMediaItem(row);
+      return mapToDraftMedia(row);
     });
   }
 
@@ -109,13 +103,13 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  softDelete(id: string): Promise<MediaItem> {
+  softDelete(id: string): Promise<DraftMedia> {
     return runQuery(async () => {
       const row = await prisma.mediaItem.update({
         where: { id },
         data: { status: MEDIA_STATUS.DELETED, deletedAt: new Date() },
       });
-      return mapToMediaItem(row);
+      return mapToDraftMedia(row);
     });
   }
 
@@ -147,18 +141,21 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findPublishedByPhotographer(photographerId: string): Promise<PublishedMedia[]> {
+  findPublishedByPhotographer(photographerId: string): Promise<AttributedPublishedMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { photographerId, status: MEDIA_STATUS.PUBLISHED, deletedAt: null },
         orderBy: { capturedAt: 'desc' },
-        include: { spot: { select: { id: true, name: true } } },
+        include: {
+          photographer: { select: { id: true, name: true } },
+          spot: { select: { id: true, name: true } },
+        },
       });
-      return rows.map(mapToPublishedMedia);
+      return rows.map(mapToAttributedPublishedMedia);
     });
   }
 
-  findPublishedBySession(sessionId: string): Promise<PublishedMedia[]> {
+  findPublishedBySession(sessionId: string): Promise<AttributedPublishedMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: {
@@ -167,9 +164,12 @@ export class MediaRepository implements IMediaRepository {
           deletedAt: null,
         },
         orderBy: { capturedAt: 'asc' },
-        include: { spot: { select: { id: true, name: true } } },
+        include: {
+          photographer: { select: { id: true, name: true } },
+          spot: { select: { id: true, name: true } },
+        },
       });
-      return rows.map(mapToPublishedMedia);
+      return rows.map(mapToAttributedPublishedMedia);
     });
   }
 
@@ -200,7 +200,7 @@ export class MediaRepository implements IMediaRepository {
     });
   }
 
-  findDraftsByUser(photographerId: string): Promise<MediaItem[]> {
+  findDraftsByUser(photographerId: string): Promise<DraftMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: {
@@ -210,17 +210,17 @@ export class MediaRepository implements IMediaRepository {
         },
         orderBy: { createdAt: 'asc' },
       });
-      return rows.map(mapToMediaItem);
+      return rows.map(mapToDraftMedia);
     });
   }
 
-  findDraftsBySpot(spotId: string, photographerId: string): Promise<MediaItem[]> {
+  findDraftsBySpot(spotId: string, photographerId: string): Promise<DraftMedia[]> {
     return runQuery(async () => {
       const rows = await prisma.mediaItem.findMany({
         where: { spotId, photographerId, status: MEDIA_STATUS.DRAFT, deletedAt: null },
         orderBy: { createdAt: 'desc' },
       });
-      return rows.map(mapToMediaItem);
+      return rows.map(mapToDraftMedia);
     });
   }
 
@@ -255,7 +255,7 @@ export class MediaRepository implements IMediaRepository {
       const items = hasMore ? rows.slice(0, filter.limit) : rows;
       const nextCursor = hasMore ? items[items.length - 1]!.id : null;
 
-      return { items: items.map(mapToSpotMediaItem), nextCursor };
+      return { items: items.map(mapToAttributedPublishedMedia), nextCursor };
     });
   }
 }

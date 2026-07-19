@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
-import type { MediaItem } from 'entities/Media';
+import type { MediaCore } from 'entities/Media';
 import { useCartStore } from './cartStore';
 import { toCartItem } from './toCartItem';
 
 type CartMediaItem = Pick<
-  MediaItem,
+  MediaCore,
   'id' | 'capturedAt' | 'thumbnailUrl' | 'lightboxUrl' | 'price'
 > & {
   /** Present on items fetched without a single fixed spot context (e.g. an all-spots gallery). */

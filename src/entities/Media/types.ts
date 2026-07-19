@@ -1,9 +1,8 @@
 export type {
-  MediaItem,
-  SpotMediaItem,
+  MediaCore,
+  DraftMedia,
   PublishedMedia,
-  PublicMediaItem,
-  PublicPublishedMedia,
-  PublicSpotMediaItem,
+  PublicMedia,
+  PublicMediaPage,
   MediaType,
 } from 'shared/types/media';

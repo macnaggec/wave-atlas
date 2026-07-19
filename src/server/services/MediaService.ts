@@ -3,20 +3,15 @@ import { mediaRepository } from 'server/repositories/MediaRepository';
 import { logger } from 'shared/lib/logger';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'shared/errors';
 import { MEDIA_STATUS, MIN_MEDIA_PRICE_CENTS } from 'shared/constants/media';
-import type { MediaStatus, MediaItem } from 'shared/types/media';
+import type { MediaStatus, DraftMedia } from 'shared/types/media';
 import type { ICloudinaryService } from './CloudinaryService';
 import { cloudinaryService } from './CloudinaryService';
 import {
   purchaseEntitlementService,
   type IPurchaseEntitlementService,
 } from './PurchaseEntitlementService';
-import type {
-  PublishedMedia,
-  PublicPublishedMedia,
-  PublicSpotMediaPage,
-  SpotMediaItem,
-  ViewerMediaEntitlement,
-} from 'shared/types/media';
+import type { PublicMedia, PublicMediaPage } from 'shared/types/media';
+import type { AttributedPublishedMedia } from 'server/repositories/MediaRepository';
 
 function assertPriceFloor(price: number | null | undefined): void {
   if (price != null && price < MIN_MEDIA_PRICE_CENTS) {
@@ -42,7 +37,7 @@ export class MediaService {
     private entitlements: Pick<IPurchaseEntitlementService, 'getViewerMediaEntitlements'> = purchaseEntitlementService,
   ) { }
 
-  async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<MediaItem> {
+  async updateMedia(userId: string, id: string, data: UpdateMediaInput): Promise<DraftMedia> {
     const media = await this.assertOwns(userId, id);
     if (media.status === MEDIA_STATUS.PUBLISHED) {
       assertPriceFloor(data.price);
@@ -108,7 +103,7 @@ export class MediaService {
     await this.media.updateManyMedia(mediaIds, data);
   }
 
-  async getMyDrafts(userId: string): Promise<MediaItem[]> {
+  async getMyDrafts(userId: string): Promise<DraftMedia[]> {
     return this.media.findDraftsByUser(userId);
   }
 
@@ -120,7 +115,7 @@ export class MediaService {
     return this.media.findPublishedByPhotographer(photographerId);
   }
 
-  async findPublishedBySession(sessionId: string, viewerId?: string | null): Promise<PublicPublishedMedia[]> {
+  async findPublishedBySession(sessionId: string, viewerId?: string | null): Promise<PublicMedia[]> {
     const items = await this.media.findPublishedBySession(sessionId);
     return this.withViewerEntitlement(items, viewerId);
   }
@@ -128,7 +123,7 @@ export class MediaService {
   async findPublishedBySpot(
     filter: PublishedSpotMediaFilter,
     viewerId?: string | null,
-  ): Promise<PublicSpotMediaPage> {
+  ): Promise<PublicMediaPage> {
     const page = await this.media.findPublishedBySpot(filter);
     return {
       ...page,
@@ -159,7 +154,7 @@ export class MediaService {
     return items;
   }
 
-  private async assertOwns(userId: string, mediaId: string): Promise<MediaItem> {
+  private async assertOwns(userId: string, mediaId: string): Promise<DraftMedia> {
     const media = await this.media.findById(mediaId);
     if (!media) throw new NotFoundError('Media Item');
     if (media.photographerId !== userId) {
@@ -168,10 +163,10 @@ export class MediaService {
     return media;
   }
 
-  private async withViewerEntitlement<T extends PublishedMedia | SpotMediaItem>(
-    items: T[],
+  private async withViewerEntitlement(
+    items: AttributedPublishedMedia[],
     viewerId?: string | null,
-  ): Promise<Array<T & { viewerEntitlement: ViewerMediaEntitlement }>> {
+  ): Promise<PublicMedia[]> {
     const entitlementByMediaId = await this.entitlements.getViewerMediaEntitlements(
       viewerId,
       items.map((item) => item.id),

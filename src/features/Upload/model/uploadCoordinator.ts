@@ -74,7 +74,7 @@ export async function startLocalUpload(file: File, deps: CoordinatorDeps): Promi
 
     await deps.commands.invalidateWorkspaceState(deps.workspaceId);
 
-    // Remove browser resources — MediaItem is now in Query cache.
+    // Remove browser resources — DraftMedia is now in Query cache.
     const completedTransfer = useUploadStore.getState().transfers.get(clientRequestId);
     if (completedTransfer) releaseBrowserTransferResources(completedTransfer, { abort: false });
     useUploadStore.getState().removeTransfer(clientRequestId);
@@ -119,7 +119,7 @@ export async function startDriveUpload(
 
   await deps.commands.invalidateWorkspaceState(deps.workspaceId);
 
-  // Remove browser thumbnail — MediaItem is now in Query cache.
+  // Remove browser thumbnail — DraftMedia is now in Query cache.
   useUploadStore.getState().removeTransfer(clientRequestId);
 }
 

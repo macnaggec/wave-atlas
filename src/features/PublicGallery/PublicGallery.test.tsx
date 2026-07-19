@@ -3,30 +3,24 @@ import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'test/setup/render';
 import PublicGallery from './PublicGallery';
-import type { PublicMediaItem } from 'entities/Media';
+import type { PublicMedia } from 'entities/Media';
 
-const mediaItem: PublicMediaItem = {
+const mediaItem: PublicMedia = {
   id: 'media-1',
-  sessionId: 'session-1',
   photographerId: 'photographer-1',
+  photographer: { id: 'photographer-1', name: 'Photographer One' },
+  type: 'PHOTO',
   spotId: 'spot-1',
+  spot: { id: 'spot-1', name: 'Pipeline' },
   capturedAt: new Date('2026-04-01T10:00:00.000Z'),
   price: 300,
   lightboxUrl: 'https://example.com/lightbox.jpg',
   thumbnailUrl: 'https://example.com/thumb.jpg',
-  cloudinaryPublicId: 'cloudinary-public-id',
-  status: 'PUBLISHED',
-  createdAt: new Date('2026-04-01T12:00:00.000Z'),
   viewerEntitlement: { purchaseState: 'none' },
-  resource: {
-    resourceType: 'image',
-    url: 'https://example.com/lightbox.jpg',
-    assetId: 'media-1',
-  },
 };
 
 const galleryState = vi.hoisted(() => ({
-  flatItems: [] as PublicMediaItem[],
+  flatItems: [] as PublicMedia[],
 }));
 
 vi.mock('entities/Spot', () => ({

@@ -1,4 +1,4 @@
-import type { MediaItem } from 'entities/Media';
+import type { DraftMedia } from 'entities/Media';
 import type { UploadAttemptStatus, UploadSource } from 'shared/types/upload';
 
 // ── Browser-only transfer resources ────────────────────────────────────────
@@ -49,13 +49,13 @@ export type AttemptCard = {
 export type ExistingMediaCard = {
   kind: 'existing';
   id: string;
-  result: MediaItem;
+  result: DraftMedia;
 };
 
 export type WorkspaceAssetCard = {
   kind: 'asset';
   id: string;
-  result: MediaItem;
+  result: DraftMedia;
 };
 
 export type ReadyMediaCard = ExistingMediaCard | WorkspaceAssetCard;

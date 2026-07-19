@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { MediaItem } from 'entities/Media';
+import type { DraftMedia } from 'entities/Media';
 import type { GalleryCard } from './types';
 import { getUploadQueueStatus } from './uploadQueuePolicy';
 
-function mediaItem(id: string): MediaItem {
+function mediaItem(id: string): DraftMedia {
   return {
     id,
     sessionId: 'session-1',
     photographerId: 'photographer-1',
+    type: 'PHOTO',
     spotId: null,
     capturedAt: new Date('2026-01-01T00:00:00Z'),
     price: null,
