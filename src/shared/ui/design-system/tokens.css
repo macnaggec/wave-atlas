@@ -60,6 +60,8 @@
   --wa-text-dimmed: rgba(255, 255, 255, 0.5);
   --wa-text-placeholder: rgba(255, 255, 255, 0.38);
   --wa-text-inverse: #fff;
+  /* Ink on accent fills (~8:1 against --wa-accent-spot); white on the accent fails AA (~2.2:1). */
+  --wa-text-on-accent: #0a1628;
   --wa-text-media-overlay: rgba(255, 255, 255, 0.92);
   --wa-text-upload-zone-icon: rgba(255, 255, 255, 0.7);
   --wa-text-upload-zone: rgba(255, 255, 255, 0.65);
@@ -83,6 +85,9 @@
   --wa-control-upload-card-label: rgba(255, 255, 255, 0.68);
   --wa-control-upload-card-label-hover: #63b3ed;
   --wa-accent-spot: #63b3ed;
+  /* Selected-state control fill: the selection accent as an opaque fill, so a selected
+     control stays visible over any media behind the glass (a whiter-white glass does not). */
+  --wa-control-fill-selected: var(--wa-accent-spot);
 
   /* Radii */
   --wa-radius-control-sm: 8px;
