@@ -1,8 +1,8 @@
 
 
-import React, { FC, ReactNode, memo } from 'react';
+import React, { FC, ReactNode, memo, useState } from 'react';
 import { Box } from '@mantine/core';
-import { IconPlayerPlay } from '@tabler/icons-react';
+import { IconPlayerPlay, IconPhotoOff } from '@tabler/icons-react';
 import classes from './BaseCard.module.css';
 
 /**
@@ -35,6 +35,23 @@ export interface BaseCardProps {
 
   /** Click handler for the card (e.g. open lightbox) */
   onClick?: () => void;
+
+  /**
+   * Reports whether the thumbnail failed to load. BaseCard only detects and displays the
+   * failure — deciding which overlays/actions still make sense on broken media (e.g. keep
+   * the date, drop price/cart) is a per-consumer business call, made by whoever composed
+   * those slots in the first place.
+   */
+  onBrokenChange?: (broken: boolean) => void;
+
+  /**
+   * Fires once the thumbnail has actually finished loading. Content that would otherwise show
+   * optimistically and later have to be retracted on failure (price, cart/favorite actions)
+   * should wait for this rather than assuming success from mount — there's no way to know a
+   * thumbnail is good before the browser confirms it, so anything shown before that point can
+   * only ever be shown speculatively.
+   */
+  onLoad?: () => void;
 }
 
 /**
@@ -53,20 +70,46 @@ const BaseCard: FC<BaseCardProps> = memo(({
   className,
   flush = false,
   onClick,
+  onBrokenChange,
+  onLoad,
 }) => {
+  // Track the url that failed to load rather than a bare boolean, so a memoized card reused
+  // for a different item (virtualized grids) doesn't carry a stale failure onto a good image.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const imageFailed = !!imageUrl && failedUrl === imageUrl;
+
+  // Fired synchronously inside the onError handler (not a useEffect): batching it with
+  // setFailedUrl means BaseCard's own fallback and the caller's onBrokenChange-driven state
+  // (e.g. hiding price/cart) land in the same commit — no one-frame flash where the broken
+  // placeholder shows while price/actions are still visible.
+  const handleImageError = () => {
+    setFailedUrl(imageUrl);
+    onBrokenChange?.(true);
+  };
+
   return (
     <Box
       className={`${classes.card} ${className || ''}`}
       data-media-card-aspect="tall"
       data-media-card-flush={flush || undefined}
-      onClick={onClick}
+      data-media-unavailable={imageFailed || undefined}
+      // A broken image has nothing to open in the lightbox — suppress the click.
+      onClick={imageFailed ? undefined : onClick}
     >
       {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={alt}
-          className={classes.nativeMedia}
-        />
+        imageFailed ? (
+          <div className={classes.mediaFallback} role="img" aria-label={`${alt} — image unavailable`}>
+            <IconPhotoOff size={28} stroke={1.5} />
+          </div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={alt}
+            className={classes.nativeMedia}
+            onLoad={onLoad}
+            onError={handleImageError}
+          />
+        )
       )}
 
       {resourceType === 'video' && (

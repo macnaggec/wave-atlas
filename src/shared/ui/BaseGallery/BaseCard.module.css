@@ -16,6 +16,11 @@
   border-radius: 0;
 }
 
+/* Broken media: not clickable (nothing to open in the lightbox). */
+.card[data-media-unavailable='true'] {
+  cursor: default;
+}
+
 .card:hover {
   /* Removed transform to prevent network requests */
 }
@@ -39,6 +44,19 @@
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+/* Placeholder shown when the media src fails to load (404, broken image): a transparent slot
+   with a light border and centered icon (static, so transparency is safe — no coil whine). */
+.mediaFallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--wa-glass-border);
+  border-radius: var(--wa-radius-control-md);
+  color: var(--wa-text-muted);
 }
 
 .card:hover .media {

@@ -102,10 +102,11 @@ video.media {
 }
 
 .stage[data-lightbox-loading] {
-  /* Media dimensions are unknown until it loads, so present a neutral square placeholder
-     (reads correctly whether the incoming media is landscape or portrait). */
+  /* Media dimensions are unknown until it loads: present a neutral placeholder box with the
+     same footprint as the "media unavailable" state (.mediaUnavailable) so loading and failed
+     states read as the same shape. */
   width: min(60vh, 90vw);
-  height: min(60vh, 90vw);
+  height: min(45vh, 68vw);
   min-height: 0;
 }
 
@@ -135,6 +136,23 @@ video.media {
   to {
     transform: translateX(100%);
   }
+}
+
+/* Shown in place of a video/image that failed to load (broken source): a transparent slot with
+   a light border and centered icon/label (static, so transparency is safe — no coil whine). */
+.mediaUnavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: min(60vh, 90vw);
+  height: min(45vh, 68vw);
+  max-width: 100%;
+  border: 1px solid var(--wa-glass-border);
+  border-radius: var(--wa-radius-dialog);
+  color: var(--wa-text-muted);
+  font-size: var(--wa-font-size-sm);
 }
 
 .staticChrome :global([data-lightbox-icon-action]),

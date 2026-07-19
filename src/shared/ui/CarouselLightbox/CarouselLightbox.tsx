@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { ActionIcon, Modal } from '@mantine/core';
-import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconX, IconPhotoOff } from '@tabler/icons-react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import classes from './CarouselLightbox.module.css';
 
@@ -84,6 +84,25 @@ export interface CarouselLightboxItem {
   url: string;
   type?: 'image' | 'video';
   alt?: string;
+  /** Original media dimensions in px. When present, the frame opens at the correct size
+   *  and the metadata probe is skipped (no reflow, no neutral square placeholder). */
+  width?: number | null;
+  height?: number | null;
+}
+
+/**
+ * Reports the active media's load outcome. There's no way to know a media file is good before
+ * the browser confirms it, so callers that show purchase-related content (price, cart/favorite)
+ * should wait for mediaReady rather than assuming success from mount and retracting it later —
+ * that retraction is visible as a flash. Identification content (date, purchased/owner status)
+ * doesn't depend on this and can render unconditionally.
+ */
+export interface LightboxMediaContext {
+  /** True once the active media has confirmed loaded (a successful decode() or the mounted
+   *  element's load event — stored metadata alone never counts) and hasn't failed. */
+  mediaReady: boolean;
+  /** True if the active media's src failed to load. */
+  mediaFailed: boolean;
 }
 
 export interface CarouselLightboxProps {
@@ -92,11 +111,11 @@ export interface CarouselLightboxProps {
   opened: boolean;
   onClose: () => void;
   /** Receives each slide index; render badges or metadata in a caption above that media item. */
-  renderOverlay?: (itemIndex: number) => ReactNode;
+  renderOverlay?: (itemIndex: number, context: LightboxMediaContext) => ReactNode;
   /** Receives the current carousel index; render icon actions in the floating control rail. */
-  renderActions?: (currentIndex: number) => ReactNode;
+  renderActions?: (currentIndex: number, context: LightboxMediaContext) => ReactNode;
   /** Backwards-compatible action slot for existing callers. */
-  renderFooter?: (currentIndex: number) => ReactNode;
+  renderFooter?: (currentIndex: number, context: LightboxMediaContext) => ReactNode;
 }
 
 /**
@@ -117,7 +136,10 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
   const prefersReducedMotion = useReducedMotion();
   // Elastic drag offset applied to the whole media layer while a touch swipe is in flight.
   const dragX = useMotionValue(0);
-  const readyUrlsRef = useRef<Set<string>>(new Set());
+  // Urls proven loadable — a successful decode() or a mounted element's load event. This is
+  // the load-confirmation source for mediaReady; mediaDimensionsRef is layout-only and may be
+  // seeded from stored metadata before the browser has fetched a single byte.
+  const confirmedUrlsRef = useRef<Set<string>>(new Set());
   const navStateRef = useRef({ committedIndex: initialIndex, pendingIndex: null as number | null, token: 0 });
   // Known media dimensions by url. A mounted <video preload="metadata"> starts
   // at the browser default 300x150 until its metadata parses, so without
@@ -141,14 +163,33 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
     failedUrlsRef.current.add(url);
     setMediaEpoch((epoch) => epoch + 1);
   }, []);
+  // First confirmation is render-relevant (it flips mediaReady), so it bumps the epoch.
+  const markMediaConfirmed = useCallback((url: string) => {
+    if (confirmedUrlsRef.current.has(url)) return;
+    confirmedUrlsRef.current.add(url);
+    setMediaEpoch((epoch) => epoch + 1);
+  }, []);
   const adoptMediaDimensions = useCallback((url: string, width: number, height: number) => {
     setFrameHold(null);
+    // The load event proves the file is good even when the reported dimensions match the
+    // seeded ones and the early return below skips the dimensions epoch bump.
+    markMediaConfirmed(url);
     if (width <= 0) return;
     const known = mediaDimensionsRef.current.get(url);
     if (known?.width === width && known?.height === height) return;
     mediaDimensionsRef.current.set(url, { width, height });
     setMediaEpoch((epoch) => epoch + 1);
-  }, []);
+  }, [markMediaConfirmed]);
+
+  // Seed dimensions known up front (from stored media metadata) so the frame opens at the
+  // correct aspect ratio immediately and the preload="metadata" probe is unnecessary.
+  useEffect(() => {
+    for (const item of items) {
+      if (item.width && item.height && !mediaDimensionsRef.current.has(item.url)) {
+        mediaDimensionsRef.current.set(item.url, { width: item.width, height: item.height });
+      }
+    }
+  }, [items]);
 
   // Sync position when the lightbox opens or a different item is targeted.
   useEffect(() => {
@@ -164,7 +205,7 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
   // collapse, then the load reflow would displace the controls by the stale
   // layout delta, sending them flying in from outside the viewport.
   const whenMediaReady = useCallback((item: CarouselLightboxItem, onReady: () => void) => {
-    if (readyUrlsRef.current.has(item.url)) {
+    if (confirmedUrlsRef.current.has(item.url)) {
       onReady();
       return;
     }
@@ -172,7 +213,7 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
     const finish = (markReady: boolean) => {
       if (settled) return;
       settled = true;
-      if (markReady) readyUrlsRef.current.add(item.url);
+      if (markReady) markMediaConfirmed(item.url);
       onReady();
     };
     // A stalled network must not freeze navigation; committing anyway just
@@ -207,7 +248,7 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
       }
       finish(true);
     }, () => finish(false));
-  }, []);
+  }, [markMediaConfirmed]);
 
   const navigateTo = useCallback((computeTarget: (currentIndex: number) => number, requestedDirection?: number) => {
     if (items.length === 0) return;
@@ -241,9 +282,17 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
   // on first open, before any gate has stamped dimensions).
   const chromeReady = !!activeMediaDimensions || (!!activeItem && failedUrlsRef.current.has(activeItem.url));
   const chromeHiddenData = chromeReady ? undefined : true;
+  // A media file that failed to load (e.g. a broken video, poster OK but source gone) renders a
+  // clear placeholder instead of an empty player / broken glyph. markMediaFailed bumps an epoch,
+  // so reading the ref here is reactive.
+  const mediaFailed = !!activeItem && failedUrlsRef.current.has(activeItem.url);
+  const mediaContext: LightboxMediaContext = {
+    mediaReady: !!activeItem && confirmedUrlsRef.current.has(activeItem.url) && !mediaFailed,
+    mediaFailed,
+  };
   const hasMultiple = items.length > 1;
-  const overlay = activeItem ? renderOverlay?.(activeIndex) : null;
-  const actions = activeItem ? (renderActions ?? renderFooter)?.(activeIndex) : null;
+  const overlay = activeItem ? renderOverlay?.(activeIndex, mediaContext) : null;
+  const actions = activeItem ? (renderActions ?? renderFooter)?.(activeIndex, mediaContext) : null;
   const motionFadeTransition = prefersReducedMotion ? reducedMotionTransition : fadeTransition;
   const motionLayoutTransition = prefersReducedMotion ? reducedMotionTransition : layoutTransition;
   const goToSlide = useCallback((index: number) => {
@@ -328,14 +377,14 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
       image.src = url;
       if (typeof image.decode === 'function') {
         image.decode().then(() => {
-          readyUrlsRef.current.add(url);
+          markMediaConfirmed(url);
           if (image.naturalWidth > 0) {
             mediaDimensionsRef.current.set(url, { width: image.naturalWidth, height: image.naturalHeight });
           }
         }, () => {});
       }
     });
-  }, [nextPreloadUrl, opened, previousPreloadUrl]);
+  }, [markMediaConfirmed, nextPreloadUrl, opened, previousPreloadUrl]);
 
   return (
     <Modal
@@ -407,7 +456,14 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
                     animate="center"
                     exit="exit"
                   >
-                    {activeItem.type === 'video'
+                    {mediaFailed
+                      ? (
+                        <div className={classes.mediaUnavailable} role="img" aria-label={`${activeItem.type === 'video' ? 'Video' : 'Image'} unavailable`}>
+                          <IconPhotoOff size={40} stroke={1.5} />
+                          <span>{activeItem.type === 'video' ? 'Video unavailable' : 'Image unavailable'}</span>
+                        </div>
+                      )
+                      : activeItem.type === 'video'
                       ? (
                         <video
                           src={activeItem.url}
