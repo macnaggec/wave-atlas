@@ -21,6 +21,7 @@ export async function resetDb(): Promise<void> {
     prisma.orderItem.deleteMany(),
     prisma.order.deleteMany(),
     prisma.mediaItem.deleteMany(),
+    prisma.surfSession.deleteMany(),
     prisma.spot.deleteMany(),
     // Auth tables
     prisma.session.deleteMany(),
