@@ -16,6 +16,7 @@ describe('PublicCard favorites action', () => {
   it('labels an active favorite as removable and emits the favorites action', () => {
     const onAction = vi.fn();
     render(<PublicCard mediaItem={media} actions={['favorites']} activeActions={['favorites']} onAction={onAction} />);
+    fireEvent.load(screen.getByAltText('Media asset-1'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove from favorites' }));
 
@@ -26,6 +27,7 @@ describe('PublicCard favorites action', () => {
     const { rerender } = render(
       <PublicCard mediaItem={media} actions={['favorites']} activeActions={[]} />,
     );
+    fireEvent.load(screen.getByAltText('Media asset-1'));
 
     expect(screen.getByRole('button', { name: 'Add to favorites' }).querySelector('svg'))
       .toHaveAttribute('fill', 'none');
@@ -40,8 +42,23 @@ describe('PublicCard favorites action', () => {
 });
 
 describe('PublicCard standard overlays', () => {
+  it('holds price/actions until the thumbnail confirms loaded, then shows them', () => {
+    render(<PublicCard mediaItem={media} actions={['cart']} activeActions={[]} />);
+
+    expect(screen.queryByText(formatPrice(300))).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to cart' })).not.toBeInTheDocument();
+    // The date is server data, not tied to the image load — visible immediately.
+    expect(screen.getByText(new Date(media.capturedAt).toLocaleDateString())).toBeInTheDocument();
+
+    fireEvent.load(screen.getByAltText('Media asset-1'));
+
+    expect(screen.getByText(formatPrice(300))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to cart' })).toBeInTheDocument();
+  });
+
   it('renders the price badge, capture date, and thumbnail in normal mode', () => {
     render(<PublicCard mediaItem={media} actions={['cart']} activeActions={[]} />);
+    fireEvent.load(screen.getByAltText('Media asset-1'));
 
     expect(screen.getByText(formatPrice(300))).toBeInTheDocument();
     expect(screen.getByText(new Date(media.capturedAt).toLocaleDateString())).toBeInTheDocument();
@@ -55,7 +72,65 @@ describe('PublicCard standard overlays', () => {
   });
 });
 
+describe('PublicCard broken media', () => {
+  it('drops the price and cart/favorites actions but keeps the capture date once the thumbnail fails', () => {
+    render(<PublicCard mediaItem={media} actions={['cart', 'favorites', 'share', 'report']} activeActions={[]} />);
+
+    fireEvent.error(screen.getByAltText('Media asset-1'));
+
+    expect(screen.queryByText(formatPrice(300))).not.toBeInTheDocument();
+    expect(screen.getByText(new Date(media.capturedAt).toLocaleDateString())).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to cart' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to favorites' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Report' })).toBeInTheDocument();
+  });
+
+  it('resets the broken verdict when the card is handed a different thumbnail url', () => {
+    const { rerender } = render(<PublicCard mediaItem={media} actions={['cart']} activeActions={[]} />);
+
+    fireEvent.error(screen.getByAltText('Media asset-1'));
+    expect(screen.queryByText(formatPrice(300))).not.toBeInTheDocument();
+
+    const replacement = { ...media, thumbnailUrl: 'https://example.com/thumb-v2.jpg' };
+    rerender(<PublicCard mediaItem={replacement} actions={['cart']} activeActions={[]} />);
+
+    // The new url is unconfirmed — price/cart still withheld, not shown from stale loaded state.
+    expect(screen.queryByText(formatPrice(300))).not.toBeInTheDocument();
+
+    fireEvent.load(screen.getByAltText('Media asset-1'));
+
+    expect(screen.getByText(formatPrice(300))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to cart' })).toBeInTheDocument();
+  });
+
+  it('still shows the date on broken media even without a price', () => {
+    render(<PublicCard mediaItem={{ ...media, price: null }} actions={['cart']} />);
+
+    fireEvent.error(screen.getByAltText('Media asset-1'));
+
+    expect(screen.getByText(new Date(media.capturedAt).toLocaleDateString())).toBeInTheDocument();
+  });
+});
+
 describe('PublicCard dense state glyph', () => {
+  it('withholds the in-cart/favorited glyph until the thumbnail confirms loaded', () => {
+    render(
+      <PublicCard
+        mediaItem={media}
+        actions={['cart', 'favorites']}
+        activeActions={['cart', 'favorites']}
+        dense
+      />,
+    );
+
+    expect(screen.queryByLabelText('In cart')).not.toBeInTheDocument();
+
+    fireEvent.load(screen.getByAltText('Media asset-1'));
+
+    expect(screen.getByLabelText('In cart')).toBeInTheDocument();
+  });
+
   it('shows one priority glyph (in-cart over favorited), no action buttons, no price', () => {
     render(
       <PublicCard
@@ -65,6 +140,7 @@ describe('PublicCard dense state glyph', () => {
         dense
       />,
     );
+    fireEvent.load(screen.getByAltText('Media asset-1'));
 
     expect(screen.getByLabelText('In cart')).toBeInTheDocument();
     expect(screen.queryByLabelText('Favorited')).not.toBeInTheDocument();

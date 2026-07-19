@@ -1,9 +1,10 @@
 
 
-import React, { FC, memo, useCallback } from 'react';
+import React, { FC, memo, useCallback, useState } from 'react';
 import { ActionIcon, Badge, Group, Text } from '@mantine/core';
 import { IconShoppingCartPlus, IconShoppingCartMinus, IconShoppingCart, IconShoppingBag, IconHeart, IconShare, IconFlag, IconUser } from '@tabler/icons-react';
 import { formatPrice } from 'shared/lib/currency';
+import { formatDimensions } from 'shared/lib/formatDimensions';
 import { materialClasses } from 'shared/ui/design-system';
 import { BaseCard } from 'shared/ui/BaseGallery';
 import type { PublicCardAction } from '../../model/types';
@@ -16,6 +17,8 @@ export interface DisplayMedia {
   thumbnailUrl: string;
   price: number | null;
   capturedAt: Date;
+  width?: number | null;
+  height?: number | null;
   resource: {
     resourceType: 'image' | 'video';
     url: string;
@@ -139,17 +142,50 @@ const PublicCard: FC<PublicCardProps> = memo(({
     onCardClick?.(mediaItem.id);
   }, [onCardClick, mediaItem.id]);
 
-  const priceDateBadge = mediaItem.price != null && (
+  // There is no way to know a thumbnail is good before the browser confirms it — so price,
+  // dimensions, and purchase actions only appear once the image has actually finished loading
+  // (mediaReady), rather than optimistically on mount and being retracted if it turns out
+  // broken. That retract-after-the-fact was visible as a flash. The captured date is exempt:
+  // it comes from server data, not the image load, and identifies *which* shoot a card belongs
+  // to even while broken — so it stays visible unconditionally.
+  // Keyed by url, mirroring BaseCard's failedUrl: a card handed a different thumbnail must not
+  // carry the previous url's verdict (stale broken hides price forever; stale loaded shows it
+  // before the new thumbnail is confirmed).
+  const [thumb, setThumb] = useState({ url: mediaItem.thumbnailUrl, loaded: false, broken: false });
+  if (thumb.url !== mediaItem.thumbnailUrl) {
+    setThumb({ url: mediaItem.thumbnailUrl, loaded: false, broken: false });
+  }
+  const isBroken = thumb.broken;
+  const mediaReady = thumb.loaded && !thumb.broken;
+  const handleLoad = useCallback(() => setThumb((s) => ({ ...s, loaded: true })), []);
+  const handleBrokenChange = useCallback((broken: boolean) => setThumb((s) => ({ ...s, broken })), []);
+
+  const dimensions = mediaReady ? formatDimensions(mediaItem.width, mediaItem.height) : null;
+  // Previously this badge group only rendered when a price existed; broken media broadens that
+  // to "price OR broken" so the date still identifies an unavailable card with no price set.
+  const priceDateBadge = (mediaItem.price != null || isBroken) && (
     <Group gap={4} wrap="nowrap">
-      <Badge size="xs" variant={mediaItem.price > 0 ? 'filled' : 'light'} color={mediaItem.price > 0 ? 'blue' : 'gray'}>
-        {formatPrice(mediaItem.price)}
-      </Badge>
+      {mediaItem.price != null && mediaReady && (
+        <Badge size="xs" variant={mediaItem.price > 0 ? 'filled' : 'light'} color={mediaItem.price > 0 ? 'blue' : 'gray'}>
+          {formatPrice(mediaItem.price)}
+        </Badge>
+      )}
       <Text size="xs" fw={600} className={materialClasses.mediaTextOverlay}>
         {new Date(mediaItem.capturedAt).toLocaleDateString()}
       </Text>
+      {dimensions && (
+        <Text size="xs" className={materialClasses.mediaTextOverlay} style={{ opacity: 0.7 }}>
+          {dimensions}
+        </Text>
+      )}
     </Group>
   );
   const statusBadge = showOwnerBadge ? OWNER_BADGE : showPurchasedBadge ? PURCHASED_BADGE : null;
+
+  // Cart/favorites invite purchase behavior that doesn't apply until media is confirmed viewable;
+  // share/report still make sense before then (e.g. reporting a broken listing), so only those
+  // two purchase-related actions wait for mediaReady.
+  const visibleActions = mediaReady ? actions : actions.filter(a => a !== 'cart' && a !== 'favorites');
 
   // Dense tiles carry a single passive glyph — the most advanced state that's
   // true — as a bare icon over the photo. Actions live in the lightbox on tap.
@@ -157,9 +193,9 @@ const PublicCard: FC<PublicCardProps> = memo(({
     ? { icon: IconShoppingBag, label: 'Purchased', fill: false }
     : showOwnerBadge
       ? { icon: IconUser, label: 'Your photo', fill: false }
-      : activeActions.includes('cart')
+      : mediaReady && activeActions.includes('cart')
         ? { icon: IconShoppingCart, label: 'In cart', fill: false }
-        : activeActions.includes('favorites')
+        : mediaReady && activeActions.includes('favorites')
           ? { icon: IconHeart, label: 'Favorited', fill: true }
           : null;
   const DenseGlyphIcon = denseGlyph?.icon;
@@ -179,14 +215,16 @@ const PublicCard: FC<PublicCardProps> = memo(({
       alt={`Media ${resource.assetId}`}
       onClick={onCardClick ? handleClick : undefined}
       flush={dense}
+      onLoad={handleLoad}
+      onBrokenChange={handleBrokenChange}
       overlays={
         dense ? undefined : priceDateBadge || statusBadge ? <>{priceDateBadge}{statusBadge}</> : undefined
       }
       cornerGlyph={dense ? denseStateGlyph || undefined : undefined}
       actions={
-        dense ? undefined : actions.length > 0 ? (
+        dense ? undefined : visibleActions.length > 0 ? (
           <Group gap="xs">
-            {actions.map((actionType) => {
+            {visibleActions.map((actionType) => {
               const config = ACTION_ICONS[actionType];
               const isActive = activeActions.includes(actionType);
               const resolved = isActive && ACTION_ICONS_ACTIVE[actionType]
