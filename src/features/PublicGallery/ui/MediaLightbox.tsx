@@ -2,6 +2,7 @@ import { FC, memo } from 'react';
 import { ActionIcon, Group, Text, Badge, Tooltip } from '@mantine/core';
 import { IconHeart, IconShoppingCartPlus, IconShoppingCartMinus } from '@tabler/icons-react';
 import { formatPrice } from 'shared/lib/currency';
+import { formatDimensions } from 'shared/lib/formatDimensions';
 import { CarouselLightbox } from 'shared/ui/CarouselLightbox';
 
 /** Normalized shape callers must produce before passing to MediaLightbox. */
@@ -13,6 +14,8 @@ export interface LightboxMedia {
   price: number | null;
   capturedAt: Date;
   photographerId: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface MediaLightboxProps {
@@ -49,6 +52,8 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
     url: item.lightboxUrl,
     type: item.type,
     alt: `Surf photo from ${new Date(item.capturedAt).toLocaleDateString()}`,
+    width: item.width,
+    height: item.height,
   }));
 
   return (
@@ -57,23 +62,35 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
       initialIndex={initialIndex}
       opened={opened}
       onClose={onClose}
-      renderOverlay={(itemIndex) => {
+      renderOverlay={(itemIndex, { mediaReady }) => {
         const item = items[itemIndex];
         if (!item) return null;
         const isPurchased = purchasedItemIds.has(item.id);
+        // Price/dimensions describe the media file itself — hold them until mediaReady confirms
+        // it actually loaded, rather than showing them optimistically and retracting on failure
+        // (that retraction is a visible flash). Date and purchased status are unconditional:
+        // they're server data that identifies the item regardless of whether it renders.
+        const dimensions = mediaReady ? formatDimensions(item.width, item.height) : null;
 
         return (
           <Group gap="xs" wrap="nowrap">
-            <Badge
-              size="lg"
-              variant={(item.price ?? 0) > 0 ? 'filled' : 'light'}
-              color={(item.price ?? 0) > 0 ? 'blue' : 'gray'}
-            >
-              {formatPrice(item.price ?? 0)}
-            </Badge>
+            {mediaReady && (
+              <Badge
+                size="lg"
+                variant={(item.price ?? 0) > 0 ? 'filled' : 'light'}
+                color={(item.price ?? 0) > 0 ? 'blue' : 'gray'}
+              >
+                {formatPrice(item.price ?? 0)}
+              </Badge>
+            )}
             <Text size="sm" c="white" fw={600}>
               {new Date(item.capturedAt).toLocaleDateString()}
             </Text>
+            {dimensions && (
+              <Text size="sm" c="white" style={{ opacity: 0.75 }}>
+                {dimensions}
+              </Text>
+            )}
             {isPurchased && (
               <Badge size="lg" variant="filled" color="teal">
                 Purchased
@@ -82,7 +99,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
           </Group>
         );
       }}
-      renderActions={(currentIndex) => {
+      renderActions={(currentIndex, { mediaReady }) => {
         const item = items[currentIndex];
         if (!item) return null;
         const isOwn = ownedItemIds.has(item.id);
@@ -91,9 +108,12 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
         const cartLabel = isInCart ? 'Remove from cart' : 'Add to cart';
         const isFavorite = favoriteItemIds.has(item.id);
         const favoriteLabel = isFavorite ? 'Remove from favorites' : 'Add to favorites';
-        const canAddToCart = (item.price ?? 0) > 0 && !isOwn && !isPurchased && !!onCartToggle;
+        // Cart/favorites invite purchase behavior that doesn't apply until the media is
+        // confirmed viewable — both wait for mediaReady, same reasoning as the overlay above.
+        const canAddToCart = mediaReady && (item.price ?? 0) > 0 && !isOwn && !isPurchased && !!onCartToggle;
+        const canFavorite = mediaReady && !!onFavoriteToggle;
 
-        if (!canAddToCart && !onFavoriteToggle) return null;
+        if (!canAddToCart && !canFavorite) return null;
 
         return (
           <>
@@ -116,7 +136,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
                 </ActionIcon>
               </Tooltip>
             )}
-            {onFavoriteToggle && (
+            {canFavorite && (
               <Tooltip label={favoriteLabel} withArrow withinPortal zIndex={4000}>
                 <ActionIcon
                   aria-label={favoriteLabel}
@@ -127,7 +147,7 @@ const MediaLightbox: FC<MediaLightboxProps> = memo(({
                   color={isFavorite ? 'red' : undefined}
                   size={44}
                   radius="xl"
-                  onClick={() => onFavoriteToggle(item)}
+                  onClick={() => onFavoriteToggle!(item)}
                 >
                   <IconHeart size={24} stroke={2} fill={isFavorite ? 'currentColor' : 'none'} />
                 </ActionIcon>

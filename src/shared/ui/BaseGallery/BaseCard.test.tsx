@@ -1,6 +1,6 @@
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import BaseCard from './BaseCard';
 
 function wrap(ui: React.ReactElement) {
@@ -42,6 +42,68 @@ describe('BaseCard', () => {
       <BaseCard imageUrl="https://cdn.example.com/photo.jpg" resourceType="image" />,
     );
     expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('swaps a broken image for the fallback placeholder on load error', () => {
+    const { container, getByLabelText } = wrap(
+      <BaseCard imageUrl="https://cdn.example.com/missing.jpg" resourceType="image" alt="Test photo" />,
+    );
+    const img = container.querySelector('img');
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img!);
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(getByLabelText('Test photo — image unavailable')).not.toBeNull();
+  });
+
+  it('does not open (invoke onClick) once the image is broken', () => {
+    const onClick = vi.fn();
+    const { container } = wrap(
+      <BaseCard imageUrl="https://cdn.example.com/missing.jpg" resourceType="image" onClick={onClick} />,
+    );
+    const card = container.querySelector('[data-media-card-aspect="tall"]')!;
+
+    fireEvent.click(card);
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    fireEvent.error(container.querySelector('img')!);
+    fireEvent.click(card);
+    expect(onClick).toHaveBeenCalledTimes(1); // still 1 — broken card is inert
+    expect(card.getAttribute('data-media-unavailable')).toBe('true');
+  });
+
+  it('keeps overlays/actions visible on a broken image — BaseCard only reports failure, callers decide what to hide', () => {
+    const { container, getByText } = wrap(
+      <BaseCard
+        imageUrl="https://cdn.example.com/missing.jpg"
+        resourceType="image"
+        overlays={<span>Price</span>}
+        actions={<button type="button">Retry</button>}
+      />,
+    );
+
+    fireEvent.error(container.querySelector('img')!);
+
+    expect(getByText('Price')).not.toBeNull();
+    expect(getByText('Retry')).not.toBeNull();
+  });
+
+  it('reports load failure via onBrokenChange, without calling it on a successful mount', () => {
+    const onBrokenChange = vi.fn();
+    const { container } = wrap(
+      <BaseCard
+        imageUrl="https://cdn.example.com/missing.jpg"
+        resourceType="image"
+        onBrokenChange={onBrokenChange}
+      />,
+    );
+
+    expect(onBrokenChange).not.toHaveBeenCalled();
+
+    fireEvent.error(container.querySelector('img')!);
+
+    expect(onBrokenChange).toHaveBeenCalledWith(true);
   });
 
   it('marks media cards as tall gallery items', () => {
