@@ -54,6 +54,11 @@ const isMigratedMaterialSurface = (file) => (
 
 const routePanelCssModulePattern = /^src\/app\/routes\/_panel.*\.module\.css$/;
 
+const isServerNonTestFile = (file) => (
+  file.startsWith('src/server/')
+  && !/\.test\.tsx?$/.test(file)
+);
+
 const rules = [
   {
     id: 'no-route-panel-css-modules',
@@ -86,6 +91,13 @@ const rules = [
     pattern: /blur\(12px\)|saturate\(140%\)/,
     include: file => isCodeOrCss(file) && isMigratedMaterialSurface(file),
     exclude: isDesignSystemOwner,
+  },
+  {
+    id: 'ledger-owns-money-writes',
+    message: 'User.balance mutations and Transaction writes belong in LedgerRepository (single money write path, roadmap S1b).',
+    pattern: /balance:\s*(\{\s*(increment|decrement)|-?\d)|\btransaction\.create(Many)?\(/,
+    include: isServerNonTestFile,
+    exclude: file => file === 'src/server/repositories/LedgerRepository.ts',
   },
   {
     id: 'no-duplicated-flash-border',

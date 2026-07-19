@@ -1,5 +1,6 @@
 import type {
   PayoutRequest,
+  Prisma,
   Transaction,
   User,
 } from '@prisma/client';
@@ -42,6 +43,12 @@ export type LedgerInvariantViolation = {
   expectedBalance: number;
 };
 
+export type RecordSaleInput = {
+  photographerId: string;
+  amount: number;
+  externalOrderId: string;
+};
+
 export interface ILedgerRepository {
   getSummaryRecords(photographerId: string): Promise<LedgerSummaryRecords>;
   listOperatorPayouts(): Promise<OperatorPayoutRequest[]>;
@@ -50,6 +57,8 @@ export interface ILedgerRepository {
   completePayout(payoutRequestId: string, externalTransferId: string): Promise<PayoutReservation>;
   rejectPayout(payoutRequestId: string, note: string): Promise<PayoutReservation>;
   findInvariantViolations(): Promise<LedgerInvariantViolation[]>;
+  recordSale(tx: Prisma.TransactionClient, input: RecordSaleInput): Promise<void>;
+  forfeitBalance(tx: Prisma.TransactionClient, userId: string): Promise<void>;
 }
 
 export class LedgerRepository implements ILedgerRepository {
@@ -227,6 +236,52 @@ export class LedgerRepository implements ILedgerRepository {
         return { payoutRequest, transaction };
       })
     );
+  }
+
+  // Tx-scoped writers: the only place a balance mutation may pair with its
+  // Transaction row. Callers pass their own transaction client so multi-table
+  // commits (fulfillment, account deletion) stay atomic.
+  async recordSale(tx: Prisma.TransactionClient, input: RecordSaleInput): Promise<void> {
+    await Promise.all([
+      tx.user.update({
+        where: { id: input.photographerId },
+        data: { balance: { increment: input.amount } },
+      }),
+      tx.transaction.create({
+        data: {
+          userId: input.photographerId,
+          amount: input.amount,
+          type: TransactionType.SALE,
+          externalOrderId: input.externalOrderId,
+          status: TransactionStatus.COMPLETED,
+        },
+      }),
+    ]);
+  }
+
+  async forfeitBalance(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { balance: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    // Record the forfeited balance so the ledger still explains where the money went
+    if (user.balance > 0) {
+      await tx.transaction.create({
+        data: {
+          userId,
+          amount: -user.balance,
+          type: TransactionType.FORFEIT,
+          status: TransactionStatus.COMPLETED,
+        },
+      });
+    }
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { balance: 0 },
+    });
   }
 
   findInvariantViolations(): Promise<LedgerInvariantViolation[]> {

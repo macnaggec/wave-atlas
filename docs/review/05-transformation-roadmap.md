@@ -126,6 +126,10 @@ Findings from a live browser pass (signed-out + signed-in) and test audit that e
 - **Dev DB migration history is separately corrupted — NOT fixed, needs explicit decision:** `npx prisma migrate dev` against the dev DB (`surfdb`, localhost:5432) reports drift: the dev DB already has `width`/`height` and the `FORFEIT` enum variant (informally patched, likely via `prisma db push`, bypassing migration tracking), and two migration files (`20260623090957_add_upload_attempts`, `20260708190000_add_upload_workspaces`) were hand-modified after being marked applied. Prisma's own fix path is `prisma migrate reset`, which **drops all dev data** — refused, since the dev DB holds real seeded verification data (ledger balances, 63 media items, 3 users referenced in earlier working notes). Reconciling without data loss needs manual `prisma migrate resolve --applied` bookkeeping per migration — a separate, deliberate task, not a byproduct of S1a. The new `add_media_dimensions` migration is safe to apply to dev via `migrate deploy` (it only adds nullable columns dev already has, so `migrate resolve --applied 20260719193000_add_media_dimensions` is the correct next step, not a raw apply).
 - **`resetDb.ts` gap found and fixed:** the shared integration-test helper (`src/test/helpers/resetDb.ts`) never deleted `SurfSession` rows (only auth `Session`). S1a's new tests were the first to combine `SurfSession` + `Order` fixtures through this shared helper, which surfaced it: leftover sessions blocked `user.deleteMany()`, silently rolling back the whole cleanup transaction (it's one `$transaction([...])` array) and leaking stale `Order`/`MediaItem` rows into the next test file. Fixed by inserting `prisma.surfSession.deleteMany()` between `mediaItem` and `spot` in the deletion order.
 
+## Working notes (S1b session, 2026-07-19)
+
+- **Third balance writer found and consolidated:** the audit counted two `User.balance` writers, but `UserRepository.anonymizeAndDelete` was a third — it zeroed the balance and hand-created the FORFEIT transaction during account deletion. S1b moved all three behind tx-scoped `LedgerRepository.recordSale`/`forfeitBalance` (callers pass their `Prisma.TransactionClient`, so multi-table commits stay atomic). Enforcement: `ledger-owns-money-writes` rule in `check-style-boundaries.mjs` fails on balance-mutation shapes or `transaction.create` in any non-test `src/server/**` file outside `LedgerRepository.ts` (verified to fire on a deliberate violation).
+
 ## Status tracker
 
 Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (needs its trigger or an explicit id to start).
@@ -138,7 +142,7 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | Q3 | Schedule reconciler + inverse test | S | yes | ✅ |
 | Q4 | Requirements true-up (payments section) | S | partial | ⬜ |
 | S1a | Ledger invariant + fulfillment tests | S | yes | ✅ |
-| S1b | Single money write path | M | yes | ⬜ |
+| S1b | Single money write path | M | yes | ✅ |
 | S2 | Media contract lineage | M | yes | ⬜ |
 | S3 | Storage ids out of public projections (sliver) | S | partial | ⬜ |
 | ⛔ | **Stop-line: re-decide structure vs product** | — | added | ⬜ |

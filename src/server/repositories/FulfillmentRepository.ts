@@ -1,10 +1,7 @@
-import {
-  OrderStatus,
-  TransactionStatus,
-  TransactionType,
-} from '@prisma/client';
+import { OrderStatus } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
+import { ledgerRepository } from 'server/repositories/LedgerRepository';
 
 export type FulfillPurchaseData = {
   mediaItemId: string;
@@ -47,21 +44,13 @@ export class FulfillmentRepository implements IFulfillmentRepository {
         await tx.purchase.createMany({ data: payload.purchases });
 
         await Promise.all(
-          payload.earnings.flatMap(({ photographerId, amount }) => [
-            tx.user.update({
-              where: { id: photographerId },
-              data: { balance: { increment: amount } },
-            }),
-            tx.transaction.create({
-              data: {
-                userId: photographerId,
-                amount,
-                type: TransactionType.SALE,
-                externalOrderId: payload.externalOrderId,
-                status: TransactionStatus.COMPLETED,
-              },
-            }),
-          ])
+          payload.earnings.map(({ photographerId, amount }) =>
+            ledgerRepository.recordSale(tx, {
+              photographerId,
+              amount,
+              externalOrderId: payload.externalOrderId,
+            })
+          )
         );
       })
     );

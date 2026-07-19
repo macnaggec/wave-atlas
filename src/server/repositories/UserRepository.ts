@@ -1,7 +1,7 @@
-import { MediaStatus, SurfSessionStatus, TransactionStatus, TransactionType } from '@prisma/client';
+import { MediaStatus, SurfSessionStatus } from '@prisma/client';
 import { prisma } from 'server/db';
 import { runQuery } from 'server/lib/PrismaErrorMapper';
-import { NotFoundError } from 'shared/errors';
+import { ledgerRepository } from 'server/repositories/LedgerRepository';
 
 export interface IUserRepository {
   anonymizeAndDelete(userId: string): Promise<void>;
@@ -11,25 +11,11 @@ export class UserRepository implements IUserRepository {
   anonymizeAndDelete(userId: string): Promise<void> {
     return runQuery(() =>
       prisma.$transaction(async (tx) => {
-        const user = await tx.user.findUnique({
-          where: { id: userId },
-          select: { balance: true },
-        });
-        if (!user) throw new NotFoundError('User');
-
         const deletedAt = new Date();
 
-        // Record the forfeited balance so the ledger still explains where the money went
-        if (user.balance > 0) {
-          await tx.transaction.create({
-            data: {
-              userId,
-              amount: -user.balance,
-              type: TransactionType.FORFEIT,
-              status: TransactionStatus.COMPLETED,
-            },
-          });
-        }
+        // Forfeit any remaining balance through the ledger's one write path
+        // (throws NotFoundError if the user does not exist)
+        await ledgerRepository.forfeitBalance(tx, userId);
 
         // Retire published work so it stops earning into an account nobody can sign into
         await tx.mediaItem.updateMany({
@@ -55,7 +41,6 @@ export class UserRepository implements IUserRepository {
             email: `deleted_${userId}@deleted.invalid`,
             image: null,
             password: null,
-            balance: 0,
             deletedAt,
           },
         });
