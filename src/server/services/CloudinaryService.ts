@@ -35,6 +35,8 @@ export interface RemoteUploadResult {
   resourceType: MediaResourceType;
   thumbnailUrl: string;
   lightboxUrl: string;
+  width: number | null;
+  height: number | null;
 }
 
 function toMediaResourceType(value: string): MediaResourceType {
@@ -55,6 +57,8 @@ export interface ICloudinaryService {
 const cloudinaryReceiptSchema = z.object({
   publicId: z.string().min(1),
   resourceType: z.string(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
 });
 
 /**
@@ -173,6 +177,8 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       resourceType: resourceType === 'image' ? 'PHOTO' : 'VIDEO',
       thumbnailUrl: this.generateDeliveryUrl(data.publicId, MEDIA_CLOUDINARY_TRANSFORMS.THUMBNAIL, cloudinaryResourceType, cloudinaryResourceType === 'video' ? 'jpg' : undefined),
       lightboxUrl: this.generateDeliveryUrl(data.publicId, getWatermarkedPreviewTransform(cloudinaryResourceType), cloudinaryResourceType),
+      width: data.width ?? null,
+      height: data.height ?? null,
     };
   }
 
@@ -191,6 +197,8 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       resourceType: result.resourceType === 'video' ? 'VIDEO' : 'PHOTO',
       thumbnailUrl: result.thumbnailUrl,
       lightboxUrl: result.lightboxUrl,
+      width: result.width,
+      height: result.height,
     };
   }
 
@@ -244,6 +252,8 @@ export class CloudinaryService implements ICloudinaryService, DirectUploadPort, 
       resourceType: toMediaResourceType(result.resource_type),
       thumbnailUrl,
       lightboxUrl,
+      width: typeof result.width === 'number' ? result.width : null,
+      height: typeof result.height === 'number' ? result.height : null,
     };
   }
 

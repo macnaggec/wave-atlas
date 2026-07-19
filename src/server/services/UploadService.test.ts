@@ -116,6 +116,8 @@ describe('finalizeLocal', () => {
       resourceType: 'PHOTO',
       thumbnailUrl: 'thumb',
       lightboxUrl: 'full',
+      width: 1920,
+      height: 1080,
     });
     vi.mocked(mockRepo.finalizeIntoWorkspace).mockResolvedValue({ id: 'asset-1', uploadAttemptId: attemptId });
 
@@ -134,7 +136,7 @@ describe('processDrive', () => {
       cloudinaryPublicId: 'test/abc',
       expectedMediaType: 'PHOTO',
     });
-    vi.mocked(mockImport.importRemoteFile).mockResolvedValue({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO', thumbnailUrl: 't', lightboxUrl: 'l' });
+    vi.mocked(mockImport.importRemoteFile).mockResolvedValue({ cloudinaryPublicId: 'test/abc', resourceType: 'PHOTO', thumbnailUrl: 't', lightboxUrl: 'l', width: 1920, height: 1080 });
     vi.mocked(mockRepo.findByIdForPhotographer).mockResolvedValue(attempt);
 
     await service.processDrive(photographerId, { attemptId, accessToken: 'token' });

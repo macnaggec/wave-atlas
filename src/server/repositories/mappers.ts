@@ -13,6 +13,8 @@ export function mapToMediaItem(row: PrismaMediaItem): MediaItem {
     lightboxUrl: row.lightboxUrl,
     thumbnailUrl: row.thumbnailUrl,
     cloudinaryPublicId: row.cloudinaryPublicId,
+    width: row.width,
+    height: row.height,
     status: row.status,
     createdAt: row.createdAt,
     resource: {

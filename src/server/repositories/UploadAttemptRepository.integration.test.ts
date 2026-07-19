@@ -68,6 +68,8 @@ describe('finalizeIntoWorkspace', () => {
       thumbnailUrl: 'https://res.cloudinary.com/demo/image/upload/t_thumb/test.jpg',
       lightboxUrl: 'https://res.cloudinary.com/demo/image/upload/test.jpg',
       resourceType: 'PHOTO' as const,
+      width: 1920,
+      height: 1080,
     });
 
     expect(asset.uploadAttemptId).toBe(attempt.id);
@@ -97,6 +99,8 @@ describe('finalizeIntoWorkspace', () => {
         capturedAt: new Date(),
         thumbnailUrl: 'https://example.com/thumb.jpg',
         lightboxUrl: 'https://example.com/full.jpg',
+        width: 1920,
+        height: 1080,
         resourceType: 'PHOTO' as const,
       }),
     ).rejects.toThrow();

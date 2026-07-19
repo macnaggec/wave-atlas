@@ -124,6 +124,8 @@ export class UploadWorkspaceService {
           capturedAt: media.capturedAt,
           price: media.price,
           cloudinaryPublicId: media.cloudinaryPublicId,
+          width: media.width,
+          height: media.height,
         })),
         assets: workspace.assets.map((asset) => ({
           id: asset.id,
@@ -135,6 +137,8 @@ export class UploadWorkspaceService {
           cloudinaryPublicId: asset.cloudinaryPublicId,
           uploadAttemptId: asset.uploadAttemptId,
           createdAt: asset.createdAt,
+          width: asset.width,
+          height: asset.height,
         })),
         stagedRemovalIds: workspace.mediaChanges.map((change) => change.mediaItemId),
         attempts: workspace.attempts.map((attempt) => ({
@@ -463,6 +467,8 @@ async function createPublishedMediaFromAssets(
       cloudinaryPublicId: string;
       thumbnailUrl: string;
       lightboxUrl: string;
+      width: number | null;
+      height: number | null;
       capturedAt: Date;
       importSource: 'DIRECT' | 'GOOGLE_DRIVE';
       remoteFileId: string | null;
@@ -487,6 +493,8 @@ async function createPublishedMediaFromAssets(
         capturedAt: asset.capturedAt,
         lightboxUrl: asset.lightboxUrl,
         thumbnailUrl: asset.thumbnailUrl,
+        width: asset.width,
+        height: asset.height,
         cloudinaryPublicId: asset.cloudinaryPublicId,
         importSource: asset.importSource,
         remoteFileId: asset.remoteFileId ?? undefined,

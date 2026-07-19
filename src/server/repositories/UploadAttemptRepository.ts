@@ -19,6 +19,8 @@ export type FinalizeMediaInput = {
   thumbnailUrl: string;
   lightboxUrl: string;
   resourceType: MediaType;
+  width: number | null;
+  height: number | null;
 };
 
 const CANCELLABLE_STATUSES: UploadAttemptStatus[] = [
@@ -141,6 +143,8 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
             type: media.resourceType,
             thumbnailUrl: media.thumbnailUrl,
             lightboxUrl: media.lightboxUrl,
+            width: media.width,
+            height: media.height,
             capturedAt: media.capturedAt,
             importSource: attempt.source === 'DRIVE' ? 'GOOGLE_DRIVE' : 'DIRECT',
             remoteFileId: attempt.remoteFileId ?? undefined,

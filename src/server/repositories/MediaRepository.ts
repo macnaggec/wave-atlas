@@ -33,6 +33,8 @@ function mapToPublishedMedia(
     spotId: row.spotId!,
     photographerId: row.photographerId,
     spot: row.spot,
+    width: row.width,
+    height: row.height,
   };
 }
 

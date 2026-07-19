@@ -12,6 +12,9 @@ export interface StoredAsset {
   resourceType: MediaType;
   thumbnailUrl: string;
   lightboxUrl: string;
+  /** Original source dimensions in px (null when the provider didn't report them). */
+  width: number | null;
+  height: number | null;
 }
 
 export interface StoredAssetIdentity {

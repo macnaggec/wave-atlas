@@ -75,6 +75,8 @@ export class UploadService {
         thumbnailUrl: asset.thumbnailUrl,
         lightboxUrl: asset.lightboxUrl,
         resourceType: asset.resourceType,
+        width: asset.width,
+        height: asset.height,
       });
 
       logger.info('[upload] finalizeLocal success', { photographerId, attemptId: input.attemptId, assetId: assetRow.id });
@@ -144,6 +146,8 @@ export class UploadService {
       thumbnailUrl: asset.thumbnailUrl,
       lightboxUrl: asset.lightboxUrl,
       resourceType: asset.resourceType,
+      width: asset.width,
+      height: asset.height,
     });
     logger.info('[upload] processDrive success', { attemptId: input.attemptId });
   }
