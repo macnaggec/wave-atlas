@@ -14,9 +14,9 @@ const paint = (layer: { paint?: unknown }) => layer.paint as CirclePaint;
 
 describe('spot marker presentation', () => {
   it('draws individual spots, clusters, and the selected spot from one glass-chip material', () => {
-    // The unification rule: all three marker chips share the same dark-glass fill
-    // and hairline border, so they read as a single family differentiated only by
-    // size and content. Drift here reintroduces the old white-vs-navy split.
+    // The unification rule: all three marker chips share the same dark-glass fill,
+    // so they read as a single family differentiated only by size and content.
+    // Drift here reintroduces the old white-vs-navy split.
     const chip = paint(unclusteredPointLayer)['circle-color'];
     const border = paint(unclusteredPointLayer)['circle-stroke-color'];
 
@@ -25,7 +25,19 @@ describe('spot marker presentation', () => {
     expect(paint(selectedSpotPointLayer)['circle-color']).toBe(chip);
 
     expect(paint(clusterLayer)['circle-stroke-color']).toBe(border);
-    expect(paint(selectedSpotPointLayer)['circle-stroke-color']).toBe(border);
+  });
+
+  it('marks the selected spot with the opaque selection-accent ring, distinct from normal chips', () => {
+    // Same rule as the selected filter pill: selection = --wa-accent-spot at full
+    // opacity. The fill stays dark (the wave glyph is itself accent-blue), so the
+    // accent lives on the ring; a hairline ring here makes selected unreadable.
+    expect(selectedSpotPointLayer).toMatchObject({
+      paint: {
+        'circle-stroke-color': 'rgba(99, 179, 237, 1)',
+        'circle-stroke-width': 2.5,
+        'circle-radius': 15,
+      },
+    });
   });
 
   it('distinguishes a cluster only by a blue accent ring that grows with the count', () => {
@@ -38,21 +50,27 @@ describe('spot marker presentation', () => {
     });
   });
 
-  it('marks the selected spot with one soft blue glow, no second rim', () => {
+  it('marks the selected spot with one accent glow, no second rim', () => {
+    // The glow uses the same accent family as the ring (one selection color),
+    // not the separate --wa-accent-marker blue.
     expect(selectedSpotGlowLayer).toMatchObject({
       paint: {
-        'circle-color': 'rgba(59, 130, 246, 0.36)',
-        'circle-radius': 18,
-        'circle-blur': 0.75,
+        'circle-color': 'rgba(99, 179, 237, 0.5)',
+        'circle-radius': 22,
+        'circle-blur': 0.6,
       },
     });
   });
 
-  it('keeps the native blue wave glyph unchanged on ordinary and selected spots', () => {
+  it('keeps the native blue wave glyph untinted, scaled to its chip', () => {
+    expect(iconLayer).toMatchObject({
+      layout: { 'icon-image': 'custom-marker', 'icon-size': 0.105 },
+    });
+    // Selected chip is 15px vs the normal 13px; the glyph scales with it.
+    expect(selectedSpotIconLayer).toMatchObject({
+      layout: { 'icon-image': 'custom-marker', 'icon-size': 0.12 },
+    });
     for (const layer of [iconLayer, selectedSpotIconLayer]) {
-      expect(layer).toMatchObject({
-        layout: { 'icon-image': 'custom-marker', 'icon-size': 0.105 },
-      });
       // No icon-color: the glyph keeps its own blue, never tinted by the map.
       expect(layer.paint).not.toHaveProperty('icon-color');
     }

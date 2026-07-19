@@ -15,6 +15,12 @@ const MARKER_CHIP_BORDER = 'rgba(255, 255, 255, 0.4)';
 const MARKER_SHADOW_COLOR = 'rgba(0, 0, 0, 0.28)';
 // --wa-accent-spot (#63b3ed): the single blue accent, used as the cluster ring.
 const MARKER_ACCENT = 'rgba(99, 179, 237, 0.32)';
+// Selection state mirrors the selected filter pill: the selection accent at full opacity.
+// The chip fill must stay dark — the wave glyph is itself accent-blue, so an accent fill
+// would erase it. The accent takes the ring instead, backed by a stronger halo and a
+// slightly larger chip so selected reads apart from normal at a glance.
+const MARKER_SELECTED_RING = 'rgba(99, 179, 237, 1)';
+const MARKER_SELECTED_HALO = 'rgba(99, 179, 237, 0.5)';
 
 // One shadow under the round chip (individual + selected), sized just past the
 // chip so it peeks as a soft lift rather than a second visible ring.
@@ -169,9 +175,9 @@ export const selectedSpotPointLayer: LayerProps = {
   source: 'selected-spot',
   paint: {
     'circle-color': MARKER_CHIP_COLOR,
-    'circle-radius': 13,
-    'circle-stroke-width': 1,
-    'circle-stroke-color': MARKER_CHIP_BORDER,
+    'circle-radius': 15,
+    'circle-stroke-width': 2.5,
+    'circle-stroke-color': MARKER_SELECTED_RING,
   },
 };
 
@@ -179,7 +185,8 @@ export const selectedSpotShadowLayer: LayerProps = {
   id: 'selected-spot-shadow',
   type: 'circle',
   source: 'selected-spot',
-  paint: markerShadowPaint,
+  // Shadow sized just past the larger selected chip, same +2 offset as the normal chip's.
+  paint: { ...markerShadowPaint, 'circle-radius': 17 },
 };
 
 export const selectedSpotGlowLayer: LayerProps = {
@@ -187,9 +194,9 @@ export const selectedSpotGlowLayer: LayerProps = {
   type: 'circle',
   source: 'selected-spot',
   paint: {
-    'circle-color': 'rgba(59, 130, 246, 0.36)',
-    'circle-radius': 18,
-    'circle-blur': 0.75,
+    'circle-color': MARKER_SELECTED_HALO,
+    'circle-radius': 22,
+    'circle-blur': 0.6,
   },
 };
 
@@ -199,7 +206,8 @@ export const selectedSpotIconLayer: LayerProps = {
   source: 'selected-spot',
   layout: {
     'icon-image': 'custom-marker',
-    'icon-size': 0.105,
+    // Scaled with the 13 → 15 chip so the glyph keeps its proportion inside the ring.
+    'icon-size': 0.12,
     'icon-allow-overlap': true,
     'icon-ignore-placement': true,
   },

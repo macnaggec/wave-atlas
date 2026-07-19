@@ -3,7 +3,6 @@ import { Popup } from 'react-map-gl';
 import { Group, Paper, Text } from '@mantine/core';
 import { materialClasses } from 'shared/ui/design-system';
 import type { MapSpotProjection } from '../model/mapSpotProjection';
-import classes from './SelectedSpotPopup.module.css';
 
 interface SelectedSpotPopupProps {
   spot: MapSpotProjection;
@@ -21,15 +20,12 @@ export function SelectedSpotPopup({ spot, renderExtra }: SelectedSpotPopupProps)
       closeOnClick={false}
       anchor="bottom"
     >
-      <div className={classes.wrapper}>
-        <Paper p="xs" shadow="xs" radius="lg" withBorder className={materialClasses.chrome}>
-          <Group gap="xs" wrap="nowrap" justify="space-between">
-            <Text size="sm" fw={500}>{spot.name}</Text>
-            {renderExtra?.(spot)}
-          </Group>
-        </Paper>
-        <span className={classes.beak} aria-hidden />
-      </div>
+      <Paper p="xs" shadow="xs" radius="lg" withBorder className={materialClasses.chrome}>
+        <Group gap="xs" wrap="nowrap" justify="space-between">
+          <Text size="sm" fw={500}>{spot.name}</Text>
+          {renderExtra?.(spot)}
+        </Group>
+      </Paper>
     </Popup>
   );
 }
