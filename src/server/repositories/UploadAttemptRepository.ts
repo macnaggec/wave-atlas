@@ -27,6 +27,10 @@ const CANCELLABLE_STATUSES: UploadAttemptStatus[] = [
   'READY', 'ACQUIRING', 'FINALIZING', 'FAILED',
 ];
 
+const RECONCILABLE_STATUSES: UploadAttemptStatus[] = [
+  'READY', 'FAILED', 'CANCEL_REQUESTED', 'CLEANUP_PENDING',
+];
+
 export interface IUploadAttemptRepository {
   beginLocalIdempotent(input: BeginLocalInput): Promise<UploadAttemptProjection>;
   beginDriveIdempotent(input: BeginLocalInput & { remoteFileId: string }): Promise<UploadAttemptProjection>;
@@ -235,7 +239,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
     return runQuery(() =>
       prisma.uploadAttempt.findMany({
         where: {
-          status: { in: ['READY', 'FAILED', 'CANCEL_REQUESTED', 'CLEANUP_PENDING'] },
+          status: { in: RECONCILABLE_STATUSES },
           expiresAt: { lt: new Date() },
         },
         select: { id: true, cloudinaryPublicId: true, expectedMediaType: true, status: true },
@@ -247,7 +251,7 @@ export class UploadAttemptRepository implements IUploadAttemptRepository {
   markCancelled(attemptId: string): Promise<void> {
     return runQuery(async () => {
       await prisma.uploadAttempt.updateMany({
-        where: { id: attemptId, status: { in: ['CANCEL_REQUESTED', 'CLEANUP_PENDING'] } },
+        where: { id: attemptId, status: { in: RECONCILABLE_STATUSES } },
         data: { status: 'CANCELLED' },
       });
     });

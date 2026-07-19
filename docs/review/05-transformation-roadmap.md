@@ -129,7 +129,7 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | T0.1 | Land in-flight refactor (tests green at landing) | S-M | yes | ✅ |
 | Q1 | All gates green | S | yes | ✅ |
 | Q2 | CI pipeline (workflow only) | S | yes | ✅ |
-| Q3 | Schedule reconciler + inverse test | S | yes | ⬜ |
+| Q3 | Schedule reconciler + inverse test | S | yes | ✅ |
 | Q4 | Requirements true-up (payments section) | S | partial | ⬜ |
 | S1a | Ledger invariant + fulfillment tests | S | yes | ⬜ |
 | S1b | Single money write path | M | yes | ⬜ |

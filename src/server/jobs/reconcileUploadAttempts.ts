@@ -27,6 +27,3 @@ export async function reconcileUploadAttempts(): Promise<void> {
 
   logger.info('[reconciler] complete', { cleaned, failed });
 }
-
-// Schedule: call reconcileUploadAttempts() from your server startup or cron scheduler.
-// Example: cron.schedule('*/15 * * * *', reconcileUploadAttempts);

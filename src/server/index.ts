@@ -11,6 +11,7 @@ import { appRouter } from 'server/router';
 import { createContext } from 'server/trpc';
 import { paymentAdapter } from 'server/providers/payment/activeAdapter';
 import { purchaseFulfillmentService } from 'server/services/PurchaseFulfillmentService';
+import { reconcileUploadAttempts } from 'server/jobs/reconcileUploadAttempts';
 import { createRateLimiter } from 'server/lib/rateLimiter';
 import { getClientIp } from 'server/lib/getClientIp';
 import { logger } from 'shared/lib/logger';
@@ -79,6 +80,11 @@ if (isProd) {
   const indexHtml = readFileSync(resolve(distPath, 'index.html'), 'utf-8');
   app.get('*', (c) => c.html(indexHtml));
 }
+
+const RECONCILE_INTERVAL_MS = 15 * 60_000;
+const runReconciler = () => reconcileUploadAttempts().catch((err) => logger.error('[reconciler] run failed', { err }));
+runReconciler();
+setInterval(runReconciler, RECONCILE_INTERVAL_MS);
 
 serve({ fetch: app.fetch, port: 3001 }, () => {
   console.log('Server running on http://localhost:3001');
