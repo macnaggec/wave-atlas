@@ -136,6 +136,7 @@ Findings from a live browser pass (signed-out + signed-in) and test audit that e
 - **S3's field exclusion landed as a byproduct:** the public feed wire response verified in the dev app carries no `cloudinaryPublicId`/`sessionId`/`status`. S3's remaining artifacts (route test asserting the exclusion + recording) are still open — S3 stays ⬜.
 - **Both Q1 debt casts paid:** the `as PublicSpotMediaItem` bridge in PublicGallery and the `FavoriteCandidate` Omit-and-patch bridge in useMediaFavorites are deleted; `toggleFavorite` takes `PublicMedia` directly.
 - **Verified live (signed-out):** gallery feed renders, video cards show play glyphs from the new `type` field, lightbox plays a signed video (readyState 4), zero console errors. Signed-in surfaces (favorites tab, session detail) covered by tsc + unit tests only.
+- **S3 closed (same session):** client grep clean — every remaining client `cloudinaryPublicId` reference is in photographer upload contracts (Upload feature + upload/uploadWorkspace shared types + `DraftMedia`), where S3 permits them. Regression test added to `MediaRepository.integration.test.ts` ("exposes no storage-internal fields on the public feed projection") running through the real `MediaService`; probe-verified to fail if the mapper is rewritten with a row spread.
 
 ## Status tracker
 
@@ -151,7 +152,7 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | S1a | Ledger invariant + fulfillment tests | S | yes | ✅ |
 | S1b | Single money write path | M | yes | ✅ |
 | S2 | Media contract lineage | M | yes | ✅ |
-| S3 | Storage ids out of public projections (sliver) | S | partial | ⬜ |
+| S3 | Storage ids out of public projections (sliver) | S | partial | ✅ |
 | ⛔ | **Stop-line: re-decide structure vs product** | — | added | ⬜ |
 | S4 | Routes → services lint rules (sliver) | M | partial | ⬜ |
 | S5 | UploadWorkspaceRepository extraction | M | partial (conditional) | ⏸ |

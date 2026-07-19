@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from 'server/db';
+import { MediaService } from 'server/services/MediaService';
 import { MediaRepository } from './MediaRepository';
 
 const repo = new MediaRepository();
@@ -341,5 +342,48 @@ describe('MediaRepository.findPublishedBySpot', () => {
     const foundB = items.find(item => item.id === itemB.id)!;
     expect(foundA.spot).toEqual({ id: spotA.id, name: 'Backdoor' });
     expect(foundB.spot).toEqual({ id: spotB.id, name: 'Pipeline' });
+  });
+
+  // S3: the public feed is what anonymous viewers receive; storage-internal
+  // fields must never ride along. Runs through the real MediaService so the
+  // asserted object is exactly what the route serializes.
+  it('exposes no storage-internal fields on the public feed projection', async () => {
+    const viewer = await prisma.user.create({ data: { email: 'projection-viewer@example.com' } });
+    const photographer = await prisma.user.create({
+      data: { email: 'projection-photographer@example.com', name: 'Projection Tester' },
+    });
+    const spot = await prisma.spot.create({ data: { name: 'Uluwatu', location: 'Bukit' } });
+    const session = await prisma.surfSession.create({ data: { photographerId: photographer.id } });
+    await prisma.mediaItem.create({
+      data: {
+        sessionId: session.id,
+        photographerId: photographer.id,
+        spotId: spot.id,
+        status: 'PUBLISHED',
+        price: 300,
+        capturedAt: new Date('2026-01-01T06:30:00Z'),
+        lightboxUrl: 'https://res.cloudinary.com/test/projection.jpg',
+        thumbnailUrl: 'https://res.cloudinary.com/test/projection-thumb.jpg',
+        cloudinaryPublicId: 'swelldays/test/projection',
+      },
+    });
+
+    const service = new MediaService(repo, { deleteAsset: async () => undefined as never });
+    const { items } = await service.findPublishedBySpot({ spotId: spot.id, limit: 10 }, viewer.id);
+
+    expect(items).toHaveLength(1);
+    const item = items[0]!;
+    expect(item).toMatchObject({
+      type: 'PHOTO',
+      price: 300,
+      spotId: spot.id,
+      spot: { id: spot.id, name: 'Uluwatu' },
+      photographerId: photographer.id,
+      photographer: { id: photographer.id, name: 'Projection Tester' },
+      viewerEntitlement: { purchaseState: 'none' },
+    });
+    for (const internalField of ['cloudinaryPublicId', 'sessionId', 'status', 'createdAt', 'deletedAt', 'resource']) {
+      expect(item).not.toHaveProperty(internalField);
+    }
   });
 });
