@@ -8,22 +8,31 @@ interface UseGlobeAnimationOptions {
   enabled?: boolean;
   /** Maximum zoom level at which spinning is allowed (default: 3) */
   maxSpinZoom?: number;
+  /** How long a spin runs before stopping on its own (default: 30s) — every frame re-renders the whole map, so an unbounded spin keeps the GPU busy indefinitely */
+  maxSpinDurationMs?: number;
 }
 
 /**
  * Hook to manage slow spinning globe animation
  * Pauses on user interaction and resumes after inactivity
  * Only spins when zoomed out beyond maxSpinZoom threshold
+ * Each spin stops on its own after maxSpinDurationMs; the next user interaction re-arms it
  */
 export function useGlobeAnimation(
   mapRef: React.RefObject<MapRef | null>,
   options: UseGlobeAnimationOptions = {}
 ) {
-  const { spinSpeed = 0.5, enabled = true, maxSpinZoom = 3 } = options;
+  const {
+    spinSpeed = 0.5,
+    enabled = true,
+    maxSpinZoom = 3,
+    maxSpinDurationMs = 30_000,
+  } = options;
 
   const isSpinningRef = useRef(false);
   const userInteractingRef = useRef(false);
   const spinTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const spinDurationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const spinGlobeRef = useRef<() => void>(() => undefined);
 
@@ -38,6 +47,13 @@ export function useGlobeAnimation(
     if (spinTimeoutRef.current) {
       clearTimeout(spinTimeoutRef.current);
       spinTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearSpinDurationTimeout = useCallback(() => {
+    if (spinDurationTimeoutRef.current) {
+      clearTimeout(spinDurationTimeoutRef.current);
+      spinDurationTimeoutRef.current = null;
     }
   }, []);
 
@@ -83,6 +99,12 @@ export function useGlobeAnimation(
     spinGlobeRef.current = spinGlobe;
   }, [spinGlobe]);
 
+  const stopSpinning = useCallback(() => {
+    isSpinningRef.current = false;
+    cancelQueuedFrame();
+    clearSpinDurationTimeout();
+  }, [cancelQueuedFrame, clearSpinDurationTimeout]);
+
   const startSpinning = useCallback(() => {
     if (!enabled) return;
     // Don't start if user is interacting
@@ -90,13 +112,13 @@ export function useGlobeAnimation(
     if (animationFrameRef.current !== null) return;
 
     isSpinningRef.current = true;
+    clearSpinDurationTimeout();
+    spinDurationTimeoutRef.current = setTimeout(() => {
+      spinDurationTimeoutRef.current = null;
+      stopSpinning();
+    }, maxSpinDurationMs);
     spinGlobe();
-  }, [enabled, spinGlobe]);
-
-  const stopSpinning = useCallback(() => {
-    isSpinningRef.current = false;
-    cancelQueuedFrame();
-  }, [cancelQueuedFrame]);
+  }, [clearSpinDurationTimeout, enabled, maxSpinDurationMs, spinGlobe, stopSpinning]);
 
   const onUserInteractionStart = useCallback(() => {
     userInteractingRef.current = true;
@@ -132,13 +154,14 @@ export function useGlobeAnimation(
     }
   }, [clearResumeTimeout, enabled, stopSpinning]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       clearResumeTimeout();
+      clearSpinDurationTimeout();
       cancelQueuedFrame();
     };
-  }, [cancelQueuedFrame, clearResumeTimeout]);
+  }, [cancelQueuedFrame, clearResumeTimeout, clearSpinDurationTimeout]);
 
   return {
     startSpinning,

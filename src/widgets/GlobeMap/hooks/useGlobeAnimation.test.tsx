@@ -61,6 +61,42 @@ describe('useGlobeAnimation', () => {
     expect(requestAnimationFrameMock).not.toHaveBeenCalled();
   });
 
+  it('stops spinning on its own after maxSpinDurationMs', () => {
+    const mapRef = createMapRef(2);
+    const { result } = renderHook(() =>
+      useGlobeAnimation(mapRef, { maxSpinZoom: 3, maxSpinDurationMs: 30_000 }),
+    );
+
+    act(() => result.current.startSpinning());
+    expect(requestAnimationFrameMock).toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(30_000));
+
+    expect(cancelAnimationFrameMock).toHaveBeenCalledWith(1);
+  });
+
+  it('re-arms the spin duration window when spinning resumes after interaction', () => {
+    const mapRef = createMapRef(2);
+    const { result } = renderHook(() =>
+      useGlobeAnimation(mapRef, { maxSpinZoom: 3, maxSpinDurationMs: 30_000 }),
+    );
+
+    act(() => result.current.startSpinning());
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(cancelAnimationFrameMock).toHaveBeenCalledTimes(1);
+
+    // User interacts, then lets go: spin resumes after the 3s inactivity delay
+    act(() => result.current.onUserInteractionStart());
+    act(() => result.current.onUserInteractionEnd());
+    requestAnimationFrameMock.mockClear();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(requestAnimationFrameMock).toHaveBeenCalled();
+
+    // ...and stops again after a fresh full duration window
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(cancelAnimationFrameMock).toHaveBeenCalledTimes(2);
+  });
+
   it('cancels pending resume work when animation becomes disabled', () => {
     const mapRef = createMapRef(2);
     const { result, rerender } = renderHook(
