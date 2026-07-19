@@ -83,6 +83,8 @@ const BaseCard: FC<BaseCardProps> = memo(({
   // (e.g. hiding price/cart) land in the same commit — no one-frame flash where the broken
   // placeholder shows while price/actions are still visible.
   const handleImageError = () => {
+    // A broken src usually means a DB row pointing at a dead CDN asset — surface it.
+    console.warn('[BaseCard] thumbnail failed to load:', imageUrl);
     setFailedUrl(imageUrl);
     onBrokenChange?.(true);
   };
@@ -93,8 +95,9 @@ const BaseCard: FC<BaseCardProps> = memo(({
       data-media-card-aspect="tall"
       data-media-card-flush={flush || undefined}
       data-media-unavailable={imageFailed || undefined}
-      // A broken image has nothing to open in the lightbox — suppress the click.
-      onClick={imageFailed ? undefined : onClick}
+      // A broken thumbnail doesn't imply the full-size media is broken (different urls) — the
+      // card stays clickable, and the lightbox shows its own placeholder if that fails too.
+      onClick={onClick}
     >
       {imageUrl && (
         imageFailed ? (

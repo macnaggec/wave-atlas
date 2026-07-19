@@ -160,6 +160,8 @@ const CarouselLightbox: FC<CarouselLightboxProps> = memo(({
   const markMediaFailed = useCallback((url: string) => {
     setFrameHold(null);
     if (failedUrlsRef.current.has(url)) return;
+    // A broken src usually means a DB row pointing at a dead CDN asset — surface it.
+    console.warn('[CarouselLightbox] media failed to load:', url);
     failedUrlsRef.current.add(url);
     setMediaEpoch((epoch) => epoch + 1);
   }, []);

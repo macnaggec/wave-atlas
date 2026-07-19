@@ -57,19 +57,17 @@ describe('BaseCard', () => {
     expect(getByLabelText('Test photo — image unavailable')).not.toBeNull();
   });
 
-  it('does not open (invoke onClick) once the image is broken', () => {
+  it('still opens (invokes onClick) once the image is broken — the full-size media may load fine', () => {
     const onClick = vi.fn();
     const { container } = wrap(
       <BaseCard imageUrl="https://cdn.example.com/missing.jpg" resourceType="image" onClick={onClick} />,
     );
     const card = container.querySelector('[data-media-card-aspect="tall"]')!;
 
-    fireEvent.click(card);
-    expect(onClick).toHaveBeenCalledTimes(1);
-
     fireEvent.error(container.querySelector('img')!);
     fireEvent.click(card);
-    expect(onClick).toHaveBeenCalledTimes(1); // still 1 — broken card is inert
+
+    expect(onClick).toHaveBeenCalledTimes(1);
     expect(card.getAttribute('data-media-unavailable')).toBe('true');
   });
 

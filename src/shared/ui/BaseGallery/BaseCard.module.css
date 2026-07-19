@@ -16,11 +16,6 @@
   border-radius: 0;
 }
 
-/* Broken media: not clickable (nothing to open in the lightbox). */
-.card[data-media-unavailable='true'] {
-  cursor: default;
-}
-
 .card:hover {
   /* Removed transform to prevent network requests */
 }
