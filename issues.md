@@ -73,7 +73,7 @@ sequenceDiagram
 
 ## [CON-03] Broken dense tile is completely inert
 - **Priority**: low
-- **Status**: open
+- **Status**: resolved
 - **Category**: consistency
 - **Location**: [BaseCard.tsx:97](src/shared/ui/BaseGallery/BaseCard.tsx#L97)
 - **Hop**: 4
@@ -93,7 +93,7 @@ sequenceDiagram
 
 ## [OBS-01] Media load failures are swallowed with no telemetry
 - **Priority**: low
-- **Status**: open
+- **Status**: resolved
 - **Category**: observability
 - **Location**: [BaseCard.tsx:85](src/shared/ui/BaseGallery/BaseCard.tsx#L85)
 - **Hop**: 1
