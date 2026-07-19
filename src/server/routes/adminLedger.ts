@@ -11,6 +11,10 @@ export const adminLedgerRouter = router({
     ledgerService.listOperatorPayouts(),
   ),
 
+  checkInvariant: adminProcedure.query(() =>
+    ledgerService.checkInvariant(),
+  ),
+
   markProcessing: adminProcedure
     .input(payoutRequestIdSchema)
     .mutation(({ input }) =>

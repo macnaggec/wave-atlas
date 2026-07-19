@@ -36,6 +36,12 @@ export type OperatorPayoutRequest = PayoutRequest & {
   };
 };
 
+export type LedgerInvariantViolation = {
+  userId: string;
+  balance: number;
+  expectedBalance: number;
+};
+
 export interface ILedgerRepository {
   getSummaryRecords(photographerId: string): Promise<LedgerSummaryRecords>;
   listOperatorPayouts(): Promise<OperatorPayoutRequest[]>;
@@ -43,6 +49,7 @@ export interface ILedgerRepository {
   markPayoutProcessing(payoutRequestId: string): Promise<PayoutReservation>;
   completePayout(payoutRequestId: string, externalTransferId: string): Promise<PayoutReservation>;
   rejectPayout(payoutRequestId: string, note: string): Promise<PayoutReservation>;
+  findInvariantViolations(): Promise<LedgerInvariantViolation[]>;
 }
 
 export class LedgerRepository implements ILedgerRepository {
@@ -220,6 +227,29 @@ export class LedgerRepository implements ILedgerRepository {
         return { payoutRequest, transaction };
       })
     );
+  }
+
+  findInvariantViolations(): Promise<LedgerInvariantViolation[]> {
+    return runQuery(async () => {
+      const [users, grouped] = await Promise.all([
+        prisma.user.findMany({ select: { id: true, balance: true } }),
+        prisma.transaction.groupBy({
+          by: ['userId'],
+          where: { status: { in: [TransactionStatus.COMPLETED, TransactionStatus.PENDING] } },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const expectedByUserId = new Map(grouped.map((g) => [g.userId, g._sum.amount ?? 0]));
+
+      return users
+        .map((user) => ({
+          userId: user.id,
+          balance: user.balance,
+          expectedBalance: expectedByUserId.get(user.id) ?? 0,
+        }))
+        .filter((v) => v.balance !== v.expectedBalance);
+    });
   }
 }
 

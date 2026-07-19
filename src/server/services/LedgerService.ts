@@ -6,6 +6,7 @@ import {
 import {
   ledgerRepository,
   type ILedgerRepository,
+  type LedgerInvariantViolation,
   type OperatorPayoutRequest,
   type PayoutReservation,
 } from 'server/repositories/LedgerRepository';
@@ -99,6 +100,10 @@ export class LedgerService {
 
   rejectPayout(payoutRequestId: string, note: string): Promise<PayoutReservation> {
     return this.ledger.rejectPayout(payoutRequestId, note);
+  }
+
+  checkInvariant(): Promise<LedgerInvariantViolation[]> {
+    return this.ledger.findInvariantViolations();
   }
 }
 

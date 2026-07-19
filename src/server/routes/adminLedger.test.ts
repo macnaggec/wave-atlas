@@ -12,6 +12,7 @@ vi.hoisted(() => {
 });
 
 const mocks = vi.hoisted(() => ({
+  checkInvariant: vi.fn(),
   completePayout: vi.fn(),
   listOperatorPayouts: vi.fn(),
   markPayoutProcessing: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('server/services/LedgerService', () => ({
   ledgerService: {
+    checkInvariant: mocks.checkInvariant,
     completePayout: mocks.completePayout,
     listOperatorPayouts: mocks.listOperatorPayouts,
     markPayoutProcessing: mocks.markPayoutProcessing,
@@ -42,6 +44,30 @@ describe('admin ledger router', () => {
       code: 'FORBIDDEN',
     });
     expect(mocks.listOperatorPayouts).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-admins from the invariant check', async () => {
+    const caller = appRouter.createCaller({
+      session: {} as never,
+      user: { id: 'user-1', role: 'USER' } as never,
+    });
+
+    await expect(caller.admin.ledger.checkInvariant()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(mocks.checkInvariant).not.toHaveBeenCalled();
+  });
+
+  it('allows admins to run the invariant check', async () => {
+    mocks.checkInvariant.mockResolvedValue([]);
+
+    const caller = appRouter.createCaller({
+      session: {} as never,
+      user: { id: 'admin-1', role: 'ADMIN' } as never,
+    });
+
+    await expect(caller.admin.ledger.checkInvariant()).resolves.toEqual([]);
+    expect(mocks.checkInvariant).toHaveBeenCalledWith();
   });
 
   it('allows admins to list and transition payout requests', async () => {
