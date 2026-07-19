@@ -23,9 +23,14 @@ const pillStyle: React.CSSProperties = {
 };
 
 const pillActiveStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.2)',
-  border: '1px solid rgba(255,255,255,0.4)',
-  color: 'var(--wa-text-inverse)',
+  // Selected = the app's selection accent as an opaque fill: readable over any media, unlike
+  // the glass fill it replaces. Opaque also needs no backdrop blur (no re-blend of the stack
+  // behind it every frame), so the blur inherited from pillStyle is switched off.
+  background: 'var(--wa-control-fill-selected)',
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  border: '1px solid var(--wa-control-fill-selected)',
+  color: 'var(--wa-text-on-accent)',
 };
 
 interface FilterPillsProps {

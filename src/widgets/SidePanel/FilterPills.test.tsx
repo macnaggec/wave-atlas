@@ -28,4 +28,17 @@ describe('FilterPills favorites filter', () => {
     expect(onFavoritesChange).toHaveBeenCalledWith(true);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('renders the selected state as an opaque accent fill with ink text', () => {
+    render(
+      <FilterPills active={null} onChange={vi.fn()} favoritesOnly onFavoritesChange={vi.fn()} />,
+    );
+
+    const favorites = screen.getByRole('button', { name: 'Favorites' });
+    expect(favorites).toHaveAttribute('aria-pressed', 'true');
+    expect(favorites.style.background).toBe('var(--wa-control-fill-selected)');
+    expect(favorites.style.color).toBe('var(--wa-text-on-accent)');
+    // Opaque fill needs no backdrop blur — the glass blur must not leak into the selected state.
+    expect(favorites.style.backdropFilter).toBe('none');
+  });
 });
