@@ -22,6 +22,9 @@ export interface MediaItem {
   lightboxUrl: string;
   thumbnailUrl: string;
   cloudinaryPublicId: string;
+  /** Original (source) media dimensions in px. Null on rows uploaded before capture existed. */
+  width?: number | null;
+  height?: number | null;
   status: MediaStatus;
   createdAt: Date;
   resource: {
@@ -45,6 +48,8 @@ export type PublishedMedia = {
   spotId: string;
   photographerId: string;
   spot: { id: string; name: string } | null;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type SpotMediaItem = MediaItem & {

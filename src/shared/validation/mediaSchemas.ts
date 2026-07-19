@@ -17,6 +17,9 @@ export const mediaCloudinaryResultSchema = z.object({
   thumbnailUrl: mediaCloudinaryUrlSchema,
   lightboxUrl: mediaCloudinaryUrlSchema,
   resourceType: z.enum([MEDIA_RESOURCE_TYPE.IMAGE, MEDIA_RESOURCE_TYPE.VIDEO]),
+  /** Original source dimensions from Cloudinary; optional so an upload never fails if absent. */
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
 });
 
 export const mediaCreateSchema = z.object({

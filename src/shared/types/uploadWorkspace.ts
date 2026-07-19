@@ -26,6 +26,8 @@ export interface UploadWorkspaceExistingMedia {
   capturedAt: Date;
   price: number | null;
   cloudinaryPublicId: string;
+  width: number | null;
+  height: number | null;
 }
 
 export interface UploadWorkspaceAssetProjection {
@@ -38,6 +40,8 @@ export interface UploadWorkspaceAssetProjection {
   cloudinaryPublicId: string;
   uploadAttemptId: string | null;
   createdAt: Date;
+  width: number | null;
+  height: number | null;
 }
 
 export interface UploadWorkspaceState {
