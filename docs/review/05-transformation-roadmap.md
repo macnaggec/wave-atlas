@@ -2,11 +2,12 @@
 
 ## Executive summary
 
-- **Current state:** pre-launch solo-built marketplace, ~31k LOC, unusually strong machine-enforced boundaries; health 7.5/10. 416/416 tests pass, but all four quality gates (tsc, eslint, style-boundaries) are red and no CI runs them; a 286-file refactor sits uncommitted.
-- **Top risks:** future divergence of photographer balance vs transaction ledger (two writers, no invariant); paid-but-unfulfilled orders invisible (no alerting); upload-cleanup states with no scheduled reconciler; real type errors hiding in gate noise.
-- **Direction:** keep the architecture — fix ownership, contracts, and gates now while disruption is free; defer all scale/ops mechanisms behind named triggers.
-- **Top actions (in order):** land the in-flight refactor with green tests (T0.1) → gates green + CI (Q1, Q2) → ledger invariant test (S1a) → schedule the reconciler (Q3) → single money write path + media contract collapse (S1b, S2+S3).
-- **Stop-line:** after S2, deliberately re-decide structure-vs-product before continuing. Validated adversarially in `06-roadmap-validation.md`; verdicts below are reconciled.
+- **Current state (verified 2026-07-20):** pre-launch solo-built marketplace, ~33.5k TypeScript LOC. The roadmap baseline through S3 passes all five mandatory gates locally (98 test files, 471/471 tests), and CI runs the full quality suite.
+- **Completed risk reduction:** the in-flight refactor is landed; gates and CI are operational; upload cleanup is scheduled with the destructive-boundary inverse test; the ledger invariant and single money write path are enforced; the media contract lineage and public storage-id exclusion are complete.
+- **Top current risks:** paid-but-unfulfilled orders remain invisible until L1 adds alerting/replay; the dev database has unresolved migration-history drift; signed-out carts are persisted locally but cleared on reload even though users may build a cart before authenticating; S4/S7 structural inconsistencies remain but are not launch-critical.
+- **Direction:** the roadmap has reached its stop-line, and the cheap product-truth decisions (S6 and Q4) are complete. Prefer product work unless the product backlog makes S4 or S7 immediately relevant. Keep S5 and L1–L6 deferred behind their documented triggers.
+- **Next action:** leave the architecture roadmap at its stop-line and choose the next product outcome; do not start S4/S7 merely because they are the next unchecked rows.
+- **Stop-line:** reached after S2+S3; do not start S4/S5/S7 by default. Validated adversarially in `06-roadmap-validation.md`; verdicts below are reconciled.
 
 ---
 
@@ -77,7 +78,7 @@ High-value sliver: flip the two lint rules (`server/routes/**` may not import `s
 - **Done when (if executed):** `UploadWorkspaceService` no longer imports `server/db`; existing integration tests pass unchanged.
 
 ### S6 Decide Google Drive import: real feature or dead weight — effort S (decide); removal may be M — verdict: yes (the decision)
-It appears in no requirement but is woven through 17 files plus schema fields (`DRIVE_PENDING`, `remoteFileId`). The decision costs nothing and unblocks Q4. Keep → write the requirement; remove → delete the code path and schema fields (pre-launch: dropping columns is free), budgeting M rather than S.
+At audit time it appeared in no requirement but was woven through 17 files plus schema fields (`DRIVE_PENDING`, `remoteFileId`). **Decision (2026-07-20): keep.** Google Drive import is a fully working supported feature; `docs/requirements.md` now records it as an upload source.
 - **Done when:** requirements and code agree; no orphaned `DRIVE_*`/`remoteFileId` artifacts on the losing side.
 
 ### S7 Entity-owned cache invalidation helpers — effort S — verdict: yes
@@ -116,7 +117,7 @@ Findings from a live browser pass (signed-out + signed-in) and test audit that e
 - **Q3 symptom observed live:** the dev photographer's active workspace shows a stale attempt stuck at "Preparing…" forever (transfer died with a prior browser session). Confirms both the reconciler gap and that manual cancel is the only current recovery.
 - **S1a confirmed against real data:** dev ledger shows balance $0.00 with pending payout $29.00 — the invariant MUST be Σ{COMPLETED, PENDING}, as specified.
 - **Dev-DB seed rot (cosmetic, not a bug):** purchase/favorite rows carry dead pre-rename URLs (`t_wave_atlas_*`, `wave-atlas/users/...`) from before the swelldays rename, so their thumbnails 404 in dev. Reseed if it annoys. Real lesson for L1: `Purchase.previewUrl` is denormalized at fulfillment — a production rename of Cloudinary transforms/folders would break purchased previews the same way.
-- **Guest-cart wipe (product decision, out of roadmap scope):** `useCartSessionSync` intentionally clears the cart on every signed-out initial page load while guest checkout is supported end-to-end — guest carts never survive a refresh. Flagged as a separate task chip 2026-07-15; decide (a) persist guest carts or (b) document session-scoping and drop persistence for guests.
+- **Signed-out cart reload behavior (product decision, out of roadmap scope):** visitors can build a cart before authentication, but checkout opens the authentication modal. The Zustand store persists to local storage while `useCartSessionSync` clears it on every signed-out initial page load, so a pre-auth cart survives same-page sign-in but not a reload. Decide whether reload persistence is intended when this behavior enters the product backlog.
 - **Responsive nits (cosmetic):** at narrow panel widths the collections segmented control wraps to two lines and the earnings copy wraps one word per line.
 - **Agent gate discipline active:** AGENTS.md §0.4 and the machine-local CLAUDE.md encode stop-the-line + same-commit enforcement. The temporary bootstrap exception was removed when Q1 made all five gates green.
 
@@ -148,7 +149,7 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | Q1 | All gates green | S | yes | ✅ |
 | Q2 | CI pipeline (workflow only) | S | yes | ✅ |
 | Q3 | Schedule reconciler + inverse test | S | yes | ✅ |
-| Q4 | Requirements true-up (payments section) | S | partial | ⬜ |
+| Q4 | Requirements true-up (payments section) | S | partial | ✅ |
 | S1a | Ledger invariant + fulfillment tests | S | yes | ✅ |
 | S1b | Single money write path | M | yes | ✅ |
 | S2 | Media contract lineage | M | yes | ✅ |
@@ -156,6 +157,6 @@ Status legend: ⬜ pending · 🚧 in progress · ✅ done · ⏸ deferred (need
 | ⛔ | **Stop-line: re-decide structure vs product** | — | added | ⬜ |
 | S4 | Routes → services lint rules (sliver) | M | partial | ⬜ |
 | S5 | UploadWorkspaceRepository extraction | M | partial (conditional) | ⏸ |
-| S6 | Drive import: decide keep/remove | S (+M if remove) | yes (decision) | ⬜ |
+| S6 | Drive import: decide keep/remove | S (+M if remove) | yes (decision) | ✅ keep |
 | S7 | Entity-owned invalidation helpers | S | yes | ⬜ |
 | L1–L6 | Deferred (see triggers) | — | yes (as deferrals) | ⏸ |

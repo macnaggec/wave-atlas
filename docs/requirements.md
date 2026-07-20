@@ -42,6 +42,10 @@ A user can have both roles simultaneously.
 2. **Review/Edit**: Uploaded files are saved as drafts
 3. **Publish**: User publishes from the same upload sidebar (Publish / Save button) — there is no separate dashboard
 
+**Upload Sources:**
+- Local files
+- Google Drive through the Google Picker; selected files enter the same Cloudinary-backed draft workflow
+
 **Supported File Formats:**
 - **Images**: JPEG, PNG, HEIC (and other formats from cameras/smartphones)
 - **Videos**: MP4 (H.264/H.265), MOV (iPhone/GoPro)
@@ -79,8 +83,8 @@ A user can have both roles simultaneously.
   - Date isn't empty
 - **Server-side**:
   - Re-validation of all parameters
-  - Virus scan
-  - Daily limit check (100 uploads/day)
+  - Virus scan — not implemented; deferred to the L1 pre-launch checklist
+  - Daily limit check (100 uploads/day) — not implemented; deferred to the L1 pre-launch checklist
 
 **Progress**
 - Concurrent upload of 3-5 files simultaneously
@@ -222,6 +226,8 @@ A user can have both roles simultaneously.
 
 ### 4.1 Overview
 
+- **Payment provider:** CryptoCloud
+- The server creates the checkout invoice and fulfills the order only after verifying the provider callback.
 
 ### 4.2 Pricing Model
 
@@ -234,6 +240,7 @@ A user can have both roles simultaneously.
 ### 4.3 Cart & Checkout
 
 - Buyers add multiple media items to a cart and pay in a single transaction.
+- Buyers may build a cart while signed out, but must sign in before checkout.
 - Single-charge per cart reduces transaction fees, benefiting all parties.
 - After successful payment, buyer receives download links to original (unwatermarked) files in their account.
 
@@ -259,7 +266,7 @@ A user can have both roles simultaneously.
 
 - **No refunds on digital downloads** — enforced via platform Terms of Service.
 - Buyers can preview watermarked content and see original resolution metadata before purchasing, providing sufficient information to make a purchase decision.
-- Lemon Squeezy (as MoR) may still process card chargebacks in rare dispute cases — handled case-by-case.
+- Exceptional payment disputes are handled case-by-case by the platform operator.
 
 ### 4.7 Post-MVP Considerations
 
